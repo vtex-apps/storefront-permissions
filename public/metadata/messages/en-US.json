@@ -1,0 +1,10 @@
+{
+  "name": "B2B Admin",
+  "headline": "B2B Admin",
+  "overview": "B2B Admin",
+  "features": ["B2B Admin"],
+  "websiteURL": "https://vtex.com/",
+  "support": {
+    "url": "https://support.vtex.com/hc/requests"
+  }
+}

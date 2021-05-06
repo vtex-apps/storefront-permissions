@@ -1,0 +1,12 @@
+mutation save($accountID: String, $clientID: String, $clientSecret: String, $refreshToken: String, $submit: Boolean) {
+  saveAppSettings(
+    accountID: $accountID
+    clientID: $clientID
+    clientSecret: $clientSecret
+    refreshToken: $refreshToken
+    submit: $submit
+  ) {
+    status
+    message
+  }
+}

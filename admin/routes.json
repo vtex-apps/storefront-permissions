@@ -1,0 +1,6 @@
+{
+  "admin.app.b2b-waffle": {
+    "component": "B2bWaffleConfig",
+    "path": "/admin/app/b2b-waffle"
+  }
+}

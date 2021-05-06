@@ -1,0 +1,76 @@
+{
+  "name": "b2b-waffle",
+  "vendor": "vtex",
+  "version": "0.0.0",
+  "title": "B2B Waffle",
+  "description": "Main dependency for b2b modules",
+  "mustUpdateAt": "2022-08-28",
+  "scripts": {
+    "postreleasy": "vtex publish"
+  },
+  "dependencies": {
+    "vtex.styleguide": "9.x"
+  },
+  "builders": {
+    "react": "3.x",
+    "admin": "0.x",
+    "messages": "1.x",
+    "node": "6.x",
+    "graphql": "1.x",
+    "docs": "0.x"
+  },
+  "policies": [
+    {
+      "name": "update-app-settings"
+    },
+    {
+      "name": "POWER_USER_DS"
+    },
+    {
+      "name": "vbase-read-write"
+    },
+    {
+      "name": "ADMIN_DS"
+    },
+    {
+      "name": "OMSViewer"
+    },
+    {
+      "name": "LogisticsViewer"
+    },
+    {
+      "name": "SaveOrderFormConfiguration"
+    },
+    {
+      "name": "outbound-access",
+      "attrs": {
+        "host": "api.vtex.com",
+        "path": "/api/dataentities/*"
+      }
+    },
+    {
+      "name": "outbound-access",
+      "attrs": {
+        "host": "portal.vtexcommercestable.com.br",
+        "path": "/api/scheduler/*"
+      }
+    },
+    {
+      "name": "outbound-access",
+      "attrs": {
+        "host": "{{account}}.vtexcommercestable.com.br",
+        "path": "/api/scheduler/master/vtex.gmc-keep-alive"
+      }
+    }
+  ],
+  "billingOptions": {
+    "support": {
+      "url": "https://support.vtex.com/hc/requests"
+    },
+    "type": "free",
+    "availableCountries": [
+      "*"
+    ]
+  },
+  "$schema": "https://raw.githubusercontent.com/vtex/node-vtex-api/master/gen/manifest.schema"
+}

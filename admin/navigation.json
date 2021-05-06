@@ -1,0 +1,7 @@
+{
+  "section": "orders",
+  "path": "/admin/b2b-waffle",
+  "icon": "extensions-ic",
+  "titleId": "admin/b2b-waffle.navigation.label",
+  "searchKeyWordsHelpers": "admin/b2b-waffle.navigation.keywords"
+}
