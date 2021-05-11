@@ -1,11 +1,10 @@
 type Query {
   getAppSettings: SettingsResponse @cacheControl(scope: PRIVATE)
-  checkConfiguration: Boolean @cacheControl(scope: PRIVATE)
 }
 
 
 type Mutation {
-  saveAppSettings(): MutationResponse @cacheControl(scope: PRIVATE)
+  saveAppSettings: MutationResponse @cacheControl(scope: PRIVATE)
 }
 
 type MutationResponse {
@@ -14,7 +13,7 @@ type MutationResponse {
 }
 
 type SettingsResponse {
-
+  adminSetup: Data
 }
 
 scalar Data

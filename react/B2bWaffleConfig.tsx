@@ -3,7 +3,7 @@ import type { FC } from 'react'
 import React, { useState } from 'react'
 import type { InjectedIntlProps } from 'react-intl'
 import { FormattedMessage, defineMessages, injectIntl } from 'react-intl'
-import { useMutation, useQuery, useLazyQuery } from 'react-apollo'
+import { useMutation, useQuery } from 'react-apollo'
 import {
   Layout,
   PageBlock,
@@ -19,14 +19,7 @@ import {
 } from 'vtex.styleguide'
 
 import saveMutation from './mutations/saveConfiguration.gql'
-import saveDefaultsMutation from './mutations/saveDefaultsConfiguration.gql'
-import processItemMutation from './mutations/processItem.gql'
-import removeItemMutation from './mutations/removeItem.gql'
 import GET_CONFIG from './queries/getAppSettings.gql'
-import GET_SHOPS from './queries/getShops.gql'
-import GET_REGISTERS from './queries/getRegisters.gql'
-import GET_EMPLOYEES from './queries/getEmployees.gql'
-import GET_QUEUE from './queries/getQueue.gql'
 
 import './styles.global.css'
 
@@ -125,7 +118,7 @@ const messages: any = defineMessages({
 
 let deleteId: any = null
 
-const Adminb2b-waffle: FC<InjectedIntlProps> = ({ intl }) => {
+const AdminB2bWaffle: FC<InjectedIntlProps> = ({ intl }) => {
   const [state, setState] = useState<any>({
     currentTab: 1,
     missingConfig: true,
@@ -158,17 +151,6 @@ const Adminb2b-waffle: FC<InjectedIntlProps> = ({ intl }) => {
     saveMutation
   )
 
-  const [processItem] = useMutation(processItemMutation)
-
-  const [
-    saveDefaults,
-    { loading: loadingSaveDefaults, called: calledSaveDefaults, error: errorSaveDefaults },
-  ] = useMutation(saveDefaultsMutation)
-
-  const [removeItem, { called: deleteCalled, loading: deleteLoading, error: deleteError }] = useMutation(
-    removeItemMutation
-  )
-
   const { loading } = useQuery(GET_CONFIG, {
     skip: loadingSave || !!clientID,
     onCompleted: (res: any) => {
@@ -184,16 +166,6 @@ const Adminb2b-waffle: FC<InjectedIntlProps> = ({ intl }) => {
       })
     },
   })
-
-  const [getQueue, { data: queueData, loading: queueLoading, called: queueCalled }] = useLazyQuery(GET_QUEUE, {
-    fetchPolicy: 'no-cache',
-  })
-
-  const { data: shops, loading: shopsLoading, error: shopsError } = useQuery(GET_SHOPS)
-
-  const { data: registers, loading: registersLoading, error: registersError } = useQuery(GET_REGISTERS)
-
-  const { data: employees, loading: employeesLoading, error: employeesError } = useQuery(GET_EMPLOYEES)
 
   if (calledSave && !loadingSave && !errorSave) {
     window.location.reload()
@@ -214,16 +186,6 @@ const Adminb2b-waffle: FC<InjectedIntlProps> = ({ intl }) => {
         clientID,
         clientSecret,
         refreshToken,
-      },
-    })
-  }
-
-  const handleSaveDefaults = () => {
-    saveDefaults({
-      variables: {
-        shopID,
-        registerID,
-        employeeID,
       },
     })
   }
@@ -280,13 +242,7 @@ const Adminb2b-waffle: FC<InjectedIntlProps> = ({ intl }) => {
       label: ({ rowData }: any) => `${intl.formatMessage(messages.reprocessLabel)} ${rowData.orderId}`,
       // eslint-disable-next-line no-alert
       onClick: ({ rowData }: any) => {
-        processItem({
-          variables: {
-            orderId: rowData.orderId,
-          },
-        }).then(() => {
-          getQueue()
-        })
+
       },
     },
     {
@@ -297,45 +253,10 @@ const Adminb2b-waffle: FC<InjectedIntlProps> = ({ intl }) => {
         if (window.confirm(`${intl.formatMessage(messages.confirm)}`)) {
           deleteId = rowData.id
 
-          removeItem({
-            variables: {
-              id: rowData.id,
-            },
-          })
         }
       },
     },
   ]
-
-  if (!queueCalled) {
-    getQueue()
-  }
-
-  if (!queueItems.length && queueData?.getQueue && queueData?.getQueue.length) {
-    setState({
-      ...state,
-      queueItems: queueData.getQueue,
-    })
-  }
-
-  console.log('queueData =>', queueData)
-
-  clearTimeout(timeout)
-  timeout = setTimeout(() => {
-    getQueue()
-  }, 60000)
-
-  if (deleteCalled && !deleteLoading && !deleteError) {
-    if (deleteId !== null) {
-      setState({
-        ...state,
-        queueItems: state.queueItems.filter((item: any) => {
-          return item.id !== deleteId
-        }),
-      })
-      deleteId = null
-    }
-  }
 
   if (!missingConfig && !(shopID && registerID && employeeID) && currentTab !== 3) {
     setState({
@@ -372,7 +293,6 @@ const Adminb2b-waffle: FC<InjectedIntlProps> = ({ intl }) => {
                 schema={defaultSchema}
                 items={queueItems}
                 lineActions={lineActions}
-                loading={queueLoading}
                 emptyStateLabel={intl.formatMessage(messages.emptyLabel)}
                 emptyStateChildren={
                   <React.Fragment>
@@ -382,7 +302,7 @@ const Adminb2b-waffle: FC<InjectedIntlProps> = ({ intl }) => {
                         variation="secondary"
                         size="small"
                         onClick={() => {
-                          getQueue()
+
                         }}
                       >
                         <span className="flex align-baseline">{intl.formatMessage(messages.refresh)}</span>
@@ -495,65 +415,18 @@ const Adminb2b-waffle: FC<InjectedIntlProps> = ({ intl }) => {
                 </p>
               </div>
               <div className="mb5">
-                <Dropdown
-                  label={intl.formatMessage(messages.shopLabel)}
-                  options={shops?.getShops ?? []}
-                  value={shopID}
-                  disabled={shopsLoading}
-                  errorMessage={shopsError ? intl.formatMessage(messages.shopError) : ''}
-                  onChange={(_: any, v: any) => {
-                    setState({
-                      ...state,
-                      shopID: v,
-                    })
-                  }}
-                />
+
               </div>
               <div className="mb5">
-                <Dropdown
-                  label={intl.formatMessage(messages.registerLabel)}
-                  options={registers?.getRegisters ?? []}
-                  value={registerID}
-                  disabled={registersLoading}
-                  errorMessage={registersError ? intl.formatMessage(messages.registerError) : ''}
-                  onChange={(_: any, v: any) => {
-                    setState({
-                      ...state,
-                      registerID: v,
-                    })
-                  }}
-                />
+
               </div>
               <div className="mb5">
-                <Dropdown
-                  label={intl.formatMessage(messages.employeeLabel)}
-                  options={employees?.getEmployees ?? []}
-                  value={employeeID}
-                  disabled={employeesLoading}
-                  errorMessage={employeesError ? intl.formatMessage(messages.employeeError) : ''}
-                  onChange={(_: any, v: any) => {
-                    setState({
-                      ...state,
-                      employeeID: v,
-                    })
-                  }}
-                />
+
               </div>
               <div className="mb5">
-                <Button
-                  size="regular"
-                  disabled={!shopID || !registerID || !employeeID}
-                  isLoading={loadingSaveDefaults || loading}
-                  onClick={handleSaveDefaults}
-                >
-                  <FormattedMessage id="admin/b2b-waffle.configuration.saveDefaults" />
-                </Button>
+
               </div>
-              {(errorSaveDefaults || (!loadingSaveDefaults && calledSaveDefaults && !errorSaveDefaults)) && (
-                <Alert type={errorSaveDefaults ? 'error' : 'success'}>
-                  {intl.formatMessage(messages[errorSaveDefaults ? 'error' : 'success'])}
-                </Alert>
-              )}
+
             </div>
           </Tab>
         </Tabs>
@@ -562,4 +435,4 @@ const Adminb2b-waffle: FC<InjectedIntlProps> = ({ intl }) => {
   )
 }
 
-export default injectIntl(Adminb2b-waffle)
+export default injectIntl(AdminB2bWaffle)

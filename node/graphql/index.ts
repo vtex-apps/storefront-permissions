@@ -1,13 +1,14 @@
 /* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/naming-convention */
-
-import schema from '../mdSchema'
-
-export const SCHEMA_VERSION = 'v0.0.1'
-const DATA_ENTITY = 'b2b-waffle'
+import * as crypto from 'crypto'
+import schemas from '../mdSchema'
 
 const getAppId = (): string => {
   return process.env.VTEX_APP_ID ?? ''
+}
+
+const schemaHash = () => {
+  return crypto.createHash('md5').update(JSON.stringify(schemas)).digest('hex')
 }
 
 export const resolvers = {
@@ -48,37 +49,43 @@ export const resolvers = {
         settings.adminSetup = {}
       }
 
+      console.log('Settings =>', settings)
 
-
+      const currHash = schemaHash()
       if (
-        !settings.adminSetup ||
-        !settings.adminSetup?.hasSchema ||
-        settings.adminSetup?.schemaVersion !== SCHEMA_VERSION
+        !settings.adminSetup?.schemaHash ||
+        settings.adminSetup?.schemaHash !== currHash
       ) {
-        if (settings.adminSetup?.schemaVersion !== SCHEMA_VERSION) {
-          try {
-            await masterdata
-              .createOrUpdateSchema({
-                dataEntity: DATA_ENTITY,
-                schemaName: SCHEMA_VERSION,
-                schemaBody: schema,
-              })
-              .then(() => {
-                settings.adminSetup.hasSchema = true
-                settings.adminSetup.schemaVersion = SCHEMA_VERSION
-              })
-              .catch((e: any) => {
-                settings.adminSetup.hasSchema = false
-                // eslint-disable-next-line vtex/prefer-early-return
-                if (e.response.status === 304) {
-                  settings.adminSetup.hasSchema = true
-                  settings.adminSetup.schemaVersion = SCHEMA_VERSION
-                }
-              })
-          } catch (e) {
-            settings.adminSetup.hasSchema = false
+        console.log('Has changes')
+
+        const updates: any = []
+
+        schemas.map((schema) => {
+          updates.push(masterdata
+            .createOrUpdateSchema({
+              dataEntity: schema.name,
+              schemaName: schema.version,
+              schemaBody: schema.body,
+            })
+            .then(() => true)
+            .catch((e: any) => {
+              if (e.response.status !== 304) {
+                console.log(`Error saving schema ${schema.name}@${schema.version} =>`, e)
+                throw e
+              }
+              return true
+            })
+            )
+
+        })
+
+        await Promise.all(updates).then(() => {
+          settings.adminSetup.schemaHash = currHash
+        }).catch((e) => {
+          if (e.response.status !== 304) {
+            console.log('Promise All catch =>', e)
           }
-        }
+        })
 
         await apps.saveAppSettings(app, settings)
       }

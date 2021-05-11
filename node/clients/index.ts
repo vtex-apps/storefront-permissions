@@ -1,6 +1,5 @@
 import { IOClients } from '@vtex/api'
 
-import Checkout from '../utils/Checkout'
 import { Scheduler } from '../utils/Scheduler'
 import { OMSClient } from '../utils/Oms'
 import { LogicticsClient } from '../utils/Logistics'
@@ -18,9 +17,5 @@ export class Clients extends IOClients {
 
   public get dock() {
     return this.getOrSet('dock', LogicticsClient)
-  }
-
-  public get checkout() {
-    return this.getOrSet('checkout', Checkout)
   }
 }

@@ -1,80 +1,78 @@
-export default {
-  properties: {
-    orderId: {
-      type: 'string',
-      title: 'The orderId',
-    },
-    order: {
-      type: ['null', 'object'],
-      title: 'Order',
-    },
-    user: {
-      type: ['null', 'object'],
-      title: 'User',
-    },
-    complete: {
-      type: 'boolean',
-      title: 'Is complete',
-      default: false,
-    },
-    error: {
-      type: 'string',
-      title: '',
-    },
-    errorCount: {
-      type: ['null', 'integer'],
-      title: '',
-      default: 0,
-    },
-    steps: {
-      type: 'array',
-      title: 'Steps',
-      default: [
-        {
-          name: 'SaleRequest',
-          complete: false,
-          date: '',
-          error: '',
-          data: null,
+export default [
+  {
+    name: 'b2b_roles',
+    version: 'v0.0.1',
+    body: {
+      properties: {
+        name: {
+          type: 'string',
+          title: 'Role Name',
         },
-        {
-          name: 'CreateSale',
-          complete: false,
-          date: '',
-          error: '',
-          data: null,
-        },
-        {
-          name: 'GetCustomer',
-          complete: false,
-          date: '',
-          error: '',
-          data: null,
-        },
-        {
-          name: 'GetProductItem',
-          complete: false,
-          date: '',
-          error: '',
-          data: null,
-        },
-        {
-          name: 'CreateSaleLine',
-          complete: false,
-          date: '',
-          error: '',
-          data: null,
-        },
-        {
-          name: 'UpdateSale',
-          complete: false,
-          date: '',
-          error: '',
-          data: null,
-        },
-      ],
-    },
+      },
+      'v-indexed': ['name'],
+      'v-cache': false,
+    }
   },
-  'v-indexed': ['orderId', 'complete', 'errorCount'],
-  'v-cache': false,
-}
+  {
+    name: 'b2b_profiles',
+    version: 'v0.0.1',
+    body: {
+      properties: {
+        roleId: {
+          type: 'string',
+          title: 'Role ID',
+        },
+        scoped: {
+          type: 'boolean',
+          title: 'Scoped access',
+        },
+        features: {
+          type: 'array',
+          title: 'Features',
+        },
+      },
+      'v-indexed': ['roleId'],
+      'v-cache': false,
+    }
+  },
+  {
+    name: 'b2b_users',
+    version: 'v0.0.2',
+    body: {
+      properties: {
+        userId: {
+          type: 'string',
+          title: 'User ID',
+        },
+        profileId: {
+          type: 'string',
+          title: 'Profile ID',
+        },
+        canImpersonate: {
+          type: 'boolean',
+          title: 'Can impersonate',
+        },
+      },
+      'v-indexed': ['userId','profileId','canImpersonate'],
+      'v-cache': false,
+    }
+  },
+  {
+    name: 'b2b_features',
+    version: 'v0.0.1',
+    body: {
+      properties: {
+        module: {
+          type: 'string',
+          title: 'Module name',
+        },
+        features: {
+          type: 'array',
+          title: 'List of available features',
+        },
+      },
+      'v-indexed': ['module'],
+      'v-cache': false,
+    }
+  }
+]
