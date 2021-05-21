@@ -1,10 +1,66 @@
 type Query {
   getAppSettings: SettingsResponse @cacheControl(scope: PRIVATE)
+  # Roles
+  getRole(id: ID!): Role @cacheControl(scope: PRIVATE)
+  listRoles: [Role] @cacheControl(scope: PRIVATE)
+  # Features
+  getFeatures(id: ID!): Feature @cacheControl(scope: PRIVATE)
+  getFeaturesByModule(module: String!): Feature @cacheControl(scope: PRIVATE)
+  listFeatures: [Feature] @cacheControl(scope: PRIVATE)
+  # Profile
+  getProfile(id: ID!): Profile @cacheControl(scope: PRIVATE)
+  getProfileByRole(roleId: ID!): Profile @cacheControl(scope: PRIVATE)
+  listProfiles: [Profile] @cacheControl(scope: PRIVATE)
+  # User
+  getUser(id: ID!): User @cacheControl(scope: PRIVATE)
+  getUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
+  listUsers: [User] @cacheControl(scope: PRIVATE)
 }
 
 
 type Mutation {
   saveAppSettings: MutationResponse @cacheControl(scope: PRIVATE)
+  # Roles
+  saveRole(id: ID, role: String!): MutationResponse @cacheControl(scope: PRIVATE)
+  deleteRole(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
+  # Features
+  checkAddFeatures(module: String!, features: [String]!): MutationResponse @cacheControl(scope: PRIVATE)
+  saveFeatures(id: ID, module: String!, features: [String]!): MutationResponse @cacheControl(scope: PRIVATE)
+  deleteFeatures(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
+  # Profile
+  saveProfile(roleId: ID!, features: [String]!, scoped: Boolean = true): MutationResponse @cacheControl(scope: PRIVATE)
+  deleteProfile(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
+  # User
+  saveUser(profileId: ID!, canImpersonate: Boolean = false, name: String!, email: String!): MutationResponse @cacheControl(scope: PRIVATE)
+  deleteUser(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
+}
+
+type User {
+  id: ID
+  profileId: ID!
+  userId: String
+  name: String!
+  email: String!
+  canImpersonate: Boolean
+}
+
+type Profile {
+  id: ID
+  features: [String]!
+  roleId: ID!
+  scoped: Boolean
+}
+
+type Feature {
+  id: ID
+  module: String!
+  features: [String]!
+  hash: String!
+}
+
+type Role {
+  id: ID
+  name: String!
 }
 
 type MutationResponse {

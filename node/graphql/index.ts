@@ -1,14 +1,18 @@
 /* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/naming-convention */
-import * as crypto from 'crypto'
+
 import schemas from '../mdSchema'
+import {toHash} from '../utils'
+
+import {deleteRole, saveRole} from './Mutations/Roles'
+import {getRole, listRoles} from './Queries/Roles'
+import {checkAddFeatures, deleteFeatures, saveFeatures} from './Mutations/Features'
+import {getFeatures, getFeaturesByModule, listFeatures} from './Queries/Features'
+import {deleteProfile, saveProfile} from './Mutations/Profiles'
+import {getProfile, getProfileByRole, listProfiles} from './Queries/Profiles'
 
 const getAppId = (): string => {
   return process.env.VTEX_APP_ID ?? ''
-}
-
-const schemaHash = () => {
-  return crypto.createHash('md5').update(JSON.stringify(schemas)).digest('hex')
 }
 
 export const resolvers = {
@@ -16,6 +20,13 @@ export const resolvers = {
 
   },
   Mutation: {
+    deleteRole,
+    saveRole,
+    checkAddFeatures,
+    deleteFeatures,
+    saveFeatures,
+    deleteProfile,
+    saveProfile,
     saveAppSettings: async (_: any, __: any, ctx: Context) => {
       const {
         clients: { apps },
@@ -37,6 +48,14 @@ export const resolvers = {
     },
   },
   Query: {
+    getRole,
+    listRoles,
+    getFeatures,
+    getFeaturesByModule,
+    listFeatures,
+    getProfile,
+    getProfileByRole,
+    listProfiles,
     getAppSettings: async (_: any, __: any, ctx: Context) => {
       const {
         clients: { apps, masterdata },
@@ -51,7 +70,7 @@ export const resolvers = {
 
       console.log('Settings =>', settings)
 
-      const currHash = schemaHash()
+      const currHash = toHash(schemas)
       if (
         !settings.adminSetup?.schemaHash ||
         settings.adminSetup?.schemaHash !== currHash
