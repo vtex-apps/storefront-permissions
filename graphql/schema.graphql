@@ -21,7 +21,7 @@ type Query {
 type Mutation {
   saveAppSettings: MutationResponse @cacheControl(scope: PRIVATE)
   # Roles
-  saveRole(id: ID, role: String!): MutationResponse @cacheControl(scope: PRIVATE)
+  saveRole(id: ID, name: String!): MutationResponse @cacheControl(scope: PRIVATE)
   deleteRole(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
   # Features
   checkAddFeatures(module: String!, features: [String]!): MutationResponse @cacheControl(scope: PRIVATE)

@@ -27,7 +27,7 @@ export const checkAddFeatures = async (_: any, params: any, ctx: Context) => {
   try {
     const {features, module} = params
     const hash = toHash({module, features})
-    const check = await masterdata.searchDocuments({dataEntity: config.name, fields: ['id'], where: `hash=${hash}`, pagination: {pageSize:1, page: 0}})
+    const check = await masterdata.searchDocuments({dataEntity: config.name, fields: ['id'], where: `hash=${hash}`, pagination: {pageSize:1, page: 1}})
     if(!check.length) {
       saveFeatures(_, params, ctx)
     }

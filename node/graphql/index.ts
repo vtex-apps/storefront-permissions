@@ -7,9 +7,11 @@ import {toHash} from '../utils'
 import {deleteRole, saveRole} from './Mutations/Roles'
 import {getRole, listRoles} from './Queries/Roles'
 import {checkAddFeatures, deleteFeatures, saveFeatures} from './Mutations/Features'
+import {deleteUser, saveUser} from './Mutations/Users'
 import {getFeatures, getFeaturesByModule, listFeatures} from './Queries/Features'
 import {deleteProfile, saveProfile} from './Mutations/Profiles'
 import {getProfile, getProfileByRole, listProfiles} from './Queries/Profiles'
+import {getUser, getUserByEmail, listUsers} from './Queries/Users'
 
 const getAppId = (): string => {
   return process.env.VTEX_APP_ID ?? ''
@@ -27,6 +29,8 @@ export const resolvers = {
     saveFeatures,
     deleteProfile,
     saveProfile,
+    deleteUser,
+    saveUser,
     saveAppSettings: async (_: any, __: any, ctx: Context) => {
       const {
         clients: { apps },
@@ -56,6 +60,9 @@ export const resolvers = {
     getProfile,
     getProfileByRole,
     listProfiles,
+    getUser,
+    getUserByEmail,
+    listUsers,
     getAppSettings: async (_: any, __: any, ctx: Context) => {
       const {
         clients: { apps, masterdata },

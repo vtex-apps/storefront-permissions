@@ -37,29 +37,37 @@ export default [
   },
   {
     name: 'b2b_users',
-    version: 'v0.0.2',
+    version: 'v0.0.3',
     body: {
       properties: {
+        profileId: {
+          type: 'string',
+          title: 'Profile ID',
+        },
         userId: {
           type: 'string',
           title: 'User ID',
         },
-        profileId: {
+        name: {
           type: 'string',
-          title: 'Profile ID',
+          title: 'Name',
+        },
+        email: {
+          type: 'string',
+          title: 'Email',
         },
         canImpersonate: {
           type: 'boolean',
           title: 'Can impersonate',
         },
       },
-      'v-indexed': ['userId','profileId','canImpersonate'],
+      'v-indexed': ['userId','profileId','email','canImpersonate'],
       'v-cache': false,
     }
   },
   {
     name: 'b2b_features',
-    version: 'v0.0.1',
+    version: 'v0.0.2',
     body: {
       properties: {
         module: {
@@ -70,8 +78,12 @@ export default [
           type: 'array',
           title: 'List of available features',
         },
+        hash: {
+          type: 'string',
+          title: 'Hash',
+        },
       },
-      'v-indexed': ['module'],
+      'v-indexed': ['module','hash'],
       'v-cache': false,
     }
   }
