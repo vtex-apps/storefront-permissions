@@ -1,7 +1,7 @@
 {
   "name": "b2b-waffle",
   "vendor": "vtex",
-  "version": "0.0.0",
+  "version": "0.0.1-beta.0",
   "title": "B2B Waffle",
   "description": "Main dependency for b2b modules",
   "mustUpdateAt": "2022-08-28",
