@@ -21,11 +21,8 @@ export const listRoles = async (_: any, __: any, ctx: Context) => {
   const {
     clients: { masterdata },
   } = ctx
-  let ret: any = []
   try {
-    ret = await masterdata.searchDocuments({dataEntity: config.name, fields: ['id','name'], schema: config.version, pagination: {page: 1, pageSize: 50}})
-    console.log('Roles', ret)
-    return ret
+    return await masterdata.searchDocuments({dataEntity: config.name, fields: ['id','name'], schema: config.version, pagination: {page: 1, pageSize: 50}})
   } catch (e) {
     return { status: 'error', message: e }
   }

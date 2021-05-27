@@ -28,6 +28,9 @@ export default [
         },
         features: {
           type: 'array',
+          items: {
+            type: 'string'
+          },
           title: 'Features',
         },
       },
@@ -76,6 +79,9 @@ export default [
         },
         features: {
           type: 'array',
+          items: {
+            type: 'string'
+          },
           title: 'List of available features',
         },
         hash: {

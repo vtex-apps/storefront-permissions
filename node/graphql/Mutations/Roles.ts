@@ -10,9 +10,9 @@ export const saveRole = async (_: any, params: any, ctx: Context) => {
   try {
     const {id, name} = params
     console.log('Save Role', {dataEntity: config.name, fields: {name}, id, schema: config.version})
-    await masterdata.createOrUpdateEntireDocument({dataEntity: config.name, fields: {name}, id, schema: config.version})
+    const ret = await masterdata.createOrUpdateEntireDocument({dataEntity: config.name, fields: {name}, id, schema: config.version})
 
-    return { status: 'success', message: '' }
+    return { status: 'success', message: '', id: ret.DocumentId }
   } catch (e) {
     return { status: 'error', message: e }
   }

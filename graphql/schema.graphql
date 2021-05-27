@@ -28,11 +28,11 @@ type Mutation {
   saveFeatures(id: ID, module: String!, features: [String]!): MutationResponse @cacheControl(scope: PRIVATE)
   deleteFeatures(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
   # Profile
-  saveProfile(roleId: ID!, features: [String]!, scoped: Boolean = true): MutationResponse @cacheControl(scope: PRIVATE)
+  saveProfile(roleId: ID!, features: [FeatureInput]!, scoped: Boolean = true): MutationResponse @cacheControl(scope: PRIVATE)
   deleteProfile(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
   # User
-  saveUser(profileId: ID!, canImpersonate: Boolean = false, name: String!, email: String!): MutationResponse @cacheControl(scope: PRIVATE)
-  deleteUser(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
+  saveUser(profileId: ID!, userId: ID, canImpersonate: Boolean = false, name: String!, email: String!): MutationResponse @cacheControl(scope: PRIVATE)
+  deleteUser(id: ID!, userId: ID): MutationResponse @cacheControl(scope: PRIVATE)
 }
 
 type User {
@@ -46,9 +46,16 @@ type User {
 
 type Profile {
   id: ID
-  features: [String]!
+  features: [Feature]!
   roleId: ID!
   scoped: Boolean
+}
+
+input FeatureInput {
+  id: ID
+  module: String!
+  features: [String]!
+  hash: String!
 }
 
 type Feature {
@@ -64,6 +71,7 @@ type Role {
 }
 
 type MutationResponse {
+  id: String
   status: String
   message: String
 }

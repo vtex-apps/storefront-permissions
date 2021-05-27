@@ -22,8 +22,8 @@ export const getProfileByRole = async (_: any, params: any, ctx: Context) => {
   const {roleId} = params
 
   try {
-    return await masterdata.searchDocuments({dataEntity: config.name, fields: ['id','roleId','features','scoped'], schema: config.version, pagination: {page: 1, pageSize: 50}, where: `roleId=${roleId}`})
-
+    const [ret] = await masterdata.searchDocuments({dataEntity: config.name, fields: ['id','roleId','features','scoped'], schema: config.version, pagination: {page: 1, pageSize: 50}, where: `roleId=${roleId}`})
+    return ret
   } catch (e) {
     return { status: 'error', message: e }
   }

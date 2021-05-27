@@ -1,0 +1,82 @@
+{
+  "type": "object",
+  "title": "Schema definition for features",
+  "default": {},
+  "examples": [
+      {
+          "name": "Quickorder",
+          "features": [
+              {
+                  "label": "View",
+                  "value": "view"
+              },
+              {
+                  "label": "Add to Cart",
+                  "value": "add-to-cart"
+              }
+          ]
+      }
+  ],
+  "required": [
+      "name",
+      "features"
+  ],
+  "properties": {
+      "name": {
+          "type": "string",
+          "title": "Module name",
+          "default": "",
+          "examples": [
+              "Quickorder"
+          ]
+      },
+      "features": {
+          "type": "array",
+          "title": "The features schema",
+          "default": [],
+          "examples": [
+              [
+                  {
+                      "label": "View",
+                      "value": "view"
+                  },
+                  {
+                      "label": "Add to Cart",
+                      "value": "add-to-cart"
+                  }
+              ]
+          ],
+          "items": {
+              "anyOf": [
+                  {
+                      "type": "object",
+                      "required": [
+                          "label",
+                          "value"
+                      ],
+                      "properties": {
+                          "label": {
+                              "type": "string",
+                              "title": "The label",
+                              "description": "Feature label.",
+                              "default": "",
+                              "examples": [
+                                  "Create quotation"
+                              ]
+                          },
+                          "value": {
+                              "type": "string",
+                              "title": "The value",
+                              "description": "Feature slug",
+                              "default": "",
+                              "examples": [
+                                  "create-quotation"
+                              ]
+                          }
+                      }
+                  }
+              ]
+          }
+      }
+  }
+}

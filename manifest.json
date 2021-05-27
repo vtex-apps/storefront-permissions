@@ -42,6 +42,22 @@
       "name": "SaveOrderFormConfiguration"
     },
     {
+      "name": "Get_User_By_Identifier"
+    },
+    {
+      "name": "Get_Users_Paged"
+    },
+    {
+      "name": "Get_User_By_Identifier"
+    },
+    {
+      "name": "outbound-access",
+      "attrs": {
+        "host": "{{account}}.vtexcommercestable.com.br",
+        "path": "/api/license-manager/site/pvt/logins/list/paged/*"
+      }
+    },
+    {
       "name": "outbound-access",
       "attrs": {
         "host": "api.vtex.com",
@@ -53,6 +69,13 @@
       "attrs": {
         "host": "portal.vtexcommercestable.com.br",
         "path": "/api/scheduler/*"
+      }
+    },
+    {
+      "name": "outbound-access",
+      "attrs": {
+        "host": "{{account}}.vtexcommercestable.com.br",
+        "path": "/license-manager/site/pvt/logins/list/paged/*"
       }
     },
     {
