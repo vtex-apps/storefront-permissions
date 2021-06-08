@@ -68,29 +68,4 @@ export default [
       'v-cache': false,
     }
   },
-  {
-    name: 'b2b_features',
-    version: 'v0.0.2',
-    body: {
-      properties: {
-        module: {
-          type: 'string',
-          title: 'Module name',
-        },
-        features: {
-          type: 'array',
-          items: {
-            type: 'string'
-          },
-          title: 'List of available features',
-        },
-        hash: {
-          type: 'string',
-          title: 'Hash',
-        },
-      },
-      'v-indexed': ['module','hash'],
-      'v-cache': false,
-    }
-  }
 ]

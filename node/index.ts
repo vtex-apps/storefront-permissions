@@ -17,6 +17,9 @@ const clients: ClientsConfig<Clients> = {
   implementation: Clients,
   options: {
     default: defaultClientOptions,
+    settings: {
+      memoryCache: memoryCache,
+    },
     b2bAdmin: {
       authType: AuthType.bearer,
       memoryCache,
@@ -51,5 +54,6 @@ export default new Service<Clients, RecorderState, ParamsContext>({
       Mutation: resolvers.Mutation,
     },
   },
-  routes: resolvers.Routes,
+  routes: {
+  },
 })

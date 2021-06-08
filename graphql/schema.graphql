@@ -1,20 +1,19 @@
 type Query {
   getAppSettings: SettingsResponse @cacheControl(scope: PRIVATE)
   # Roles
-  getRole(id: ID!): Role @cacheControl(scope: PRIVATE)
-  listRoles: [Role] @cacheControl(scope: PRIVATE)
+  getRole(id: ID!): Role @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  listRoles: [Role] @cacheControl(scope: PRIVATE, maxAge: SHORT)
   # Features
-  getFeatures(id: ID!): Feature @cacheControl(scope: PRIVATE)
-  getFeaturesByModule(module: String!): Feature @cacheControl(scope: PRIVATE)
-  listFeatures: [Feature] @cacheControl(scope: PRIVATE)
+  getFeaturesByModule(module: String!): Feature @settings(settingsType: "workspace") @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  listFeatures: [Feature] @settings(settingsType: "workspace") @cacheControl(scope: PRIVATE, maxAge: SHORT)
   # Profile
   getProfile(id: ID!): Profile @cacheControl(scope: PRIVATE)
   getProfileByRole(roleId: ID!): Profile @cacheControl(scope: PRIVATE)
-  listProfiles: [Profile] @cacheControl(scope: PRIVATE)
+  listProfiles: [Profile] @cacheControl(scope: PRIVATE, maxAge: SHORT)
   # User
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
   getUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
-  listUsers: [User] @cacheControl(scope: PRIVATE)
+  listUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
 }
 
 
@@ -23,15 +22,11 @@ type Mutation {
   # Roles
   saveRole(id: ID, name: String!): MutationResponse @cacheControl(scope: PRIVATE)
   deleteRole(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
-  # Features
-  checkAddFeatures(module: String!, features: [String]!): MutationResponse @cacheControl(scope: PRIVATE)
-  saveFeatures(id: ID, module: String!, features: [String]!): MutationResponse @cacheControl(scope: PRIVATE)
-  deleteFeatures(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
   # Profile
   saveProfile(roleId: ID!, features: [FeatureInput]!, scoped: Boolean = true): MutationResponse @cacheControl(scope: PRIVATE)
   deleteProfile(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
   # User
-  saveUser(profileId: ID!, userId: ID, canImpersonate: Boolean = false, name: String!, email: String!): MutationResponse @cacheControl(scope: PRIVATE)
+  saveUser(id: ID, profileId: ID!, userId: ID, canImpersonate: Boolean = false, name: String!, email: String!): MutationResponse @cacheControl(scope: PRIVATE)
   deleteUser(id: ID!, userId: ID): MutationResponse @cacheControl(scope: PRIVATE)
 }
 
@@ -55,14 +50,17 @@ input FeatureInput {
   id: ID
   module: String!
   features: [String]!
-  hash: String!
 }
 
 type Feature {
-  id: ID
   module: String!
-  features: [String]!
-  hash: String!
+  name: String!
+  features: [SingleFeature]!
+}
+
+type SingleFeature {
+  label: String!
+  value: String!
 }
 
 type Role {

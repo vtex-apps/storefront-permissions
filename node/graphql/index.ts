@@ -6,9 +6,8 @@ import {toHash} from '../utils'
 
 import {deleteRole, saveRole} from './Mutations/Roles'
 import {getRole, listRoles} from './Queries/Roles'
-import {checkAddFeatures, deleteFeatures, saveFeatures} from './Mutations/Features'
 import {deleteUser, saveUser} from './Mutations/Users'
-import {getFeatures, getFeaturesByModule, listFeatures} from './Queries/Features'
+import {getFeaturesByModule, listFeatures} from './Queries/Features'
 import {deleteProfile, saveProfile} from './Mutations/Profiles'
 import {getProfile, getProfileByRole, listProfiles} from './Queries/Profiles'
 import {getUser, getUserByEmail, listUsers} from './Queries/Users'
@@ -24,9 +23,6 @@ export const resolvers = {
   Mutation: {
     deleteRole,
     saveRole,
-    checkAddFeatures,
-    deleteFeatures,
-    saveFeatures,
     deleteProfile,
     saveProfile,
     deleteUser,
@@ -54,7 +50,6 @@ export const resolvers = {
   Query: {
     getRole,
     listRoles,
-    getFeatures,
     getFeaturesByModule,
     listFeatures,
     getProfile,

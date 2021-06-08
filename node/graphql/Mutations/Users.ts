@@ -1,4 +1,3 @@
-import {getUserByEmail} from '../Queries/Users'
 import {currentSchema} from '../../utils'
 const config: any = currentSchema('b2b_users')
 
@@ -7,29 +6,41 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
     clients: { masterdata, lm },
   } = ctx
 
+  console.log('saveUser =>', params)
 
   try {
     const {profileId, canImpersonate, name, email, userId, id} = params
-
-    const checkUser: any = getUserByEmail(_, {email}, ctx)
-
-    if(checkUser.length) {
-      return { status: 'error', message: 'User already exists' }
-    }
-
+    let _userId = userId
     if(canImpersonate) {
-      const saveLM = await lm.saveUser(name, email)
+      console.log('Will save to LM')
+      const saveLM: any = await lm.saveUser(name, email).catch((err) => {
+        console.log('Error saveLM', err)
+
+      })
+      _userId = saveLM.userId
       console.log('saveLM =>', saveLM)
     } else {
       if (userId) {
-        const deleteLMRef = lm.deleteUser(userId)
+        const deleteLMRef = await lm.deleteUser(userId).catch((ret) => {
+          return ret
+        })
         console.log('deleteLMRef =>', deleteLMRef)
       }
     }
 
-
-    return null
-    const ret = await masterdata.createOrUpdateEntireDocument({dataEntity: config.name, fields: {profileId, userId, canImpersonate, name, email}, id, schema: config.version})
+    const ret = await masterdata.createOrUpdateEntireDocument({dataEntity: config.name, fields: {profileId, userId: _userId, canImpersonate, name, email}, id, schema: config.version})
+    .then((r: any) => {
+      return r
+    })
+    .catch((err: any) => {
+      console.log('createOrUpdateEntireDocument =>',err.response.status, err)
+      if(err.response.status < 400) {
+        return {
+          DocumentId: id
+        }
+      }
+      throw err
+    })
 
     return { status: 'success', message: '', id: ret.DocumentId }
   } catch (e) {

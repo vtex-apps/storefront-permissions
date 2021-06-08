@@ -3,7 +3,6 @@
   "memory": 1024,
   "ttl": 300,
   "timeout": 60,
-  "settingsType": "workspace",
   "cpu": {
     "type": "shared",
     "value": 5,

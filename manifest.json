@@ -1,7 +1,7 @@
 {
   "name": "b2b-waffle",
   "vendor": "vtex",
-  "version": "0.0.1-beta.0",
+  "version": "0.0.1-beta.1",
   "title": "B2B Waffle",
   "description": "Main dependency for b2b modules",
   "mustUpdateAt": "2022-08-28",
@@ -12,6 +12,7 @@
     "vtex.styleguide": "9.x"
   },
   "builders": {
+    "configuration": "0.x",
     "react": "3.x",
     "admin": "0.x",
     "messages": "1.x",
@@ -48,7 +49,13 @@
       "name": "Get_Users_Paged"
     },
     {
+      "name": "Get_Roles_Paged"
+    },
+    {
       "name": "Get_User_By_Identifier"
+    },
+    {
+      "name": "Save_User"
     },
     {
       "name": "outbound-access",

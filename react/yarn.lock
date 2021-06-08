@@ -247,13 +247,17 @@ typescript@3.9.7:
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.9.7.tgz#98d600a5ebdc38f40cb277522f12dc800e9e25fa"
   integrity sha512-BLbiRkiBzAwsjut4x/dsibSTB6yWpwT5qWmC2OfuCg3GgVQCSgMs4vEctYPhsaGtd0AeuuHMkjZ2h2WG8MSzRw==
 
+"vtex.b2b-waffle@https://waffle--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.b2b-waffle@0.0.1-beta.1+build1623185032/public/@types/vtex.b2b-waffle":
+  version "0.0.0"
+  resolved "https://waffle--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.b2b-waffle@0.0.1-beta.1+build1623185032/public/@types/vtex.b2b-waffle#48489c83006986b7c8cfde7522d580c051f871d0"
+
 "vtex.render-runtime@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.128.4/public/@types/vtex.render-runtime":
   version "8.128.4"
   resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.128.4/public/@types/vtex.render-runtime#63491782d44910c4edc8528bc645c7c335c33128"
 
-"vtex.styleguide@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.140.1/public/@types/vtex.styleguide":
-  version "9.140.1"
-  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.140.1/public/@types/vtex.styleguide#ff824d0557db7e6e76557975cbb511789a9909b2"
+"vtex.styleguide@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.142.0/public/@types/vtex.styleguide":
+  version "9.142.0"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.142.0/public/@types/vtex.styleguide#12d22690aa1896a7516eb4b7bc8923216aed7725"
 
 zen-observable-ts@^0.8.18:
   version "0.8.18"

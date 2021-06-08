@@ -39,44 +39,64 @@ export class LMClient extends ExternalClient {
 
   public saveUser = async (name: string, email: string) => {
     // List all roles
-    const roles: any = await this.get(this.routes.getRoles())
-    console.log('Roles =>', roles)
+    const roles: any = await this.get(this.routes.getRoles()).catch((err) => {
+      console.log('Error gettings roles', err)
+    })
+
     let b2brole:any = null
     // Get only the role "B2B impersonate"
     b2brole = roles?.items?.find((role: any) => {
-      role.name === "B2B impersonate"
+      return role.name === "B2B impersonate"
     })
-    console.log('B2B role A =>', b2brole)
+
     // Create this role if it doesn't exists
     if(!b2brole?.id) {
       b2brole = await this.createRole()
     }
-    console.log('B2B role B =>', b2brole)
+
     const data = {
       email,
       name,
-      roles: [
-          {
-              id: b2brole.id,
-          }
-      ]
+      roles: [b2brole.id]
     }
 
     // Check if the user exists
     const checkUser: any = await this.get(this.routes.userByEmail(email))
+
+    console.log('checkUser =>', checkUser)
+
     if(!checkUser?.UserId) {
       // Create with role
-      return this.post(this.routes.createUser(), data)
+      return await this.post(this.routes.createUser(), data).then((ret: any) => {
+        console.log('Return creating user LM', ret)
+      })
     } else {
       // Update with role
-      return this.delete(this.routes.deleteUser(checkUser.UserId))
+      return await this.put(this.routes.updateUser(checkUser.UserId), data.roles).then((ret: any) => {
+        console.log('Return updating user LM', ret)
+        return {userId: checkUser.UserId}
+      })
     }
   }
 
 
   public deleteUser = async (userId: string) => {
-      return this.delete(this.routes.deleteUser(userId))
-  }
+    // List all roles
+    const roles: any = await this.get(this.routes.getRoles())
+    console.log('Roles =>', roles)
+    let b2brole:any = null
+    // Get only the role "B2B impersonate"
+    b2brole = roles?.items?.find((role: any) => {
+      return role.name === "B2B impersonate"
+    })
+    console.log('B2B role A =>', b2brole)
+    // Create this role if it doesn't exists
+    if(b2brole?.id) {
+      return this.delete(this.routes.deleteUser(userId, b2brole.id),{})
+    }
+
+}
+
 
   protected get = <T>(url: string) => {
     return this.http.get<T>(url).catch(statusToError)
@@ -87,8 +107,8 @@ export class LMClient extends ExternalClient {
   protected put = <T>(url: string, data: any) => {
     return this.http.put<T>(url, data).catch(statusToError)
   }
-  protected delete = <T>(url: string) => {
-    return this.http.delete<T>(url).catch(statusToError)
+  protected delete = <T>(url: string, data: any) => {
+    return this.http.delete<T>(url, data).catch(statusToError)
   }
 
   private get routes() {
@@ -99,7 +119,7 @@ export class LMClient extends ExternalClient {
       updateUser: (userId: string) => `api/license-manager/users/${userId}/roles`,
       getRoles: () => `api/license-manager/site/pvt/roles/list/paged`,
       createRole: () => `api/license-manager/site/pvt/roles`,
-      deleteUser: (userId: string) => `api/license-manager/users/${userId}`,
+      deleteUser: (userId: string, roleId: string) => `api/license-manager/users/${userId}/roles/${roleId}`,
     }
   }
 }
