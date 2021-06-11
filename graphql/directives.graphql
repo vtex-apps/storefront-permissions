@@ -1,0 +1,2 @@
+directive @withSession on FIELD_DEFINITION
+directive @withSender on FIELD_DEFINITION

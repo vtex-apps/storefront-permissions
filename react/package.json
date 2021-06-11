@@ -15,7 +15,7 @@
     "react-dom": "^16.8.6",
     "react-intl": "^2.7.2",
     "typescript": "3.9.7",
-    "vtex.b2b-waffle": "https://waffle--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.b2b-waffle@0.0.1-beta.1+build1623185032/public/@types/vtex.b2b-waffle",
+    "vtex.b2b-waffle": "https://waffle--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.b2b-waffle@0.0.1-beta.1+build1623424149/public/@types/vtex.b2b-waffle",
     "vtex.render-runtime": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.128.4/public/@types/vtex.render-runtime",
     "vtex.styleguide": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.142.0/public/@types/vtex.styleguide"
   },

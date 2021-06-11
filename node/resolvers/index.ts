@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import schemas from '../mdSchema'
@@ -10,7 +9,7 @@ import {deleteUser, saveUser} from './Mutations/Users'
 import {getFeaturesByModule, listFeatures} from './Queries/Features'
 import {deleteProfile, saveProfile} from './Mutations/Profiles'
 import {getProfile, getProfileByRole, listProfiles} from './Queries/Profiles'
-import {getUser, getUserByEmail, listUsers} from './Queries/Users'
+import {getUser, getUserByEmail, listUsers, checkUserPermission} from './Queries/Users'
 
 const getAppId = (): string => {
   return process.env.VTEX_APP_ID ?? ''
@@ -58,6 +57,7 @@ export const resolvers = {
     getUser,
     getUserByEmail,
     listUsers,
+    checkUserPermission,
     getAppSettings: async (_: any, __: any, ctx: Context) => {
       const {
         clients: { apps, masterdata },
@@ -70,15 +70,11 @@ export const resolvers = {
         settings.adminSetup = {}
       }
 
-      console.log('Settings =>', settings)
-
       const currHash = toHash(schemas)
       if (
         !settings.adminSetup?.schemaHash ||
         settings.adminSetup?.schemaHash !== currHash
       ) {
-        console.log('Has changes')
-
         const updates: any = []
 
         schemas.map((schema) => {
@@ -91,7 +87,6 @@ export const resolvers = {
             .then(() => true)
             .catch((e: any) => {
               if (e.response.status !== 304) {
-                console.log(`Error saving schema ${schema.name}@${schema.version} =>`, e)
                 throw e
               }
               return true
@@ -104,7 +99,7 @@ export const resolvers = {
           settings.adminSetup.schemaHash = currHash
         }).catch((e) => {
           if (e.response.status !== 304) {
-            console.log('Promise All catch =>', e)
+            throw new Error(e)
           }
         })
 

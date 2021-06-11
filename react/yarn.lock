@@ -247,9 +247,9 @@ typescript@3.9.7:
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.9.7.tgz#98d600a5ebdc38f40cb277522f12dc800e9e25fa"
   integrity sha512-BLbiRkiBzAwsjut4x/dsibSTB6yWpwT5qWmC2OfuCg3GgVQCSgMs4vEctYPhsaGtd0AeuuHMkjZ2h2WG8MSzRw==
 
-"vtex.b2b-waffle@https://waffle--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.b2b-waffle@0.0.1-beta.1+build1623185032/public/@types/vtex.b2b-waffle":
-  version "0.0.0"
-  resolved "https://waffle--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.b2b-waffle@0.0.1-beta.1+build1623185032/public/@types/vtex.b2b-waffle#48489c83006986b7c8cfde7522d580c051f871d0"
+"vtex.b2b-waffle@https://waffle--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.b2b-waffle@0.0.1-beta.1+build1623424149/public/@types/vtex.b2b-waffle":
+  version "0.0.1-beta.1"
+  resolved "https://waffle--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.b2b-waffle@0.0.1-beta.1+build1623424149/public/@types/vtex.b2b-waffle#7dec82e59980826e45041bcb6c601cca1446e33e"
 
 "vtex.render-runtime@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.128.4/public/@types/vtex.render-runtime":
   version "8.128.4"

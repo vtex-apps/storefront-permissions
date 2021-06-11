@@ -14,8 +14,8 @@ type Query {
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
   getUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
   listUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  checkUserPermission: [String] @settings(settingsType: "workspace") @cacheControl(scope: PRIVATE, maxAge: SHORT) @withSession @withSender
 }
-
 
 type Mutation {
   saveAppSettings: MutationResponse @cacheControl(scope: PRIVATE)

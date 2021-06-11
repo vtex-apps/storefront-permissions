@@ -40,7 +40,7 @@ export class LMClient extends ExternalClient {
   public saveUser = async (name: string, email: string) => {
     // List all roles
     const roles: any = await this.get(this.routes.getRoles()).catch((err) => {
-      console.log('Error gettings roles', err)
+      throw new Error(err)
     })
 
     let b2brole:any = null
@@ -63,17 +63,12 @@ export class LMClient extends ExternalClient {
     // Check if the user exists
     const checkUser: any = await this.get(this.routes.userByEmail(email))
 
-    console.log('checkUser =>', checkUser)
-
     if(!checkUser?.UserId) {
       // Create with role
-      return await this.post(this.routes.createUser(), data).then((ret: any) => {
-        console.log('Return creating user LM', ret)
-      })
+      return await this.post(this.routes.createUser(), data)
     } else {
       // Update with role
-      return await this.put(this.routes.updateUser(checkUser.UserId), data.roles).then((ret: any) => {
-        console.log('Return updating user LM', ret)
+      return await this.put(this.routes.updateUser(checkUser.UserId), data.roles).then(() => {
         return {userId: checkUser.UserId}
       })
     }
@@ -83,20 +78,16 @@ export class LMClient extends ExternalClient {
   public deleteUser = async (userId: string) => {
     // List all roles
     const roles: any = await this.get(this.routes.getRoles())
-    console.log('Roles =>', roles)
     let b2brole:any = null
     // Get only the role "B2B impersonate"
     b2brole = roles?.items?.find((role: any) => {
       return role.name === "B2B impersonate"
     })
-    console.log('B2B role A =>', b2brole)
     // Create this role if it doesn't exists
     if(b2brole?.id) {
       return this.delete(this.routes.deleteUser(userId, b2brole.id),{})
     }
-
-}
-
+  }
 
   protected get = <T>(url: string) => {
     return this.http.get<T>(url).catch(statusToError)

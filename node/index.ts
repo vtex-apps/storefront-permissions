@@ -1,8 +1,11 @@
-import type { ClientsConfig, ServiceContext, ParamsContext, RecorderState, EventContext } from '@vtex/api'
+import type { ClientsConfig, ServiceContext, ParamsContext, RecorderState, EventContext, IOContext } from '@vtex/api'
 import { Service, AuthType, LRUCache } from '@vtex/api'
 
+import { schemaDirectives } from './directives'
+
 import { Clients } from './clients'
-import { resolvers } from './graphql'
+import { resolvers } from './resolvers'
+
 
 const TIMEOUT_MS = 2000
 
@@ -29,7 +32,14 @@ const clients: ClientsConfig<Clients> = {
 
 declare global {
   type Context = ServiceContext<Clients>
+  interface CustomIOContext extends IOContext {
+    currentProfile: CurrentProfile
+  }
 
+  interface CurrentProfile {
+    email: string
+    userId: string
+  }
   interface StatusChangeContext extends EventContext<Clients> {
     body: {
       domain: string
@@ -53,6 +63,7 @@ export default new Service<Clients, RecorderState, ParamsContext>({
       Query: resolvers.Query,
       Mutation: resolvers.Mutation,
     },
+    schemaDirectives,
   },
   routes: {
   },

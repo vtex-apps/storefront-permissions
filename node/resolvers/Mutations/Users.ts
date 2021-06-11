@@ -6,25 +6,20 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
     clients: { masterdata, lm },
   } = ctx
 
-  console.log('saveUser =>', params)
-
   try {
     const {profileId, canImpersonate, name, email, userId, id} = params
     let _userId = userId
     if(canImpersonate) {
-      console.log('Will save to LM')
       const saveLM: any = await lm.saveUser(name, email).catch((err) => {
-        console.log('Error saveLM', err)
+        throw new Error(err)
 
       })
       _userId = saveLM.userId
-      console.log('saveLM =>', saveLM)
     } else {
       if (userId) {
-        const deleteLMRef = await lm.deleteUser(userId).catch((ret) => {
-          return ret
+        await lm.deleteUser(userId).catch((err) => {
+          throw new Error(err)
         })
-        console.log('deleteLMRef =>', deleteLMRef)
       }
     }
 
@@ -33,7 +28,6 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
       return r
     })
     .catch((err: any) => {
-      console.log('createOrUpdateEntireDocument =>',err.response.status, err)
       if(err.response.status < 400) {
         return {
           DocumentId: id
