@@ -14,6 +14,6 @@ The **B2B Waffle** is the main dependency for b2b modules, it contains Roles and
 
 ## Configuration
 
-1. [Install](https://vtex.io/docs/recipes/development/installing-an-app/) the b2b-waffle app by running `vtex install vtex.b2b-waffle` in your terminal.
+1. [Install](https://vtex.io/docs/recipes/development/installing-an-app/) the storefront-permissions app by running `vtex install vtex.storefront-permissions` in your terminal.
 2. At the Admin, navigate to **OTHER > B2B Admin**, click Setup.
 

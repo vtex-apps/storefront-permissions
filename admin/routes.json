@@ -1,6 +1,6 @@
 {
-  "admin.app.b2b-waffle": {
-    "component": "B2bWaffleConfig",
-    "path": "/admin/app/b2b-waffle"
+  "admin.app.storefront-permissions": {
+    "component": "index",
+    "path": "/admin/app/storefront-permissions"
   }
 }

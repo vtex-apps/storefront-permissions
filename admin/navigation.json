@@ -1,7 +1,7 @@
 {
-  "section": "orders",
-  "path": "/admin/b2b-waffle",
+  "section": "accountSettings",
+  "path": "/admin/storefront-permissions",
   "icon": "extensions-ic",
-  "titleId": "admin/b2b-waffle.navigation.label",
-  "searchKeyWordsHelpers": "admin/b2b-waffle.navigation.keywords"
+  "titleId": "admin/storefront-permissions.navigation.label",
+  "searchKeyWordsHelpers": "admin/storefront-permissions.navigation.keywords"
 }

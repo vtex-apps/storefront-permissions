@@ -1,0 +1,10 @@
+query ListUsers {
+  listUsers {
+    id
+    profileId
+    userId
+    name
+    email
+    canImpersonate
+  }
+}

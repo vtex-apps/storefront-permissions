@@ -1,9 +1,9 @@
 {
-  "name": "b2b-waffle",
+  "name": "storefront-permissions",
   "vendor": "vtex",
-  "version": "0.0.1-beta.1",
-  "title": "B2B Waffle",
-  "description": "Main dependency for b2b modules",
+  "version": "0.0.1",
+  "title": "Storefront Permissions",
+  "description": "Manage User's permissions on apps that relates to this app",
   "mustUpdateAt": "2022-08-28",
   "scripts": {
     "postreleasy": "vtex publish"
