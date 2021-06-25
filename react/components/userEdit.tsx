@@ -2,7 +2,7 @@
 import type { FC } from 'react'
 import React, { useState } from 'react'
 import type { WrappedComponentProps } from 'react-intl'
-import { injectIntl } from 'react-intl'
+import { injectIntl, defineMessages } from 'react-intl'
 import { useQuery, useMutation } from 'react-apollo'
 import { useRuntime } from 'vtex.render-runtime'
 import { Input, Button, Dropdown, Toggle } from 'vtex.styleguide'
@@ -11,7 +11,38 @@ import GET_USER from '../queries/getUser.gql'
 import GET_ROLES from '../queries/ListRoles.gql'
 import SAVE_USER from '../mutations/saveUser.gql'
 
-const UserEdit: FC<any & WrappedComponentProps> = () => {
+const messages = defineMessages({
+  role: {
+    id: 'admin/storefront-permissions.tab.roles.name.label',
+    defaultMessage: 'Role',
+  },
+  canImpersonate: {
+    id: 'admin/storefront-permissions.tab.users.canImpersonate.label',
+    defaultMessage: 'Can impersonate',
+  },
+  name: {
+    id: 'admin/storefront-permissions.tab.users.name.label',
+    defaultMessage: 'Name',
+  },
+  email: {
+    id: 'admin/storefront-permissions.tab.users.email.label',
+    defaultMessage: 'Email',
+  },
+  required: {
+    id: 'admin/storefront-permissions.required',
+    defaultMessage: 'Required',
+  },
+  cancel: {
+    id: 'admin/storefront-permissions.button.cancel',
+    defaultMessage: 'Cancel',
+  },
+  save: {
+    id: 'admin/storefront-permissions.button.delete',
+    defaultMessage: 'Delete',
+  },
+})
+
+const UserEdit: FC<any & WrappedComponentProps> = ({ intl }) => {
   const { navigate, route } = useRuntime()
   const [saveUser, { loading: saveUserLoading }] = useMutation(SAVE_USER, {
     onCompleted: () => {
@@ -64,10 +95,12 @@ const UserEdit: FC<any & WrappedComponentProps> = () => {
     <div className="w-100 pt6">
       <div className="mb5">
         <Input
-          label="Name"
+          label={intl.formatMessage(messages.name)}
           value={state.name}
           disabled={loading}
-          errorMessage={state.name === '' ? 'Required' : ''}
+          errorMessage={
+            state.name === '' ? intl.formatMessage(messages.required) : ''
+          }
           onChange={(e: any) => {
             setState({ ...state, name: e.target.value })
           }}
@@ -76,10 +109,12 @@ const UserEdit: FC<any & WrappedComponentProps> = () => {
 
       <div className="mb5">
         <Input
-          label="Email"
+          label={intl.formatMessage(messages.email)}
           value={state.email}
           disabled={loading}
-          errorMessage={state.email === '' ? 'Required' : ''}
+          errorMessage={
+            state.email === '' ? intl.formatMessage(messages.required) : ''
+          }
           onChange={(e: any) => {
             setState({ ...state, email: e.target.value })
           }}
@@ -88,7 +123,7 @@ const UserEdit: FC<any & WrappedComponentProps> = () => {
 
       <div className="mb5">
         <Dropdown
-          label="Role"
+          label={intl.formatMessage(messages.role)}
           disabled={loadingRoles || loading}
           options={
             dataRoles?.listRoles?.map((role: any) => {
@@ -107,7 +142,7 @@ const UserEdit: FC<any & WrappedComponentProps> = () => {
 
       <div className="mb5">
         <Toggle
-          label="Can impersonate"
+          label={intl.formatMessage(messages.canImpersonate)}
           size="large"
           checked={state.canImpersonate}
           onChange={() => {
@@ -125,7 +160,7 @@ const UserEdit: FC<any & WrappedComponentProps> = () => {
             navigate({ page: 'admin.app.storefront-permissions.users-list' })
           }}
         >
-          Cancel
+          {intl.formatMessage(messages.cancel)}
         </Button>
         <Button
           variation="primary"
@@ -135,7 +170,7 @@ const UserEdit: FC<any & WrappedComponentProps> = () => {
             handleSaveUser()
           }}
         >
-          Save
+          {intl.formatMessage(messages.save)}
         </Button>
       </div>
     </div>

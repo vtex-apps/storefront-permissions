@@ -2,7 +2,7 @@
 import type { FC } from 'react'
 import React, { useState } from 'react'
 import type { WrappedComponentProps } from 'react-intl'
-import { injectIntl } from 'react-intl'
+import { injectIntl, defineMessages } from 'react-intl'
 import { useQuery, useMutation } from 'react-apollo'
 import { useRuntime } from 'vtex.render-runtime'
 import { Input, Button, Divider, Checkbox, Collapsible } from 'vtex.styleguide'
@@ -10,7 +10,31 @@ import { Input, Button, Divider, Checkbox, Collapsible } from 'vtex.styleguide'
 import GET_FEATURES from '../queries/ListFeatures.gql'
 import SAVE_ROLE from '../mutations/saveRole.gql'
 
-const RoleNew: FC<any & WrappedComponentProps> = () => {
+const messages = defineMessages({
+  name: {
+    id: 'admin/storefront-permissions.tab.roles.name.label',
+    defaultMessage: 'Role',
+  },
+  required: {
+    id: 'admin/storefront-permissions.required',
+    defaultMessage: 'Required',
+  },
+  cancel: {
+    id: 'admin/storefront-permissions.button.cancel',
+    defaultMessage: 'Cancel',
+  },
+  save: {
+    id: 'admin/storefront-permissions.button.save',
+    defaultMessage: 'Save',
+  },
+  notFound: {
+    id: 'admin/storefront-permissions.tab.roles.featuresNotFound',
+    defaultMessage:
+      "Could't find any apps connected to the Storefront Permissions",
+  },
+})
+
+const RoleNew: FC<any & WrappedComponentProps> = ({ intl }) => {
   const { navigate } = useRuntime()
   const [state, setState] = useState<any>({
     name: null,
@@ -104,9 +128,11 @@ const RoleNew: FC<any & WrappedComponentProps> = () => {
     <div className="w-100 pt6">
       <div className="mb5">
         <Input
-          label="Name"
+          label={intl.formatMessage(messages.name)}
           value={name}
-          errorMessage={name === '' ? 'Required' : ''}
+          errorMessage={
+            name === '' ? intl.formatMessage(messages.required) : ''
+          }
           disabled={loadingFeatures || saveRoleLoading}
           onChange={(e: any) => {
             setState({ ...state, name: e.target.value })
@@ -118,9 +144,7 @@ const RoleNew: FC<any & WrappedComponentProps> = () => {
         {!loadingFeatures &&
           calledFeatures &&
           !dataFeatures.listFeatures.length && (
-            <div>
-              Could't find any apps connected to the Storefront Permissions
-            </div>
+            <div>{intl.formatMessage(messages.notFound)}</div>
           )}
 
         {dataFeatures?.listFeatures?.map((app: any) => {
@@ -176,7 +200,7 @@ const RoleNew: FC<any & WrappedComponentProps> = () => {
             navigate({ page: 'admin.app.storefront-permissions.roles-list' })
           }}
         >
-          Cancel
+          {intl.formatMessage(messages.cancel)}
         </Button>
         <Button
           variation="primary"
@@ -186,7 +210,7 @@ const RoleNew: FC<any & WrappedComponentProps> = () => {
             handleSaveRole()
           }}
         >
-          Save
+          {intl.formatMessage(messages.save)}
         </Button>
       </div>
     </div>

@@ -20,6 +20,14 @@ const messages = defineMessages({
     id: 'admin/storefront-permissions.tab.users.name.label',
     defaultMessage: 'Name',
   },
+  new: {
+    id: 'admin/storefront-permissions.tab.new.button',
+    defaultMessage: 'New',
+  },
+  delete: {
+    id: 'admin/storefront-permissions.button.delete',
+    defaultMessage: 'Delete',
+  },
 })
 
 const Users: FC<any & WrappedComponentProps> = ({ intl }: any) => {
@@ -82,7 +90,8 @@ const Users: FC<any & WrappedComponentProps> = ({ intl }: any) => {
 
   const lineActions = [
     {
-      label: ({ rowData }: any) => `Delete ${rowData.name}`,
+      label: ({ rowData }: any) =>
+        `${intl.formatMessage(messages.delete)} ${rowData.name}`,
       isDangerous: true,
       onClick: ({ rowData }: any) => {
         deleteId = rowData.id
@@ -114,7 +123,7 @@ const Users: FC<any & WrappedComponentProps> = ({ intl }: any) => {
         }}
         toolbar={{
           newLine: {
-            label: 'New',
+            label: intl.formatMessage(messages.new),
             handleCallback: () => {
               navigate({ page: 'admin.app.storefront-permissions.users-new' })
             },
