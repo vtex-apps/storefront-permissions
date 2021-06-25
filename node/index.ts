@@ -1,11 +1,17 @@
-import type { ClientsConfig, ServiceContext, ParamsContext, RecorderState, EventContext, IOContext } from '@vtex/api'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type {
+  ClientsConfig,
+  ServiceContext,
+  ParamsContext,
+  RecorderState,
+  EventContext,
+  IOContext,
+} from '@vtex/api'
 import { Service, AuthType, LRUCache } from '@vtex/api'
 
 import { schemaDirectives } from './directives'
-
 import { Clients } from './clients'
 import { resolvers } from './resolvers'
-
 
 const TIMEOUT_MS = 2000
 
@@ -21,7 +27,7 @@ const clients: ClientsConfig<Clients> = {
   options: {
     default: defaultClientOptions,
     settings: {
-      memoryCache: memoryCache,
+      memoryCache,
     },
     b2bAdmin: {
       authType: AuthType.bearer,
@@ -65,6 +71,5 @@ export default new Service<Clients, RecorderState, ParamsContext>({
     },
     schemaDirectives,
   },
-  routes: {
-  },
+  routes: {},
 })

@@ -1,0 +1,21 @@
+mutation save(
+  $id: ID
+  $roleId: ID!
+  $userId: ID
+  $canImpersonate: Boolean
+  $name: String!
+  $email: String!
+) {
+  saveUser(
+    id: $id
+    roleId: $roleId
+    userId: $userId
+    canImpersonate: $canImpersonate
+    name: $name
+    email: $email
+  ) {
+    id
+    status
+    message
+  }
+}

@@ -1,0 +1,10 @@
+query ListFeatures {
+  listFeatures {
+    module
+    name
+    features {
+      label
+      value
+    }
+  }
+}

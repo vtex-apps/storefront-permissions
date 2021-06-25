@@ -1,4 +1,6 @@
-import {currentSchema} from '../../utils'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { currentSchema } from '../../utils'
+
 const config: any = currentSchema('b2b_users')
 
 export const saveUser = async (_: any, params: any, ctx: Context) => {
@@ -7,34 +9,77 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
-    const {profileId, canImpersonate, name, email, userId, id} = params
+    const { roleId, canImpersonate, name, email, userId, id } = params
     let _userId = userId
-    if(canImpersonate) {
+
+    if (canImpersonate) {
       const saveLM: any = await lm.saveUser(name, email).catch((err) => {
         throw new Error(err)
-
       })
+
       _userId = saveLM.userId
-    } else {
-      if (userId) {
-        await lm.deleteUser(userId).catch((err) => {
-          throw new Error(err)
-        })
-      }
+    } else if (userId) {
+      await lm.deleteUser(userId).catch((err) => {
+        throw new Error(err)
+      })
     }
 
-    const ret = await masterdata.createOrUpdateEntireDocument({dataEntity: config.name, fields: {profileId, userId: _userId, canImpersonate, name, email}, id, schema: config.version})
-    .then((r: any) => {
-      return r
-    })
-    .catch((err: any) => {
-      if(err.response.status < 400) {
-        return {
-          DocumentId: id
+    const ret = await masterdata
+      .createOrUpdateEntireDocument({
+        dataEntity: config.name,
+        fields: { roleId, userId: _userId, canImpersonate, name, email },
+        id,
+        schema: config.version,
+      })
+      .then((r: any) => {
+        return r
+      })
+      .catch((err: any) => {
+        if (err.response.status < 400) {
+          return {
+            DocumentId: id,
+          }
         }
-      }
-      throw err
+
+        throw err
+      })
+
+    return { status: 'success', message: '', id: ret.DocumentId }
+  } catch (e) {
+    return { status: 'error', message: e }
+  }
+}
+
+export const deleteUserProfile = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+  } = ctx
+
+  const { ids } = params
+
+  try {
+    const ret: any = []
+
+    ids.forEach((id: string) => {
+      ret.push(
+        masterdata.createOrUpdatePartialDocument({
+          dataEntity: config.name,
+          fields: { roleId: '' },
+          id,
+          schema: config.version,
+        })
+      )
     })
+
+    Promise.all(ret)
+      .then((r: any) => {
+        return r
+      })
+      .catch((err: any) => {
+        if (err.response.status >= 400) {
+          throw err
+        }
+      })
 
     return { status: 'success', message: '', id: ret.DocumentId }
   } catch (e) {
@@ -47,12 +92,14 @@ export const deleteUser = async (_: any, params: any, ctx: Context) => {
     clients: { masterdata, lm },
   } = ctx
 
-  const {id, userId} = params
+  const { id, userId } = params
+
   try {
-    await masterdata.deleteDocument({dataEntity: config.name, id})
-    if(userId) {
+    await masterdata.deleteDocument({ dataEntity: config.name, id })
+    if (userId) {
       await lm.deleteUser(userId)
     }
+
     return { status: 'success', message: '' }
   } catch (e) {
     return { status: 'error', message: e }

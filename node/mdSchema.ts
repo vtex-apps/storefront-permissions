@@ -1,51 +1,54 @@
 export default [
   {
     name: 'b2b_roles',
-    version: 'v0.0.1',
+    version: 'v0.0.2',
     body: {
       properties: {
         name: {
           type: 'string',
           title: 'Role Name',
         },
+        features: {
+          type: 'array',
+          items: {
+            type: 'object',
+          },
+          title: 'Features',
+        },
       },
       'v-indexed': ['name'],
       'v-cache': false,
-    }
+    },
   },
   {
     name: 'b2b_profiles',
-    version: 'v0.0.1',
+    version: 'v0.0.2',
     body: {
       properties: {
         roleId: {
           type: 'string',
           title: 'Role ID',
         },
-        scoped: {
-          type: 'boolean',
-          title: 'Scoped access',
-        },
         features: {
           type: 'array',
           items: {
-            type: 'string'
+            type: 'string',
           },
           title: 'Features',
         },
       },
       'v-indexed': ['roleId'],
       'v-cache': false,
-    }
+    },
   },
   {
     name: 'b2b_users',
-    version: 'v0.0.3',
+    version: 'v0.0.5',
     body: {
       properties: {
-        profileId: {
+        roleId: {
           type: 'string',
-          title: 'Profile ID',
+          title: 'Role ID',
         },
         userId: {
           type: 'string',
@@ -64,8 +67,8 @@ export default [
           title: 'Can impersonate',
         },
       },
-      'v-indexed': ['userId','profileId','email','canImpersonate'],
+      'v-indexed': ['userId', 'roleId', 'email', 'canImpersonate'],
       'v-cache': false,
-    }
+    },
   },
 ]

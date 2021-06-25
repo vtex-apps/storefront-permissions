@@ -1,0 +1,7 @@
+mutation save($id: ID, $name: String!, $features: [FeatureInput]!) {
+  saveRole(id: $id, name: $name, features: $features) {
+    id
+    status
+    message
+  }
+}

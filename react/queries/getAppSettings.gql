@@ -1,14 +1,5 @@
 query GetAppSettings {
   getAppSettings {
-    accountID
-    clientID
-    clientSecret
-    refreshToken
-    shopID
-    registerID
-    employeeID
-    submit
-    hasCron
-    cronExpression
+    adminSetup
   }
 }

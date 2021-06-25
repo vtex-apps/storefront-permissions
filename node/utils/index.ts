@@ -1,6 +1,10 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as crypto from 'crypto'
+
 import type { AxiosError } from 'axios'
 import { AuthenticationError, ForbiddenError, UserInputError } from '@vtex/api'
+
 import schemas from '../mdSchema'
 
 export const toHash = (obj: any) => {
@@ -12,6 +16,7 @@ export const currentSchema = (entity: string) => {
     return item.name === entity
   })
 }
+
 export function statusToError(e: any) {
   if (!e.response) {
     throw e

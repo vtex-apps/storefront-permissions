@@ -1,5 +1,5 @@
-query ListUsers {
-  listUsers {
+query GetUser($id: ID!) {
+  getUser(id: $id) {
     id
     roleId
     userId

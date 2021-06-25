@@ -1,11 +1,10 @@
-query ListProfiles {
-  listProfiles {
+query GetRole($id: ID!) {
+  getRole(id: $id) {
     id
     name
     features {
       module
       features
     }
-    roleId
   }
 }

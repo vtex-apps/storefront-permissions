@@ -1,6 +1,33 @@
 {
   "admin.app.storefront-permissions": {
-    "component": "index",
-    "path": "/admin/app/storefront-permissions"
+    "around": ["layout"],
+    "path": "/admin/app/storefront-permissions/*"
+  },
+  "admin.app.storefront-permissions.users-list": {
+    "component": "userList",
+    "path": "/admin/app/storefront-permissions/user/list"
+  },
+  "admin.app.storefront-permissions.users-new": {
+    "component": "userNew",
+    "path": "/admin/app/storefront-permissions/user/new"
+  },
+  "admin.app.storefront-permissions.users-edit": {
+    "component": "userEdit",
+    "path": "/admin/app/storefront-permissions/user/*id"
+  },
+  "admin.app.storefront-permissions.roles-list": {
+    "component": "rolesList",
+    "path": "/admin/app/storefront-permissions/roles/list"
+  },
+  "admin.app.storefront-permissions.roles-new": {
+    "component": "roleNew",
+    "path": "/admin/app/storefront-permissions/role/new"
+  },
+  "admin.app.storefront-permissions.roles-edit": {
+    "component": "roleEdit",
+    "path": "/admin/app/storefront-permissions/role/*id"
+  },
+  "layout": {
+    "component": "index"
   }
 }

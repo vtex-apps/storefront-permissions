@@ -1,4 +1,6 @@
-import {currentSchema, toHash} from '../../utils'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { currentSchema, toHash } from '../../utils'
+
 const config: any = currentSchema('b2b_features')
 
 export const saveFeatures = async (_: any, params: any, ctx: Context) => {
@@ -6,11 +8,16 @@ export const saveFeatures = async (_: any, params: any, ctx: Context) => {
     clients: { masterdata },
   } = ctx
 
-
   try {
-    const {id, features, module} = params
-    const hash = toHash({module, features})
-    await masterdata.createOrUpdateEntireDocument({dataEntity: config.name, fields: {module, features, hash}, id, schema: config.version})
+    const { id, features, module } = params
+    const hash = toHash({ module, features })
+
+    await masterdata.createOrUpdateEntireDocument({
+      dataEntity: config.name,
+      fields: { module, features, hash },
+      id,
+      schema: config.version,
+    })
 
     return { status: 'success', message: '' }
   } catch (e) {
@@ -23,12 +30,17 @@ export const checkAddFeatures = async (_: any, params: any, ctx: Context) => {
     clients: { masterdata },
   } = ctx
 
-
   try {
-    const {features, module} = params
-    const hash = toHash({module, features})
-    const check = await masterdata.searchDocuments({dataEntity: config.name, fields: ['id'], where: `hash=${hash}`, pagination: {pageSize:1, page: 1}})
-    if(!check.length) {
+    const { features, module } = params
+    const hash = toHash({ module, features })
+    const check = await masterdata.searchDocuments({
+      dataEntity: config.name,
+      fields: ['id'],
+      where: `hash=${hash}`,
+      pagination: { pageSize: 1, page: 1 },
+    })
+
+    if (!check.length) {
       saveFeatures(_, params, ctx)
     }
 
@@ -44,7 +56,7 @@ export const deleteFeatures = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
-    await masterdata.deleteDocument({dataEntity: config.name, id: params.id})
+    await masterdata.deleteDocument({ dataEntity: config.name, id: params.id })
 
     return { status: 'success', message: '' }
   } catch (e) {

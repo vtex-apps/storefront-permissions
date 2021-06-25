@@ -1,0 +1,6 @@
+mutation delete($id: ID!, $userId: ID) {
+  deleteUser(id: $id, userId: $userId) {
+    status
+    message
+  }
+}
