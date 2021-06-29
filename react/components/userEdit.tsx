@@ -37,8 +37,8 @@ const messages = defineMessages({
     defaultMessage: 'Cancel',
   },
   save: {
-    id: 'admin/storefront-permissions.button.delete',
-    defaultMessage: 'Delete',
+    id: 'admin/storefront-permissions.button.save',
+    defaultMessage: 'Save',
   },
 })
 

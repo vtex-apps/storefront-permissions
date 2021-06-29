@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
+import { getUser } from '../Queries/Users'
 
 const config: any = currentSchema('b2b_users')
 
 export const saveUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, lm },
+    clients: { masterdata, lm, vbase },
   } = ctx
 
   try {
@@ -43,6 +44,17 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
 
         throw err
       })
+
+    if (ret.DocumentId) {
+      await vbase.saveJSON('b2b_users', email, {
+        id: ret.DocumentId,
+        roleId,
+        userId: _userId,
+        canImpersonate,
+        name,
+        email,
+      })
+    }
 
     return { status: 'success', message: '', id: ret.DocumentId }
   } catch (e) {
@@ -89,13 +101,20 @@ export const deleteUserProfile = async (_: any, params: any, ctx: Context) => {
 
 export const deleteUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, lm },
+    clients: { masterdata, lm, vbase },
   } = ctx
 
   const { id, userId } = params
 
   try {
-    await masterdata.deleteDocument({ dataEntity: config.name, id })
+    const user: any = await getUser(_, { id }, ctx)
+
+    await vbase.deleteFile('b2b_users', user.email)
+
+    await masterdata.deleteDocument({
+      dataEntity: config.name,
+      id,
+    })
     if (userId) {
       await lm.deleteUser(userId)
     }

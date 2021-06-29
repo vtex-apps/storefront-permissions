@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { InstanceOptions, IOContext } from '@vtex/api'
 import { ExternalClient } from '@vtex/api'
@@ -14,6 +15,7 @@ export class LMClient extends ExternalClient {
         Accept: 'application/json',
       },
     })
+    console.log('ctx.authToken =>', ctx.authToken)
   }
 
   private createRole = () => {
@@ -35,7 +37,18 @@ export class LMClient extends ExternalClient {
       roleType: 0,
     }
 
+    console.log('Data to create role =>', data)
+
     return this.post(this.routes.createRole(), data)
+      .then((res: any) => {
+        console.log('Saved Role =>', res)
+
+        return res
+      })
+      .catch((err: any) => {
+        console.log('Error saving Role =>', err)
+        throw new Error(err)
+      })
   }
 
   public saveUser = async (name: string, email: string) => {
@@ -51,10 +64,14 @@ export class LMClient extends ExternalClient {
       return role.name === 'B2B impersonate'
     })
 
+    console.log('Role list =>', roles)
+
     // Create this role if it doesn't exists
-    if (!b2brole?.id) {
+    if (!b2brole?.id || b2brole.id === null) {
       b2brole = await this.createRole()
     }
+
+    console.log('b2brole =>', b2brole)
 
     const data = {
       email,

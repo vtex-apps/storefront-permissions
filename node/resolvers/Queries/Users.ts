@@ -46,12 +46,18 @@ export const getUserByRole = async (_: any, params: any, ctx: Context) => {
 
 export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata },
+    clients: { masterdata, vbase },
   } = ctx
 
   const { email } = params
 
   try {
+    const cachedUser = await vbase.getJSON('b2b_users', email).catch(() => null)
+
+    if (cachedUser) {
+      return [cachedUser]
+    }
+
     return await masterdata.searchDocuments({
       dataEntity: config.name,
       fields: ['id', 'roleId', 'userId', 'name', 'email', 'canImpersonate'],

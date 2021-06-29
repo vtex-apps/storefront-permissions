@@ -37,6 +37,9 @@
       "name": "OMSViewer"
     },
     {
+      "name": "Televendas"
+    },
+    {
       "name": "LogisticsViewer"
     },
     {
@@ -50,6 +53,12 @@
     },
     {
       "name": "Get_Roles_Paged"
+    },
+    {
+      "name": "Get_Role"
+    },
+    {
+      "name": "Create_Role"
     },
     {
       "name": "Get_User_By_Identifier"
@@ -98,9 +107,7 @@
       "url": "https://support.vtex.com/hc/requests"
     },
     "type": "free",
-    "availableCountries": [
-      "*"
-    ]
+    "availableCountries": ["*"]
   },
   "settingsSchema": {
     "title": "B2B Admin",

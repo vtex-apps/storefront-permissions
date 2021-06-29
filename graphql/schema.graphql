@@ -20,7 +20,7 @@ type Query {
   listUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
   checkUserPermission: [String]
     @settings(settingsType: "workspace")
-    @cacheControl(scope: PRIVATE, maxAge: SHORT)
+    @cacheControl(scope: PUBLIC, maxAge: SHORT)
     @withSession
     @withSender
 }

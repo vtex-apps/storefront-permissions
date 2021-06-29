@@ -7,7 +7,7 @@ const config: any = currentSchema('b2b_roles')
 
 export const saveRole = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata },
+    clients: { masterdata, vbase },
   } = ctx
 
   try {
@@ -31,6 +31,14 @@ export const saveRole = async (_: any, params: any, ctx: Context) => {
 
         throw err
       })
+
+    if (ret.DocumentId) {
+      await vbase.saveJSON('b2b_roles', ret.DocumentId, {
+        id: ret.DocumentId,
+        name,
+        features,
+      })
+    }
 
     return { status: 'success', message: '', id: ret.DocumentId }
   } catch (e) {

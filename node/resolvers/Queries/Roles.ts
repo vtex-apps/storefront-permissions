@@ -5,11 +5,16 @@ const config: any = currentSchema('b2b_roles')
 
 export const getRole = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata },
+    clients: { masterdata, vbase },
   } = ctx
 
   try {
     const { id } = params
+    const cachedRole = await vbase.getJSON('b2b_roles', id).catch(() => null)
+
+    if (cachedRole) {
+      return cachedRole
+    }
 
     const role = await masterdata.getDocument({
       dataEntity: config.name,
