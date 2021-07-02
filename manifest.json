@@ -9,7 +9,8 @@
     "postreleasy": "vtex publish"
   },
   "dependencies": {
-    "vtex.styleguide": "9.x"
+    "vtex.styleguide": "9.x",
+    "vtex.admin-customers-graphql": "2.x"
   },
   "builders": {
     "configuration": "0.x",
