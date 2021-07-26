@@ -1,5 +1,4 @@
 query SearchUsers($perPage: Int!, $pageNumber: Int!, $filter: String) {
-  totalNumberOfUsers(filter: $filter)
   users(perPage: $perPage, pageNumber: $pageNumber, filter: $filter) {
     id
     email
