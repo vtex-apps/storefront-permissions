@@ -81,6 +81,11 @@ Once your app is installed, this information will be automatically loaded on the
 
 Now that your app is integrated, and you have associated your test user to a Role containing your app's permission, you can write a GraphQL query on your app to check the current user's permission within the context of your app, it's not necessary to declare your app name nor user credentials, the query will take care of these details
 
+
+### Graphql queries
+
+`checkUserPermission`
+
 ```graphql
 query permissions {
   checkUserPermission @context(provider: "vtex.storefront-permissions") {
@@ -107,6 +112,25 @@ The response will be a simple list with all the permissions the current user has
       },
       "permissions": ["view-awesome-things","create-awesome-things","delete-awesome-things"]
     }
+  }
+}
+```
+
+
+`hasUsers`
+
+```graphql
+query HasUsers {
+  hasUsers(slug: "sales-admin") @context(provider: "vtex.storefront-permissions")
+}
+```
+
+The response will be a boolean
+
+```JSON
+{
+  "data": {
+    "hasUsers": true
   }
 }
 ```

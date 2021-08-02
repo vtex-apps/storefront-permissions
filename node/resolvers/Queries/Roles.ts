@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 import { syncRoles } from '../Mutations/Roles'
+import { getUserByRole } from './Users'
 
 const config: any = currentSchema('b2b_roles')
 
@@ -48,6 +49,18 @@ export const searchRoles = async (_: any, params: any, ctx: Context) => {
   const roles = await masterdata.searchDocuments(options)
 
   return roles
+}
+
+export const hasUsers = async (_: any, params: any, ctx: Context) => {
+  const roles: any = await searchRoles(_, { query: `slug=${params.slug}` }, ctx)
+
+  if (roles.length) {
+    const usersByRole: any = await getUserByRole(_, { id: roles[0].id }, ctx)
+
+    return usersByRole.length > 0
+  }
+
+  return false
 }
 
 export const listRoles = async (_: any, __: any, ctx: Context) => {

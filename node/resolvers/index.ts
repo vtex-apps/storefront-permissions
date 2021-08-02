@@ -3,7 +3,7 @@
 import schemas from '../mdSchema'
 import { toHash } from '../utils'
 import { deleteRole, saveRole } from './Mutations/Roles'
-import { getRole, listRoles } from './Queries/Roles'
+import { getRole, listRoles, hasUsers } from './Queries/Roles'
 import { deleteUser, saveUser } from './Mutations/Users'
 import { getFeaturesByModule, listFeatures } from './Queries/Features'
 import {
@@ -45,6 +45,7 @@ export const resolvers = {
   Query: {
     getRole,
     listRoles,
+    hasUsers,
     getFeaturesByModule,
     listFeatures,
     getUser,
