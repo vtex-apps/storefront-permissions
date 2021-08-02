@@ -2,7 +2,10 @@ type Query {
   getAppSettings: SettingsResponse @cacheControl(scope: PRIVATE)
   # Roles
   getRole(id: ID!): Role @cacheControl(scope: PRIVATE, maxAge: SHORT)
-  listRoles: [Role] @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  listRoles: [Role]
+    @cacheControl(scope: PRIVATE, maxAge: SHORT)
+    @settings(settingsType: "workspace")
+    @withSession
   # Features
   getFeaturesByModule(module: String!): Feature
     @settings(settingsType: "workspace")
@@ -18,11 +21,16 @@ type Query {
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
   getUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
   listUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
-  checkUserPermission: [String]
+  checkUserPermission: UserPermissions
     @settings(settingsType: "workspace")
-    @cacheControl(scope: PUBLIC, maxAge: SHORT)
     @withSession
     @withSender
+    @cacheControl(scope: PRIVATE, maxAge: SHORT)
+}
+
+type UserPermissions {
+  role: SimpleRole
+  permissions: [String]
 }
 
 type Mutation {
@@ -94,7 +102,15 @@ type SingleFeature {
 type Role {
   id: ID
   name: String!
+  locked: Boolean
+  slug: String
   features: [FeatureType]
+}
+
+type SimpleRole {
+  id: ID
+  name: String!
+  slug: String
 }
 
 type MutationResponse {

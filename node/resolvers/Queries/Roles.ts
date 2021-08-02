@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
+import { syncRoles } from '../Mutations/Roles'
 
 const config: any = currentSchema('b2b_roles')
 
@@ -19,7 +20,7 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
     const role = await masterdata.getDocument({
       dataEntity: config.name,
       id,
-      fields: ['id', 'name', 'features'],
+      fields: ['id', 'name', 'features', 'locked', 'slug'],
     })
 
     return role
@@ -28,18 +29,32 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
   }
 }
 
-export const listRoles = async (_: any, __: any, ctx: Context) => {
+export const searchRoles = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
   } = ctx
 
+  const options: any = {
+    dataEntity: config.name,
+    fields: ['id', 'name', 'features', 'locked', 'slug'],
+    schema: config.version,
+    pagination: { page: 1, pageSize: 50 },
+  }
+
+  if (params?.query) {
+    options.where = params?.query
+  }
+
+  const roles = await masterdata.searchDocuments(options)
+
+  return roles
+}
+
+export const listRoles = async (_: any, __: any, ctx: Context) => {
   try {
-    const roles = await masterdata.searchDocuments({
-      dataEntity: config.name,
-      fields: ['id', 'name', 'features'],
-      schema: config.version,
-      pagination: { page: 1, pageSize: 50 },
-    })
+    await syncRoles(ctx)
+
+    const roles = await searchRoles(_, null, ctx)
 
     return roles
   } catch (e) {

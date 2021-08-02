@@ -16,60 +16,7 @@ export class LMClient extends ExternalClient {
     })
   }
 
-  // private createRole = () => {
-  //   const data: any = {
-  //     name: 'B2B impersonate',
-  //     resources: [
-  //       {
-  //         id: 1046,
-  //         hasAccess: true,
-  //         isCustomResource: false,
-  //       },
-  //       {
-  //         id: 1153,
-  //         hasAccess: true,
-  //         isCustomResource: false,
-  //       },
-  //     ],
-  //     logins: [],
-  //     roleType: 0,
-  //   }
-
-  //   console.log('Data to create role =>', data)
-
-  //   return this.post(this.routes.createRole(), data)
-  //     .then((res: any) => {
-  //       console.log('Saved Role =>', res)
-  //       return res
-  //     })
-  //     .catch((err: any) => {
-  //       console.log('Error saving Role =>', err)
-  //       throw new Error(err)
-  //     })
-  // }
-
   public saveUser = async (name: string, email: string) => {
-    // // List all roles
-    // const roles: any = await this.get(this.routes.getRoles()).catch((err) => {
-    //   throw new Error(err)
-    // })
-
-    // let b2brole: any = null
-
-    // // Get only the role "B2B impersonate"
-    // b2brole = roles?.items?.find((role: any) => {
-    //   return role.name === 'B2B impersonate'
-    // })
-
-    // console.log('Role list =>', roles)
-
-    // // Create this role if it doesn't exists
-    // if (!b2brole?.id || b2brole.id === null) {
-    //   b2brole = await this.createRole()
-    // }
-
-    // console.log('b2brole =>', b2brole)
-
     const data = {
       email,
       name,

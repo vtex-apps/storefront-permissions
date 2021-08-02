@@ -3,6 +3,7 @@ import { removeVersionFromAppId } from '@vtex/api'
 
 import { currentSchema } from '../../utils'
 import { getRole } from './Roles'
+import { syncRoles } from '../Mutations/Roles'
 
 const config: any = currentSchema('b2b_users')
 
@@ -92,9 +93,11 @@ export const listUsers = async (_: any, __: any, ctx: Context) => {
 }
 
 export const checkUserPermission = async (_: any, __: any, ctx: Context) => {
+  await syncRoles(ctx)
+
   const { sessionData, sender }: any = ctx.vtex
 
-  if (!sessionData) {
+  if (!sessionData?.namespaces) {
     throw new Error('User not authenticated')
   }
 
@@ -104,6 +107,10 @@ export const checkUserPermission = async (_: any, __: any, ctx: Context) => {
 
   const module = removeVersionFromAppId(sender)
   const user = sessionData?.namespaces?.profile
+
+  if (!user?.email?.value) {
+    throw new Error('User session not available')
+  }
 
   const userData: any = await getUserByEmail(
     _,
@@ -129,5 +136,8 @@ export const checkUserPermission = async (_: any, __: any, ctx: Context) => {
     throw new Error(`Role not found for module ${module}`)
   }
 
-  return currentModule.features
+  return {
+    role: userRole,
+    permissions: currentModule.features,
+  }
 }

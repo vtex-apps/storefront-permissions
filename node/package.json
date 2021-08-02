@@ -2,14 +2,15 @@
   "name": "vtex.checkout-ui-custom",
   "version": "0.0.2",
   "dependencies": {
-    "@vtex/api": "6.43.0",
+    "@vtex/api": "6.44.0",
     "co-body": "^6.0.0",
     "jsonwebtoken": "^8.5.0",
     "qs": "^6.9.4",
     "ramda": "^0.25.0",
     "graphql": "^14.5.0",
     "atob": "^2.1.2",
-    "graphql-tools": "^4.0.6"
+    "graphql-tools": "^4.0.6",
+    "slugify": "^1.2.6"
   },
   "devDependencies": {
     "@types/atob": "^2.1.2",
@@ -19,7 +20,7 @@
     "@types/jsonwebtoken": "^8.5.0",
     "@types/node": "^12.0.0",
     "@types/ramda": "types/npm-ramda#dist",
-    "@vtex/api": "6.43.0",
+    "@vtex/api": "6.44.0",
     "@vtex/prettier-config": "^0.3.1",
     "tslint": "^5.12.0",
     "tslint-config-prettier": "^1.18.0",

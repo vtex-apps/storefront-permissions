@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Removed
+- `billingOpstions` from `manifest.json`
+- Option to **Create** and **Delete** roles from the Admin
+
+### Added
+- Roles autosync from dependent Apps
+
+### Changed
+- `checkUserPermission` return structure
 ## [0.0.2] - 2021-07-26
 
 ### Removed
