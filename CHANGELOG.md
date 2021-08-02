@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- User search at the admin (Dependency change)
+
 ## [1.0.0] - 2021-08-02
 
 ### Removed
