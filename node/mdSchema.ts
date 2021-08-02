@@ -1,12 +1,21 @@
 export default [
   {
     name: 'b2b_roles',
-    version: 'v0.0.2',
+    version: 'v0.0.3',
     body: {
       properties: {
         name: {
           type: 'string',
           title: 'Role Name',
+        },
+        slug: {
+          type: ['null', 'string'],
+          title: 'Role Slug',
+        },
+        locked: {
+          type: ['null', 'boolean'],
+          title: 'Can delete',
+          default: false,
         },
         features: {
           type: 'array',
@@ -16,7 +25,7 @@ export default [
           title: 'Features',
         },
       },
-      'v-indexed': ['name'],
+      'v-indexed': ['name', 'slug'],
       'v-cache': false,
     },
   },

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { FC } from 'react'
 import React, { useState } from 'react'
@@ -90,19 +89,11 @@ const UserNew: FC<any & WrappedComponentProps> = ({ intl }) => {
     })
   }
 
-  console.log('usersData =>', usersData)
-
   const options = {
     onSelect: (args: any) => {
-      console.log('onSelect: ', args)
-
       const selectedUser = usersData.users.find((user: any) => {
-        console.log('loop =>', user)
-
         return user.id === args.value
       })
-
-      console.log('selectedUser =>', selectedUser)
 
       const { id, firstName, lastName, email } = selectedUser
 
@@ -116,11 +107,6 @@ const UserNew: FC<any & WrappedComponentProps> = ({ intl }) => {
     loading,
     value: usersData?.users?.length
       ? usersData.users.map((user: any) => {
-          console.log('Values =>', {
-            value: user.id,
-            label: `${user.firstName} ${user.lastName}<${user.email}>`,
-          })
-
           return {
             value: user.id,
             label: `${user.firstName} ${user.lastName}<${user.email}>`,
@@ -133,7 +119,6 @@ const UserNew: FC<any & WrappedComponentProps> = ({ intl }) => {
 
   const input = {
     onChange: (value: any) => {
-      console.log('onChange =>', value)
       setTerm(value)
       clearTimeout(_timeout)
       _timeout = setTimeout(() => {
@@ -146,16 +131,6 @@ const UserNew: FC<any & WrappedComponentProps> = ({ intl }) => {
         })
       }, 1000)
     },
-    // onSearch: (...args: any) => {
-    //   searchUsers({
-    //     variables: {
-    //       perPage: 10,
-    //       pageNumber: 1,
-    //       filter: term,
-    //     },
-    //   })
-    //   console.log('onSearch:', ...args)
-    // },
     onClear: () => setTerm(''),
     placeholder: 'Search user... (e.g.: Ana)',
     value: term,

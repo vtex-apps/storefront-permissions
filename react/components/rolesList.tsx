@@ -3,14 +3,13 @@ import type { FC } from 'react'
 import React, { useState } from 'react'
 import type { WrappedComponentProps } from 'react-intl'
 import { injectIntl, defineMessages } from 'react-intl'
-import { useQuery, useMutation } from 'react-apollo'
+import { useQuery } from 'react-apollo'
 import { useRuntime } from 'vtex.render-runtime'
 import { Table } from 'vtex.styleguide'
 
 import QUERY_LIST_ROLES from '../queries/ListRoles.gql'
-import DELETE_ROLE from '../mutations/deleteRole.gql'
 
-let deleteId: any = null
+// let deleteId: any = null
 const messages = defineMessages({
   name: {
     id: 'admin/storefront-permissions.tab.roles.name.label',
@@ -34,18 +33,6 @@ const Roles: FC<any & WrappedComponentProps> = ({ intl }: any) => {
   const { loading, data } = useQuery(QUERY_LIST_ROLES)
 
   const { navigate, route } = useRuntime()
-
-  const [deleteRole, { loading: deleteLoading }] = useMutation(DELETE_ROLE, {
-    onCompleted: () => {
-      setState({
-        ...state,
-        items: state.items.filter((item: any) => {
-          return item.id !== deleteId
-        }),
-      })
-      deleteId = null
-    },
-  })
 
   const { params } = route
 
@@ -77,30 +64,13 @@ const Roles: FC<any & WrappedComponentProps> = ({ intl }: any) => {
     })
   }
 
-  const lineActions = [
-    {
-      label: ({ rowData }: any) =>
-        `${intl.formatMessage(messages.delete)} ${rowData.name}`,
-      isDangerous: true,
-      onClick: ({ rowData }: any) => {
-        deleteId = rowData.id
-        deleteRole({
-          variables: {
-            id: rowData.id,
-          },
-        })
-      },
-    },
-  ]
-
   return (
     <div className="w-100 pt6">
       <Table
         fullWidth
-        loading={loading || deleteLoading}
+        loading={loading}
         schema={customSchema}
         items={items}
-        lineActions={lineActions}
         onRowClick={({ rowData: { id } }: any) => {
           navigate({
             page: 'admin.app.storefront-permissions.roles-edit',
@@ -108,14 +78,6 @@ const Roles: FC<any & WrappedComponentProps> = ({ intl }: any) => {
               id,
             },
           })
-        }}
-        toolbar={{
-          newLine: {
-            label: intl.formatMessage(messages.new),
-            handleCallback: () => {
-              navigate({ page: 'admin.app.storefront-permissions.roles-new' })
-            },
-          },
         }}
       />
     </div>
