@@ -2,6 +2,7 @@ type Query {
   getAppSettings: SettingsResponse @cacheControl(scope: PRIVATE)
   # Roles
   getRole(id: ID!): Role @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  hasUsers(slug: String!): Boolean @cacheControl(scope: PRIVATE, maxAge: SHORT)
   listRoles: [Role]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @settings(settingsType: "workspace")
