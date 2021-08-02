@@ -18,9 +18,7 @@ The **Storefront Permissions** is the main dependency for b2b modules, it contai
 1. [Install](https://vtex.io/docs/recipes/development/installing-an-app/) the storefront-permissions app by running `vtex install vtex.storefront-permissions` in your terminal.
 2. At the Admin, navigate to **ACCOUNT SETTINGS > Storefront Permissions**.
 
-3. Create Roles
-
-4. Create Users
+3. Create Users
 
 ## Advanced app integration
 

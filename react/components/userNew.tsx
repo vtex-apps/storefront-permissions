@@ -91,7 +91,7 @@ const UserNew: FC<any & WrappedComponentProps> = ({ intl }) => {
 
   const options = {
     onSelect: (args: any) => {
-      const selectedUser = usersData.users.find((user: any) => {
+      const selectedUser = usersData.users.data.find((user: any) => {
         return user.id === args.value
       })
 
@@ -105,8 +105,8 @@ const UserNew: FC<any & WrappedComponentProps> = ({ intl }) => {
       })
     },
     loading,
-    value: usersData?.users?.length
-      ? usersData.users.map((user: any) => {
+    value: usersData?.users?.data?.length
+      ? usersData.users.data.map((user: any) => {
           return {
             value: user.id,
             label: `${user.firstName} ${user.lastName}<${user.email}>`,
@@ -125,8 +125,8 @@ const UserNew: FC<any & WrappedComponentProps> = ({ intl }) => {
         searchUsers({
           variables: {
             perPage: 10,
-            pageNumber: 0,
-            filter: `_where=((email=*${term}* OR firstName=*${term}* OR lastName=*${term}*))`,
+            pageNumber: 1,
+            filter: `(email=*${term}* OR firstName=*${term}* OR lastName=*${term}*)`,
           },
         })
       }, 1000)

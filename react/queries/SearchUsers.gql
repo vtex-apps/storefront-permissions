@@ -1,22 +1,29 @@
 query SearchUsers($perPage: Int!, $pageNumber: Int!, $filter: String) {
   users(perPage: $perPage, pageNumber: $pageNumber, filter: $filter) {
-    id
-    email
-    firstName
-    lastName
-    gender
-    userId
-    document
-    documentType
-    birthDate
-    corporateName
-    isCorporate
-    corporateDocument
-    corporateName
-    phone
-    homePhone
-    businessPhone
-    isNewsletterOptIn
-    stateRegistration
+    data {
+      id
+      email
+      firstName
+      lastName
+      gender
+      userId
+      document
+      documentType
+      birthDate
+      corporateName
+      isCorporate
+      corporateDocument
+      corporateName
+      phone
+      homePhone
+      businessPhone
+      isNewsletterOptIn
+      stateRegistration
+    }
+    pagination {
+      page
+      pageSize
+      total
+    }
   }
 }
