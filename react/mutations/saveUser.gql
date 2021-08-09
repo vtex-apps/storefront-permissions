@@ -1,7 +1,7 @@
 mutation save(
   $id: ID
   $roleId: ID!
-  $userId: ID
+  $userId: ID!
   $canImpersonate: Boolean
   $name: String!
   $email: String!

@@ -15,11 +15,32 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
   try {
     const { id } = params
 
-    return await masterdata.getDocument({
-      dataEntity: config.name,
-      id,
-      fields: ['id', 'roleId', 'userId', 'name', 'email', 'canImpersonate'],
+    const cl: any = await masterdata.searchDocuments({
+      dataEntity: 'CL',
+      where: `userId=*${id}*`,
+      fields: ['firstName', 'lastName', 'email'],
+      pagination: { page: 1, pageSize: 1 },
     })
+
+    if (!cl.length) {
+      return null
+    }
+
+    const user: any = await masterdata.searchDocuments({
+      dataEntity: config.name,
+      fields: ['id', 'roleId', 'userId', 'canImpersonate'],
+      schema: config.version,
+      pagination: { page: 1, pageSize: 90 },
+      where: `userId=${id}`,
+    })
+
+    return user.length
+      ? {
+          ...user[0],
+          name: `${cl[0].firstName} ${cl[0].lastName}`,
+          email: cl[0].email,
+        }
+      : []
   } catch (e) {
     return { status: 'error', message: e }
   }

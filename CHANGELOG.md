@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- Turning it into a backend layer app
 ## [1.1.0] - 2021-08-02
 
 ### Added

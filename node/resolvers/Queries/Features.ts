@@ -1,16 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const sanitizeFeatures = (settings: any) => {
-  return settings.map((app: any) => {
-    const [module] = app.declarer.split('@')
-    const { name, features, roles } = app[module]
+  let ret = {}
 
-    return {
-      module,
-      name,
-      features,
-      roles,
+  settings.forEach((app: any) => {
+    const [module] = app.declarer.split('@')
+
+    if (app[module]?.features) {
+      const { name, features } = app[module]
+
+      ret = {
+        module,
+        name,
+        features,
+      }
     }
   })
+
+  return ret
 }
 
 export const getFeaturesByModule = async (
@@ -33,13 +39,13 @@ export const getFeaturesByModule = async (
   return null
 }
 
-export const listFeatures = async (ctx: Context) => {
+export const listFeatures = async (_: any, __: any, ctx: Context) => {
   if (ctx.vtex?.settings?.dependenciesSettings) {
     const settingsFiles: any = sanitizeFeatures(
       ctx.vtex.settings.dependenciesSettings
     )
 
-    return settingsFiles
+    return settingsFiles.length ? settingsFiles : [settingsFiles]
   }
 
   return []
@@ -48,7 +54,9 @@ export const listFeatures = async (ctx: Context) => {
 const extractRoles = (settings: any) => {
   const roles: any = {}
 
-  settings.forEach((app: any) => {
+  const apps = settings.length ? settings : [settings]
+
+  apps.forEach((app: any) => {
     app.features?.forEach((feature: any) => {
       feature.roles?.forEach((role: string) => {
         roles[role] = true
@@ -61,8 +69,9 @@ const extractRoles = (settings: any) => {
 
 const featuresByRole = (settings: any, role: string) => {
   const features: any = []
+  const apps = settings.length ? settings : [settings]
 
-  settings.forEach((app: any) => {
+  apps.forEach((app: any) => {
     app.features?.forEach((feature: any) => {
       feature.roles?.forEach((current: string) => {
         if (current === role) {
@@ -87,7 +96,7 @@ const featuresByRole = (settings: any, role: string) => {
 }
 
 export const groupByRole = async (ctx: Context) => {
-  const settings = await listFeatures(ctx)
+  const settings = await listFeatures(null, null, ctx)
   const roles = extractRoles(settings)
   const features: any = []
 

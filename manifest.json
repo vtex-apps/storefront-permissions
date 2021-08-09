@@ -15,10 +15,10 @@
   "builders": {
     "configuration": "0.x",
     "react": "3.x",
-    "admin": "0.x",
     "messages": "1.x",
     "node": "6.x",
     "graphql": "1.x",
+    "store": "0.x",
     "docs": "0.x"
   },
   "policies": [
