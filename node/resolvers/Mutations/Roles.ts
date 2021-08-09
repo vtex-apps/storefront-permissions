@@ -58,10 +58,8 @@ export const syncRoles = async (ctx: Context) => {
   const roleNames = currentRoleNames(ctx.vtex.tenant?.locale)
   // List all features grouped by Role
   const groups = await groupByRole(ctx)
-
   // List all roles from MD
   const roles: any = await searchRoles(null, null, ctx)
-
   // Compare existing roles (MD) to save only differences
 
   groups?.forEach((role: any) => {

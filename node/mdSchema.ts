@@ -52,7 +52,7 @@ export default [
   },
   {
     name: 'b2b_users',
-    version: 'v0.0.5',
+    version: 'v0.0.6',
     body: {
       properties: {
         roleId: {
@@ -63,20 +63,12 @@ export default [
           type: 'string',
           title: 'User ID',
         },
-        name: {
-          type: 'string',
-          title: 'Name',
-        },
-        email: {
-          type: 'string',
-          title: 'Email',
-        },
         canImpersonate: {
           type: 'boolean',
           title: 'Can impersonate',
         },
       },
-      'v-indexed': ['userId', 'roleId', 'email', 'canImpersonate'],
+      'v-indexed': ['userId', 'roleId', 'canImpersonate'],
       'v-cache': false,
     },
   },

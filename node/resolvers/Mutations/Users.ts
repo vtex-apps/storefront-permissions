@@ -11,15 +11,12 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
 
   try {
     const { roleId, canImpersonate, name, email, userId, id } = params
-    let _userId = userId
 
     if (canImpersonate) {
-      const saveLM: any = await lm.saveUser(name, email).catch((err) => {
+      await lm.saveUser(name, email).catch((err) => {
         throw new Error(err)
       })
-
-      _userId = saveLM.userId
-    } else if (userId) {
+    } else {
       await lm.deleteUser(userId).catch((err) => {
         throw new Error(err)
       })
@@ -28,7 +25,7 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
     const ret = await masterdata
       .createOrUpdateEntireDocument({
         dataEntity: config.name,
-        fields: { roleId, userId: _userId, canImpersonate, name, email },
+        fields: { roleId, userId, canImpersonate, name, email },
         id,
         schema: config.version,
       })
@@ -49,7 +46,7 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
       await vbase.saveJSON('b2b_users', email, {
         id: ret.DocumentId,
         roleId,
-        userId: _userId,
+        userId,
         canImpersonate,
         name,
         email,
@@ -107,7 +104,7 @@ export const deleteUser = async (_: any, params: any, ctx: Context) => {
   const { id, userId } = params
 
   try {
-    const user: any = await getUser(_, { id }, ctx)
+    const user: any = await getUser(_, { id: userId }, ctx)
 
     await vbase.deleteFile('b2b_users', user.email)
 

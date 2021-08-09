@@ -246,13 +246,17 @@ typescript@3.9.7:
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.9.7.tgz#98d600a5ebdc38f40cb277522f12dc800e9e25fa"
   integrity sha512-BLbiRkiBzAwsjut4x/dsibSTB6yWpwT5qWmC2OfuCg3GgVQCSgMs4vEctYPhsaGtd0AeuuHMkjZ2h2WG8MSzRw==
 
-"vtex.render-runtime@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.128.4/public/@types/vtex.render-runtime":
-  version "8.128.4"
-  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.128.4/public/@types/vtex.render-runtime#63491782d44910c4edc8528bc645c7c335c33128"
+"vtex.admin-customers-graphql@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.admin-customers-graphql@3.0.1/public/@types/vtex.admin-customers-graphql":
+  version "3.0.1"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.admin-customers-graphql@3.0.1/public/@types/vtex.admin-customers-graphql#d18295715e60b1b7d917714530c22a98a1f4e88f"
 
-"vtex.styleguide@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.143.0/public/@types/vtex.styleguide":
-  version "9.143.0"
-  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.143.0/public/@types/vtex.styleguide#a25555601abee353ed3e859ffb57e98c9e07e911"
+"vtex.render-runtime@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.131.0/public/@types/vtex.render-runtime":
+  version "8.131.0"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.131.0/public/@types/vtex.render-runtime#dcc88828e3d65ecb4e7538a3623a4b1ddd77e034"
+
+"vtex.styleguide@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.145.0/public/@types/vtex.styleguide":
+  version "9.145.0"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.145.0/public/@types/vtex.styleguide#41dfb32af8756eb5528dbd452e47003a8f67fe8c"
 
 zen-observable-ts@^0.8.21:
   version "0.8.21"

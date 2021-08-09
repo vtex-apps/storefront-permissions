@@ -47,7 +47,7 @@ type Mutation {
   saveUser(
     id: ID
     roleId: ID!
-    userId: ID
+    userId: ID!
     canImpersonate: Boolean = false
     name: String!
     email: String!

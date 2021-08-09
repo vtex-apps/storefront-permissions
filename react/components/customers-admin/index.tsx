@@ -4,12 +4,11 @@ import React, { useState } from 'react'
 import type { WrappedComponentProps } from 'react-intl'
 import { injectIntl, defineMessages } from 'react-intl'
 import { useQuery, useMutation } from 'react-apollo'
-import { useRuntime } from 'vtex.render-runtime'
-import { Input, Button, Dropdown, Toggle } from 'vtex.styleguide'
+import { Button, Dropdown, Toggle } from 'vtex.styleguide'
 
-import GET_USER from '../queries/getUser.gql'
-import GET_ROLES from '../queries/ListRoles.gql'
-import SAVE_USER from '../mutations/saveUser.gql'
+import GET_USER from '../../queries/getUser.gql'
+import GET_ROLES from '../../queries/ListRoles.gql'
+import SAVE_USER from '../../mutations/saveUser.gql'
 
 const messages = defineMessages({
   role: {
@@ -42,16 +41,10 @@ const messages = defineMessages({
   },
 })
 
-const UserEdit: FC<any & WrappedComponentProps> = ({ intl }) => {
-  const { navigate, route } = useRuntime()
-  const [saveUser, { loading: saveUserLoading }] = useMutation(SAVE_USER, {
-    onCompleted: () => {
-      navigate({
-        page: 'admin.app.storefront-permissions.users-list',
-        fetchPage: true,
-      })
-    },
-  })
+const UserEdit: FC<any & WrappedComponentProps> = (props: any) => {
+  const { intl } = props
+
+  const [saveUser, { loading: saveUserLoading }] = useMutation(SAVE_USER)
 
   const [state, setState] = useState<any>({
     id: null,
@@ -63,9 +56,9 @@ const UserEdit: FC<any & WrappedComponentProps> = ({ intl }) => {
   })
 
   const { loading } = useQuery(GET_USER, {
-    skip: !route?.params?.id,
+    skip: !props?.id,
     variables: {
-      id: route?.params?.id,
+      id: props?.id,
     },
     fetchPolicy: 'network-only',
     onCompleted: (res: any) => {
@@ -91,35 +84,13 @@ const UserEdit: FC<any & WrappedComponentProps> = ({ intl }) => {
     })
   }
 
+  if (!props.id) return null
+
   return (
     <div className="w-100 pt6">
-      <div className="mb5">
-        <Input
-          label={intl.formatMessage(messages.name)}
-          value={state.name}
-          disabled={loading}
-          errorMessage={
-            state.name === '' ? intl.formatMessage(messages.required) : ''
-          }
-          onChange={(e: any) => {
-            setState({ ...state, name: e.target.value })
-          }}
-        />
-      </div>
+      <div className="mb5">{state.name}</div>
 
-      <div className="mb5">
-        <Input
-          label={intl.formatMessage(messages.email)}
-          value={state.email}
-          disabled={loading}
-          errorMessage={
-            state.email === '' ? intl.formatMessage(messages.required) : ''
-          }
-          onChange={(e: any) => {
-            setState({ ...state, email: e.target.value })
-          }}
-        />
-      </div>
+      <div className="mb5">{state.email}</div>
 
       <div className="mb5">
         <Dropdown
@@ -152,16 +123,6 @@ const UserEdit: FC<any & WrappedComponentProps> = ({ intl }) => {
       </div>
 
       <div className="mv4 flex justify-between">
-        <Button
-          variation="tertiary"
-          disabled={loading}
-          collapseLeft
-          onClick={() => {
-            navigate({ page: 'admin.app.storefront-permissions.users-list' })
-          }}
-        >
-          {intl.formatMessage(messages.cancel)}
-        </Button>
         <Button
           variation="primary"
           disabled={loading || saveUserLoading || !state.name || !state.email}
