@@ -7,6 +7,10 @@
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 The **Storefront Permissions** is the main dependency for b2b modules, it contains Roles and User management
+This APP doesn't containg an interface, for that, install either `vtex.admin-customers` or `vtex.storefront-permissions-ui`
+
+The `vtex.storefront-permissions-ui` will allow you to also edit permissions for specific roles
+
 
 ## Functionalities
 
@@ -28,7 +32,7 @@ How to integrate your app with **Storefront Permissions** and make it available 
 
 ```JSON
 "builders": {
-    "vtex.storefront-permissions": "0.x"
+    "vtex.storefront-permissions": "1.x"
   }
 ```
 

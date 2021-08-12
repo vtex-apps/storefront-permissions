@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Exported component `StorefrontPermissions` to be imported by `vtex.admin-customers`
+
+### Fixed
+- Duplicated Role
+- License Manager insertion for new vtex users
 ## [1.2.0] - 2021-08-09
 
 ### Changed

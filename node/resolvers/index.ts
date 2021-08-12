@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import schemas from '../mdSchema'
 import { toHash } from '../utils'
-import { deleteRole, saveRole } from './Mutations/Roles'
+import { deleteRole, saveRole, syncRoles } from './Mutations/Roles'
 import { getRole, listRoles, hasUsers } from './Queries/Roles'
 import { deleteUser, saveUser } from './Mutations/Users'
 import { getFeaturesByModule, listFeatures } from './Queries/Features'
@@ -103,6 +103,10 @@ export const resolvers = {
 
         await apps.saveAppSettings(app, settings)
       }
+
+      const roles: any = await syncRoles(ctx).catch(() => [])
+
+      settings.adminSetup.roles = !!roles.length
 
       return settings
     },
