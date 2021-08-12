@@ -2,7 +2,7 @@
 import type { InstanceOptions, IOContext } from '@vtex/api'
 import { ExternalClient } from '@vtex/api'
 
-import { statusToError } from './index'
+import { statusToError, toUUID } from './index'
 
 export class LMClient extends ExternalClient {
   constructor(ctx: IOContext, options?: InstanceOptions) {
@@ -16,28 +16,51 @@ export class LMClient extends ExternalClient {
     })
   }
 
+  public getUserIdByEmail = async (email: string) => {
+    const user: any = await this.get(this.routes.userByEmail(email))
+      .then((res: any) => {
+        return res?.UserId ? toUUID(res.UserId) : null
+      })
+      .catch(() => {
+        return null
+      })
+
+    return user
+  }
+
   public saveUser = async (name: string, email: string) => {
     const data = {
       email,
       name,
-      roles: [957],
+      roles: [
+        {
+          id: 957,
+        },
+      ],
     }
 
     // Check if the user exists
     const checkUser: any = await this.get(this.routes.userByEmail(email))
+      .then((res: any) => {
+        return res
+      })
+      .catch(() => {
+        return {}
+      })
 
     if (!checkUser?.UserId) {
       // Create with role
       const role = await this.post(this.routes.createUser(), data)
+        .then(() => true)
+        .catch(() => false)
 
       return role
     }
 
     // Update with role
-    const update = await this.put(
-      this.routes.updateUser(checkUser.UserId),
-      data.roles
-    ).then(() => {
+    const update = await this.put(this.routes.updateUser(checkUser.UserId), [
+      957,
+    ]).then(() => {
       return { userId: checkUser.UserId }
     })
 
@@ -55,7 +78,15 @@ export class LMClient extends ExternalClient {
     // })
     // // Create this role if it doesn't exists
     // if (b2brole?.id) {
-    return this.delete(this.routes.deleteUser(userId, '957'), {})
+    const user = await this.get(this.routes.userById(userId))
+      .then(() => {
+        return true
+      })
+      .catch(() => {
+        return false
+      })
+
+    return user ? this.delete(this.routes.deleteUser(userId, '957'), {}) : {}
     // }
   }
 
@@ -77,6 +108,7 @@ export class LMClient extends ExternalClient {
 
   private get routes() {
     return {
+      userById: (id: string) => `api/license-manager/pvt/users/${id}`,
       userByEmail: (email: string) =>
         `api/license-manager/pvt/users/${encodeURIComponent(email)}`,
       addCallcenter: (userId: string) =>

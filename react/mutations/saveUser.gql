@@ -1,7 +1,8 @@
 mutation save(
   $id: ID
   $roleId: ID!
-  $userId: ID!
+  $clId: ID!
+  $userId: ID
   $canImpersonate: Boolean
   $name: String!
   $email: String!
@@ -9,6 +10,7 @@ mutation save(
   saveUser(
     id: $id
     roleId: $roleId
+    clId: $clId
     userId: $userId
     canImpersonate: $canImpersonate
     name: $name

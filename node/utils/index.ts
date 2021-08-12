@@ -13,6 +13,15 @@ export const toHash = (obj: any) => {
   return crypto.createHash('md5').update(JSON.stringify(obj)).digest('hex')
 }
 
+export function toUUID(uuid: string) {
+  return uuid.indexOf('-') === -1
+    ? `${uuid.substring(0, 8)}-${uuid.substring(8, 12)}-${uuid.substring(
+        12,
+        16
+      )}-${uuid.substring(16, 20)}-${uuid.substring(20, uuid.length)}`
+    : uuid
+}
+
 export function Slugify(str: any) {
   return slugify(str, { lower: true, remove: /[*+~.()'"!:@]/g })
 }

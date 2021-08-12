@@ -52,6 +52,12 @@ export const saveRole = async (_: any, params: any, ctx: Context) => {
   }
 }
 
+const onlyModules = (obj: any) => {
+  return obj.map(({ module }: any) => {
+    return { module }
+  })
+}
+
 export const syncRoles = async (ctx: Context) => {
   const newRoles: any = []
   // Get role names based on the location
@@ -64,6 +70,7 @@ export const syncRoles = async (ctx: Context) => {
 
   groups?.forEach((role: any) => {
     const [slug] = Object.getOwnPropertyNames(role)
+
     let currRole: any = {}
     const roleIndex = roles.findIndex((o: any) => o.slug === slug)
 
@@ -74,9 +81,13 @@ export const syncRoles = async (ctx: Context) => {
         slug,
         locked: true,
       }
-    } else if (toHash(role[slug]) !== toHash(roles[roleIndex].features)) {
+    } else if (
+      toHash(onlyModules(role[slug])) !==
+      toHash(onlyModules(roles[roleIndex].features))
+    ) {
       // Compare features
-      const newFeatures: any = roles[roleIndex].features
+      const currModules: any = roles[roleIndex].features
+
       const newModules = role[slug].filter((m: any) => {
         return (
           roles[roleIndex].features.findIndex(
@@ -86,12 +97,12 @@ export const syncRoles = async (ctx: Context) => {
       })
 
       newModules.forEach((m: any) => {
-        newFeatures.push(m)
+        currModules.push(m)
       })
 
       currRole = {
         ...roles[roleIndex],
-        features: newFeatures,
+        features: newModules,
       }
     }
 
@@ -109,7 +120,7 @@ export const syncRoles = async (ctx: Context) => {
   const promise: any = []
 
   mergedRoles.forEach((role: any) => {
-    promise.push(saveRole(null, role, ctx))
+    promise.push(saveRole(role.id ?? null, role, ctx))
   })
 
   return Promise.all(promise).then(() => mergedRoles)

@@ -15,32 +15,40 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
   try {
     const { id } = params
 
-    const cl: any = await masterdata.searchDocuments({
+    const cl: any = await masterdata.getDocument({
       dataEntity: 'CL',
-      where: `userId=*${id}*`,
-      fields: ['firstName', 'lastName', 'email'],
-      pagination: { page: 1, pageSize: 1 },
+      id,
+      fields: ['firstName', 'lastName', 'email', 'userId'],
     })
 
-    if (!cl.length) {
+    if (!cl) {
       return null
     }
 
     const user: any = await masterdata.searchDocuments({
       dataEntity: config.name,
-      fields: ['id', 'roleId', 'userId', 'canImpersonate'],
+      fields: ['id', 'roleId', 'clId', 'userId', 'canImpersonate'],
       schema: config.version,
       pagination: { page: 1, pageSize: 90 },
-      where: `userId=${id}`,
+      where: `clId=${id}`,
     })
 
-    return user.length
+    const ret = user.length
       ? {
           ...user[0],
-          name: `${cl[0].firstName} ${cl[0].lastName}`,
-          email: cl[0].email,
+          name: `${cl.firstName} ${cl.lastName}`,
+          email: cl.email,
         }
-      : []
+      : {
+          roleId: null,
+          userId: cl.userId,
+          clId: id,
+          canImpersonate: false,
+          name: `${cl.firstName} ${cl.lastName}`,
+          email: cl.email,
+        }
+
+    return ret
   } catch (e) {
     return { status: 'error', message: e }
   }
@@ -82,7 +90,15 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
 
     return await masterdata.searchDocuments({
       dataEntity: config.name,
-      fields: ['id', 'roleId', 'userId', 'name', 'email', 'canImpersonate'],
+      fields: [
+        'id',
+        'roleId',
+        'userId',
+        'clId',
+        'name',
+        'email',
+        'canImpersonate',
+      ],
       schema: config.version,
       pagination: { page: 1, pageSize: 50 },
       where: `email=${email}`,
@@ -102,7 +118,15 @@ export const listUsers = async (_: any, __: any, ctx: Context) => {
   try {
     res = await masterdata.searchDocuments({
       dataEntity: config.name,
-      fields: ['id', 'roleId', 'userId', 'name', 'email', 'canImpersonate'],
+      fields: [
+        'id',
+        'roleId',
+        'userId',
+        'clId',
+        'name',
+        'email',
+        'canImpersonate',
+      ],
       schema: config.version,
       pagination: { page: 1, pageSize: 50 },
     })

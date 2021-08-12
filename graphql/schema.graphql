@@ -37,8 +37,12 @@ type UserPermissions {
 type Mutation {
   saveAppSettings: MutationResponse @cacheControl(scope: PRIVATE)
   # Roles
-  saveRole(id: ID, name: String!, features: [FeatureInput]): MutationResponse
-    @cacheControl(scope: PRIVATE)
+  saveRole(
+    id: ID
+    name: String!
+    slug: String
+    features: [FeatureInput]
+  ): MutationResponse @cacheControl(scope: PRIVATE)
   deleteRole(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
   # Profile
   # saveProfile(roleId: ID!, features: [FeatureInput]!): MutationResponse @cacheControl(scope: PRIVATE)
@@ -47,19 +51,21 @@ type Mutation {
   saveUser(
     id: ID
     roleId: ID!
-    userId: ID!
+    userId: ID
+    clId: ID!
     canImpersonate: Boolean = false
     name: String!
     email: String!
   ): MutationResponse @cacheControl(scope: PRIVATE)
-  deleteUser(id: ID!, userId: ID): MutationResponse
+  deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
     @cacheControl(scope: PRIVATE)
 }
 
 type User {
   id: ID
-  roleId: ID!
-  userId: String
+  roleId: ID
+  userId: ID
+  clId: ID
   name: String!
   email: String!
   canImpersonate: Boolean
