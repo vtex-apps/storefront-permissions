@@ -3,7 +3,7 @@ import { removeVersionFromAppId } from '@vtex/api'
 
 import { currentSchema } from '../../utils'
 import { getRole } from './Roles'
-import { syncRoles } from '../Mutations/Roles'
+import { getAppSettings } from './Settings'
 
 const config: any = currentSchema('b2b_users')
 
@@ -88,7 +88,7 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
       return [cachedUser]
     }
 
-    return await masterdata.searchDocuments({
+    const ret = await masterdata.searchDocuments({
       dataEntity: config.name,
       fields: [
         'id',
@@ -103,6 +103,8 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
       pagination: { page: 1, pageSize: 50 },
       where: `email=${email}`,
     })
+
+    return ret
   } catch (e) {
     return { status: 'error', message: e }
   }
@@ -138,7 +140,7 @@ export const listUsers = async (_: any, __: any, ctx: Context) => {
 }
 
 export const checkUserPermission = async (_: any, __: any, ctx: Context) => {
-  await syncRoles(ctx)
+  await getAppSettings(null, null, ctx)
 
   const { sessionData, sender }: any = ctx.vtex
 
