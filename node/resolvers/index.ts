@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import schemas from '../mdSchema'
-import { toHash } from '../utils'
-import { deleteRole, saveRole, syncRoles } from './Mutations/Roles'
+
+import { deleteRole, saveRole } from './Mutations/Roles'
 import { getRole, listRoles, hasUsers } from './Queries/Roles'
 import { deleteUser, saveUser } from './Mutations/Users'
 import { getFeaturesByModule, listFeatures } from './Queries/Features'
+import { getAppSettings } from './Queries/Settings'
 import {
   getUser,
   getUserByEmail,
@@ -52,63 +52,6 @@ export const resolvers = {
     getUserByEmail,
     listUsers,
     checkUserPermission,
-    getAppSettings: async (_: any, __: any, ctx: Context) => {
-      const {
-        clients: { apps, masterdata },
-      } = ctx
-
-      const app: string = getAppId()
-      const settings = await apps.getAppSettings(app)
-
-      if (!settings.adminSetup) {
-        settings.adminSetup = {}
-      }
-
-      const currHash = toHash(schemas)
-
-      if (
-        !settings.adminSetup?.schemaHash ||
-        settings.adminSetup?.schemaHash !== currHash
-      ) {
-        const updates: any = []
-
-        schemas.forEach((schema) => {
-          updates.push(
-            masterdata
-              .createOrUpdateSchema({
-                dataEntity: schema.name,
-                schemaName: schema.version,
-                schemaBody: schema.body,
-              })
-              .then(() => true)
-              .catch((e: any) => {
-                if (e.response.status !== 304) {
-                  throw e
-                }
-
-                return true
-              })
-          )
-        })
-
-        await Promise.all(updates)
-          .then(() => {
-            settings.adminSetup.schemaHash = currHash
-          })
-          .catch((e) => {
-            if (e.response.status !== 304) {
-              throw new Error(e)
-            }
-          })
-
-        await apps.saveAppSettings(app, settings)
-      }
-
-      const roles: any = await syncRoles(ctx).catch(() => [])
-
-      settings.adminSetup.roles = !!roles.length
-
-      return settings
-    },
+    getAppSettings,
   },
 }

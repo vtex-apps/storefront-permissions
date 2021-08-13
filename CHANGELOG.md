@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- MD Schema
 ## [1.3.1] - 2021-08-13
 
 ### Added
