@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Exception for `vtex.storefront-permissions-ui` requests
+
 ## [1.3.0] - 2021-08-12
 
 ### Added

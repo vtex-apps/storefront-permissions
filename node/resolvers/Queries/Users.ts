@@ -177,12 +177,12 @@ export const checkUserPermission = async (_: any, __: any, ctx: Context) => {
     return feature.module === module
   })
 
-  if (!currentModule) {
+  if (!currentModule && module !== 'vtex.storefront-permissions-ui') {
     throw new Error(`Role not found for module ${module}`)
   }
 
   return {
     role: userRole,
-    permissions: currentModule.features,
+    permissions: currentModule?.features ?? [],
   }
 }
