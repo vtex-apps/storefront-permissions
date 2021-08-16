@@ -3,16 +3,22 @@ import schemas from '../../mdSchema'
 import { toHash } from '../../utils'
 
 const getAppId = (): string => {
-  return process.env.VTEX_APP_ID ?? ''
+  const app = process.env.VTEX_APP_ID
+  const [appName] = String(app).split('@')
+
+  return appName
 }
 
 export const getAppSettings = async (_: any, __: any, ctx: Context) => {
   const {
-    clients: { apps, masterdata },
+    clients: { masterdata, vbase },
   } = ctx
 
   const app: string = getAppId()
-  const settings = await apps.getAppSettings(app)
+
+  const settings: any = await vbase.getJSON('b2b_settings', app).catch(() => {
+    return {}
+  })
 
   if (!settings.adminSetup) {
     settings.adminSetup = {}
@@ -55,7 +61,7 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
         }
       })
 
-    await apps.saveAppSettings(app, settings)
+    await vbase.saveJSON('b2b_settigns', app, settings)
   }
 
   const roles: any = await syncRoles(ctx).catch(() => [])
