@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "vtex.styleguide": "9.x",
-    "vtex.admin-customers-graphql": "3.x"
+    "vtex.admin-customers-graphql": "3.x",
+    "vtex.b2b-organizations-graphql": "0.x"
   },
   "builders": {
     "configuration": "0.x",

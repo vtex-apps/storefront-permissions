@@ -1,13 +1,16 @@
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { FC } from 'react'
 import React, { useState } from 'react'
 import type { WrappedComponentProps } from 'react-intl'
 import { injectIntl, defineMessages } from 'react-intl'
-import { useQuery, useMutation } from 'react-apollo'
+import { useQuery, useMutation, useLazyQuery } from 'react-apollo'
 import { Button, Dropdown, Toggle, Alert } from 'vtex.styleguide'
 
 import GET_USER from '../queries/getUser.gql'
 import GET_ROLES from '../queries/ListRoles.gql'
+import GET_ORG from '../queries/listOrganizations.gql'
+import GET_COST from '../queries/costCentersByOrg.gql'
 import SAVE_USER from '../mutations/saveUser.gql'
 
 const messages = defineMessages({
@@ -26,6 +29,14 @@ const messages = defineMessages({
   email: {
     id: 'admin/storefront-permissions.tab.users.email.label',
     defaultMessage: 'Email',
+  },
+  organization: {
+    id: 'admin/storefront-permissions.tab.users.organization.label',
+    defaultMessage: 'Organization',
+  },
+  costCenter: {
+    id: 'admin/storefront-permissions.tab.users.costCenter.label',
+    defaultMessage: 'Cost Center',
   },
   required: {
     id: 'admin/storefront-permissions.required',
@@ -49,6 +60,18 @@ const messages = defineMessages({
   },
 })
 
+const parseOptions = (options: any) => {
+  const ret =
+    options?.data.map((org: any) => {
+      return {
+        value: org.id,
+        label: org.name,
+      }
+    }) ?? []
+
+  return ret
+}
+
 const UserEdit: FC<any & WrappedComponentProps> = (props: any) => {
   const { intl, id, showName, showEmail, showCancel, onCancel, onSave } = props
 
@@ -56,6 +79,8 @@ const UserEdit: FC<any & WrappedComponentProps> = (props: any) => {
     message: null,
     id: null,
     roleId: null,
+    orgId: null,
+    costId: null,
     userId: null,
     clId: id,
     name: props.name ?? null,
@@ -63,7 +88,7 @@ const UserEdit: FC<any & WrappedComponentProps> = (props: any) => {
     canImpersonate: false,
   })
 
-  const { loading, data: getUserData } = useQuery(GET_USER, {
+  const { loading } = useQuery(GET_USER, {
     skip: !id,
     variables: {
       id,
@@ -76,6 +101,8 @@ const UserEdit: FC<any & WrappedComponentProps> = (props: any) => {
       })
     },
   })
+
+  const { loading: loadingOrg, data: orgData } = useQuery(GET_ORG)
 
   const [saveUser, { loading: saveUserLoading }] = useMutation(SAVE_USER, {
     onCompleted(res: any) {
@@ -100,12 +127,19 @@ const UserEdit: FC<any & WrappedComponentProps> = (props: any) => {
 
   const { loading: loadingRoles, data: dataRoles } = useQuery(GET_ROLES)
 
+  const [getCostCenter, { data: dataCostCenter, error }] =
+    useLazyQuery(GET_COST)
+
+  console.log('Error getting cost center =>', error)
+
   const handleSaveUser = () => {
     const variables: any = {
       id: state.id,
       clId: state.clId,
       userId: state.userId,
       roleId: state.roleId,
+      orgId: state.orgId,
+      costId: state.costId,
       name: state.name,
       email: state.email,
       canImpersonate: state.canImpersonate,
@@ -119,6 +153,10 @@ const UserEdit: FC<any & WrappedComponentProps> = (props: any) => {
       variables,
     })
   }
+
+  const optionsOrg = parseOptions(orgData?.getOrganizations) ?? []
+  const optionsCost =
+    parseOptions(dataCostCenter?.getCostCentersByOrganizationId) ?? []
 
   return (
     <div className="w-100 pt6">
@@ -143,10 +181,42 @@ const UserEdit: FC<any & WrappedComponentProps> = (props: any) => {
         />
       </div>
 
+      {dataRoles && (
+        <div className="mb5">
+          <Dropdown
+            label={intl.formatMessage(messages.organization)}
+            options={optionsOrg}
+            value={state.orgId}
+            onChange={(_: any, orgId: any) => {
+              setState({ ...state, orgId })
+              getCostCenter({
+                variables: {
+                  id: orgId,
+                },
+              })
+            }}
+          />
+        </div>
+      )}
+
+      {state.orgId && (
+        <div className="mb5">
+          <Dropdown
+            label={intl.formatMessage(messages.costCenter)}
+            options={optionsCost}
+            value={state.costId}
+            onChange={(_: any, costId: any) => {
+              setState({ ...state, costId })
+            }}
+          />
+        </div>
+      )}
+
       <div className="mb5">
         <Toggle
           label={intl.formatMessage(messages.canImpersonate)}
           size="large"
+          disabled={loadingOrg}
           checked={state.canImpersonate}
           onChange={() => {
             setState({ ...state, canImpersonate: !state.canImpersonate })

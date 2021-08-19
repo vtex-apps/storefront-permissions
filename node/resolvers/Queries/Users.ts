@@ -27,7 +27,15 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
 
     const user: any = await masterdata.searchDocuments({
       dataEntity: config.name,
-      fields: ['id', 'roleId', 'clId', 'userId', 'canImpersonate'],
+      fields: [
+        'id',
+        'roleId',
+        'clId',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+      ],
       schema: config.version,
       pagination: { page: 1, pageSize: 90 },
       where: `clId=${id}`,
@@ -64,7 +72,16 @@ export const getUserByRole = async (_: any, params: any, ctx: Context) => {
   try {
     return await masterdata.searchDocuments({
       dataEntity: config.name,
-      fields: ['id', 'roleId', 'userId', 'name', 'email', 'canImpersonate'],
+      fields: [
+        'id',
+        'roleId',
+        'userId',
+        'orgId',
+        'costId',
+        'name',
+        'email',
+        'canImpersonate',
+      ],
       schema: config.version,
       pagination: { page: 1, pageSize: 90 },
       where: `roleId=${id}`,
@@ -95,6 +112,8 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
         'roleId',
         'userId',
         'clId',
+        'orgId',
+        'costId',
         'name',
         'email',
         'canImpersonate',
@@ -125,6 +144,8 @@ export const listUsers = async (_: any, __: any, ctx: Context) => {
         'roleId',
         'userId',
         'clId',
+        'orgId',
+        'costId',
         'name',
         'email',
         'canImpersonate',

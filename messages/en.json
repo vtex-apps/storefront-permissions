@@ -13,6 +13,8 @@
   "admin/storefront-permissions.tab.users": "Users",
   "admin/storefront-permissions.tab.users.canImpersonate.label": "Can impersonate",
   "admin/storefront-permissions.tab.users.email.label": "Email",
+  "admin/storefront-permissions.tab.users.organization.label": "Organization",
+  "admin/storefront-permissions.tab.users.costCenter.label": "Cost Center",
   "admin/storefront-permissions.tab.users.error": "Error saving B2B info",
   "admin/storefront-permissions.tab.users.name.label": "Name",
   "admin/storefront-permissions.tab.users.success": "B2B info saved",
