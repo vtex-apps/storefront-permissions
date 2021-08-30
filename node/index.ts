@@ -71,5 +71,5 @@ export default new Service<Clients, RecorderState, ParamsContext>({
     },
     schemaDirectives,
   },
-  routes: {},
+  routes: resolvers.Routes,
 })

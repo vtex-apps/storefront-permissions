@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 - Organization and Cost Center dropdown
+- GraphQL Directive `withUserPermissions`
 ## [1.3.3] - 2021-08-16
 
 ## [1.3.2] - 2021-08-13

@@ -10,5 +10,11 @@
   },
   "minReplicas": 8,
   "maxReplicas": 80,
-  "workers": 1
+  "workers": 1,
+  "routes": {
+    "setProfile": {
+      "path": "/_v/storefront-permissions/session/transform",
+      "public": true
+    }
+  }
 }

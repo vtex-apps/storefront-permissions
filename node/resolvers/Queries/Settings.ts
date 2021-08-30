@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { syncRoles } from '../Mutations/Roles'
 import schemas from '../../mdSchema'
 import { toHash } from '../../utils'
@@ -19,6 +20,8 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
   const settings: any = await vbase.getJSON('b2b_settings', app).catch(() => {
     return {}
   })
+
+  console.log('Settings =>', settings)
 
   if (!settings.adminSetup) {
     settings.adminSetup = {}
@@ -43,6 +46,7 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
           .then(() => true)
           .catch((e: any) => {
             if (e.response.status !== 304) {
+              console.log('Catch loop =>', e.response)
               throw e
             }
 
@@ -56,6 +60,7 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
         settings.adminSetup.schemaHash = currHash
       })
       .catch((e) => {
+        console.log('Catch promise all =>', e.response)
         if (e.response.status !== 304) {
           throw new Error(e)
         }
