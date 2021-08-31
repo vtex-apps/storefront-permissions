@@ -9,8 +9,10 @@
     "postreleasy": "vtex publish"
   },
   "dependencies": {
+    "vtex.profile-session": "0.x",
     "vtex.styleguide": "9.x",
-    "vtex.admin-customers-graphql": "3.x"
+    "vtex.admin-customers-graphql": "3.x",
+    "vtex.b2b-organizations-graphql": "0.x"
   },
   "builders": {
     "configuration": "0.x",
@@ -19,7 +21,8 @@
     "node": "6.x",
     "graphql": "1.x",
     "store": "0.x",
-    "docs": "0.x"
+    "docs": "0.x",
+    "vtex.session": "0.x"
   },
   "policies": [
     {

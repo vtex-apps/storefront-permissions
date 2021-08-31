@@ -9,7 +9,18 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
-    const { roleId, canImpersonate, name, email, userId, clId, id } = params
+    const {
+      roleId,
+      canImpersonate,
+      name,
+      email,
+      userId,
+      clId,
+      orgId,
+      costId,
+      id,
+    } = params
+
     let UserId = userId
 
     if (canImpersonate) {
@@ -28,7 +39,16 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
     const ret = await masterdata
       .createOrUpdateEntireDocument({
         dataEntity: config.name,
-        fields: { roleId, userId: UserId, clId, canImpersonate, name, email },
+        fields: {
+          roleId,
+          userId: UserId,
+          clId,
+          orgId,
+          costId,
+          canImpersonate,
+          name,
+          email,
+        },
         id,
         schema: config.version,
       })
@@ -50,6 +70,9 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
         id: ret.DocumentId,
         roleId,
         userId,
+        clId,
+        orgId,
+        costId,
         canImpersonate,
         name,
         email,

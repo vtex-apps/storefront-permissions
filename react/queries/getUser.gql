@@ -2,6 +2,8 @@ query GetUser($id: ID!) {
   getUser(id: $id) {
     id
     roleId
+    orgId
+    costId
     userId
     name
     email

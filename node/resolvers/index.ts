@@ -1,5 +1,7 @@
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { json } from 'co-body'
 
 import { deleteRole, saveRole } from './Mutations/Roles'
 import { getRole, listRoles, hasUsers } from './Queries/Roles'
@@ -18,7 +20,53 @@ const getAppId = (): string => {
 }
 
 export const resolvers = {
-  Routes: {},
+  Routes: {
+    setProfile: async (ctx: Context) => {
+      ctx.set('Content-Type', 'application/json')
+      ctx.set('Cache-Control', 'no-cache, no-store')
+      const body: any = await json(ctx.req)
+
+      console.log('VTEX SESSION REQUEST BODY =>', body)
+
+      const res = {
+        'storefront-permissions': {
+          organization: {
+            value: 'Org1',
+          },
+          costcenter: {
+            value: 'Cost1',
+          },
+          priceTables: {
+            value: 'bronze',
+          },
+        },
+        public: {
+          facets: {
+            value: 'c=140;',
+          },
+        },
+      }
+
+      const email = body?.authentication?.storeUserEmail?.value ?? null
+
+      if (email) {
+        const [user]: any = await getUserByEmail(null, { email }, ctx)
+
+        if (user) {
+          res['storefront-permissions'].priceTables.value = 'platinum'
+          res.public.facets.value = 'c=143;'
+          res['storefront-permissions'].organization.value = 'Org Aut'
+          res['storefront-permissions'].costcenter.value = 'Cost Aut'
+        }
+      }
+
+      console.log('OUTPUT =>', JSON.stringify(res))
+
+      ctx.response.body = res
+
+      ctx.response.status = 200
+    },
+  },
   Mutation: {
     deleteRole,
     saveRole,

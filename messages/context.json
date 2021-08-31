@@ -13,6 +13,8 @@
   "admin/storefront-permissions.tab.users": "admin/storefront-permissions.tab.users",
   "admin/storefront-permissions.tab.users.canImpersonate.label": "admin/storefront-permissions.tab.users.canImpersonate.label",
   "admin/storefront-permissions.tab.users.email.label": "admin/storefront-permissions.tab.users.email.label",
+  "admin/storefront-permissions.tab.users.organization.label": "admin/storefront-permissions.tab.users.organization.label",
+  "admin/storefront-permissions.tab.users.costCenter.label": "admin/storefront-permissions.tab.users.costCenter.label",
   "admin/storefront-permissions.tab.users.error": "admin/storefront-permissions.tab.users.error",
   "admin/storefront-permissions.tab.users.name.label": "admin/storefront-permissions.tab.users.name.label",
   "admin/storefront-permissions.tab.users.success": "admin/storefront-permissions.tab.users.success",

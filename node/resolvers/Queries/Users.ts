@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { removeVersionFromAppId } from '@vtex/api'
 
@@ -27,7 +28,15 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
 
     const user: any = await masterdata.searchDocuments({
       dataEntity: config.name,
-      fields: ['id', 'roleId', 'clId', 'userId', 'canImpersonate'],
+      fields: [
+        'id',
+        'roleId',
+        'clId',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+      ],
       schema: config.version,
       pagination: { page: 1, pageSize: 90 },
       where: `clId=${id}`,
@@ -64,7 +73,16 @@ export const getUserByRole = async (_: any, params: any, ctx: Context) => {
   try {
     return await masterdata.searchDocuments({
       dataEntity: config.name,
-      fields: ['id', 'roleId', 'userId', 'name', 'email', 'canImpersonate'],
+      fields: [
+        'id',
+        'roleId',
+        'userId',
+        'orgId',
+        'costId',
+        'name',
+        'email',
+        'canImpersonate',
+      ],
       schema: config.version,
       pagination: { page: 1, pageSize: 90 },
       where: `roleId=${id}`,
@@ -88,21 +106,25 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
       return [cachedUser]
     }
 
-    const ret = await masterdata.searchDocuments({
-      dataEntity: config.name,
-      fields: [
-        'id',
-        'roleId',
-        'userId',
-        'clId',
-        'name',
-        'email',
-        'canImpersonate',
-      ],
-      schema: config.version,
-      pagination: { page: 1, pageSize: 50 },
-      where: `email=${email}`,
-    })
+    const ret = await masterdata
+      .searchDocuments({
+        dataEntity: config.name,
+        fields: [
+          'id',
+          'roleId',
+          'userId',
+          'clId',
+          'orgId',
+          'costId',
+          'name',
+          'email',
+          'canImpersonate',
+        ],
+        schema: config.version,
+        pagination: { page: 1, pageSize: 50 },
+        where: `email=${email}`,
+      })
+      .catch(() => [])
 
     return ret
   } catch (e) {
@@ -125,6 +147,8 @@ export const listUsers = async (_: any, __: any, ctx: Context) => {
         'roleId',
         'userId',
         'clId',
+        'orgId',
+        'costId',
         'name',
         'email',
         'canImpersonate',
@@ -144,6 +168,8 @@ export const checkUserPermission = async (_: any, __: any, ctx: Context) => {
 
   const { sessionData, sender }: any = ctx.vtex
 
+  console.log('sessionData =>', sessionData)
+
   if (!sessionData?.namespaces) {
     throw new Error('User not authenticated')
   }
@@ -154,6 +180,9 @@ export const checkUserPermission = async (_: any, __: any, ctx: Context) => {
 
   const module = removeVersionFromAppId(sender)
   const user = sessionData?.namespaces?.profile
+
+  console.log('Module =>', module)
+  console.log('User =>', user)
 
   if (!user?.email?.value) {
     throw new Error('User session not available')
@@ -182,6 +211,11 @@ export const checkUserPermission = async (_: any, __: any, ctx: Context) => {
   if (!currentModule && module !== 'vtex.storefront-permissions-ui') {
     throw new Error(`Role not found for module ${module}`)
   }
+
+  console.log('viewUserPermissions =>', {
+    role: userRole,
+    permissions: currentModule?.features ?? [],
+  })
 
   return {
     role: userRole,

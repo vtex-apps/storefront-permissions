@@ -52,7 +52,7 @@ export default [
   },
   {
     name: 'b2b_users',
-    version: 'v0.0.9',
+    version: 'v0.1.0',
     body: {
       properties: {
         roleId: {
@@ -75,12 +75,28 @@ export default [
           type: ['null', 'string'],
           title: 'CL ID',
         },
+        orgId: {
+          type: ['null', 'string'],
+          title: 'Organization ID',
+        },
+        costId: {
+          type: ['null', 'string'],
+          title: 'Cost Center ID',
+        },
         canImpersonate: {
           type: 'boolean',
           title: 'Can impersonate',
         },
       },
-      'v-indexed': ['userId', 'clId', 'roleId', 'email', 'canImpersonate'],
+      'v-indexed': [
+        'userId',
+        'clId',
+        'roleId',
+        'orgId',
+        'costId',
+        'email',
+        'canImpersonate',
+      ],
       'v-cache': false,
     },
   },

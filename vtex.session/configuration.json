@@ -1,0 +1,10 @@
+{
+  "storefront-permissions": {
+    "input": {
+      "authentication": ["storeUserEmail"]
+    },
+    "output": {
+      "storefront-permissions": ["organization", "costcenter", "priceTables"]
+    }
+  }
+}
