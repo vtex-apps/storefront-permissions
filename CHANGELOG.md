@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+- Ignore errors when using `withUserPermissions`
 ## [1.4.0] - 2021-08-31
 
 ### Added
