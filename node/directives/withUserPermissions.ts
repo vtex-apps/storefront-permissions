@@ -25,7 +25,7 @@ export class WithUserPermissions extends SchemaDirectiveVisitor {
 
       context.vtex.userPermissions = await checkUserPermission(
         null,
-        null,
+        { skipError: true },
         context
       )
 
