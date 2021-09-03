@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { removeVersionFromAppId } from '@vtex/api'
 
@@ -163,62 +162,69 @@ export const listUsers = async (_: any, __: any, ctx: Context) => {
   }
 }
 
-export const checkUserPermission = async (_: any, __: any, ctx: Context) => {
+export const checkUserPermission = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
   await getAppSettings(null, null, ctx)
 
   const { sessionData, sender }: any = ctx.vtex
 
-  console.log('sessionData =>', sessionData)
+  const skipError = params?.skipError ?? false
 
-  if (!sessionData?.namespaces) {
-    throw new Error('User not authenticated')
+  if (!sessionData?.namespaces && !skipError) {
+    throw new Error('User not authenticated, make sure the query is private')
   }
 
-  if (!sender) {
-    throw new Error('Sender not available')
+  if (!sender && !skipError) {
+    throw new Error('Sender not available, make sure the query is private')
   }
 
-  const module = removeVersionFromAppId(sender)
   const user = sessionData?.namespaces?.profile
 
-  console.log('Module =>', module)
-  console.log('User =>', user)
+  let ret = null
 
-  if (!user?.email?.value) {
-    throw new Error('User session not available')
+  if (user?.email?.value && sender) {
+    const module = removeVersionFromAppId(sender)
+
+    const userData: any = await getUserByEmail(
+      _,
+      { email: user.email.value },
+      ctx
+    )
+
+    if (!userData.length && !skipError) {
+      throw new Error('User not found')
+    }
+
+    if (userData.length) {
+      const userRole: any = await getRole(_, { id: userData[0].roleId }, ctx)
+
+      if (!userRole && !skipError) {
+        throw new Error('Role not found')
+      }
+
+      if (userRole) {
+        const currentModule = userRole.features.find((feature: any) => {
+          return feature.module === module
+        })
+
+        if (
+          !currentModule &&
+          module !== 'vtex.storefront-permissions-ui' &&
+          !skipError
+        ) {
+          throw new Error(`Role not found for module ${module}`)
+        }
+
+        ret = {
+          role: userRole,
+          permissions: currentModule?.features ?? [],
+        }
+      }
+    }
   }
 
-  const userData: any = await getUserByEmail(
-    _,
-    { email: user.email.value },
-    ctx
-  )
-
-  if (!userData.length) {
-    throw new Error('User not found')
-  }
-
-  const userRole: any = await getRole(_, { id: userData[0].roleId }, ctx)
-
-  if (!userRole) {
-    throw new Error('Role not found')
-  }
-
-  const currentModule = userRole.features.find((feature: any) => {
-    return feature.module === module
-  })
-
-  if (!currentModule && module !== 'vtex.storefront-permissions-ui') {
-    throw new Error(`Role not found for module ${module}`)
-  }
-
-  console.log('viewUserPermissions =>', {
-    role: userRole,
-    permissions: currentModule?.features ?? [],
-  })
-
-  return {
-    role: userRole,
-    permissions: currentModule?.features ?? [],
-  }
+  return ret
 }

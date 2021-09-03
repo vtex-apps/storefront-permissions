@@ -31,34 +31,34 @@ export const resolvers = {
       const res = {
         'storefront-permissions': {
           organization: {
-            value: 'Org1',
+            value: '',
           },
           costcenter: {
-            value: 'Cost1',
+            value: '',
           },
           priceTables: {
-            value: 'bronze',
+            value: '',
           },
         },
         public: {
           facets: {
-            value: 'c=140;',
+            value: '',
           },
         },
       }
 
-      const email = body?.authentication?.storeUserEmail?.value ?? null
+      // const email = body?.authentication?.storeUserEmail?.value ?? null
 
-      if (email) {
-        const [user]: any = await getUserByEmail(null, { email }, ctx)
+      // if (email) {
+      //   const [user]: any = await getUserByEmail(null, { email }, ctx)
 
-        if (user) {
-          res['storefront-permissions'].priceTables.value = 'platinum'
-          res.public.facets.value = 'c=143;'
-          res['storefront-permissions'].organization.value = 'Org Aut'
-          res['storefront-permissions'].costcenter.value = 'Cost Aut'
-        }
-      }
+      //   if (user) {
+      //     res['storefront-permissions'].priceTables.value = ''
+      //     res.public.facets.value = ''
+      //     res['storefront-permissions'].organization.value = ''
+      //     res['storefront-permissions'].costcenter.value = ''
+      //   }
+      // }
 
       console.log('OUTPUT =>', JSON.stringify(res))
 
