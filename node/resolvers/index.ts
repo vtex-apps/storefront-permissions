@@ -19,12 +19,26 @@ const getAppId = (): string => {
   return process.env.VTEX_APP_ID ?? ''
 }
 
+const QUERIES = {
+  getOrganizationById: `query Organization($id: ID!){
+    getOrganizationById(id: $id) @context(provider: "vtex.b2b-organizations-graphql"){
+      priceTables
+      collections {
+        id
+      }
+    }
+  }`,
+}
+
 export const resolvers = {
   Routes: {
     setProfile: async (ctx: Context) => {
       ctx.set('Content-Type', 'application/json')
       ctx.set('Cache-Control', 'no-cache, no-store')
       const body: any = await json(ctx.req)
+      const {
+        clients: { graphqlServer },
+      } = ctx
 
       console.log('VTEX SESSION REQUEST BODY =>', body)
 
@@ -47,18 +61,42 @@ export const resolvers = {
         },
       }
 
-      // const email = body?.authentication?.storeUserEmail?.value ?? null
+      const email = body?.authentication?.storeUserEmail?.value ?? null
 
-      // if (email) {
-      //   const [user]: any = await getUserByEmail(null, { email }, ctx)
+      if (email) {
+        const [user]: any = await getUserByEmail(null, { email }, ctx)
 
-      //   if (user) {
-      //     res['storefront-permissions'].priceTables.value = ''
-      //     res.public.facets.value = ''
-      //     res['storefront-permissions'].organization.value = ''
-      //     res['storefront-permissions'].costcenter.value = ''
-      //   }
-      // }
+        console.log('USER =>', user)
+
+        if (user?.orgId) {
+          const organizationResponse: any = await graphqlServer.query(
+            QUERIES.getOrganizationById,
+            { id: user.orgId },
+            {
+              persistedQuery: {
+                provider: 'vtex.b2b-organizations-graphql@0.x',
+                sender: 'vtex.storefront-permissions@0.x',
+              },
+            }
+          )
+
+          if (
+            organizationResponse?.data?.getOrganizationById?.priceTables?.length
+          ) {
+            res[
+              'storefront-permissions'
+            ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
+              ';'
+            )};`
+          }
+
+          console.log('organizationResponse =>', organizationResponse)
+          // res['storefront-permissions'].priceTables.value = ''
+          // res.public.facets.value = ''
+          // res['storefront-permissions'].organization.value = ''
+          // res['storefront-permissions'].costcenter.value = ''
+        }
+      }
 
       console.log('OUTPUT =>', JSON.stringify(res))
 

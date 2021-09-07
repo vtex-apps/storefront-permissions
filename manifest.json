@@ -12,7 +12,8 @@
     "vtex.profile-session": "0.x",
     "vtex.styleguide": "9.x",
     "vtex.admin-customers-graphql": "3.x",
-    "vtex.b2b-organizations-graphql": "0.x"
+    "vtex.b2b-organizations-graphql": "0.x",
+    "vtex.graphql-server": "1.x"
   },
   "builders": {
     "configuration": "0.x",
@@ -69,6 +70,9 @@
     },
     {
       "name": "Save_User"
+    },
+    {
+      "name": "vtex.graphql-server:resolve-graphql"
     },
     {
       "name": "outbound-access",
