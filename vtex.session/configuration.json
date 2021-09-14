@@ -4,7 +4,12 @@
       "authentication": ["storeUserEmail"]
     },
     "output": {
-      "storefront-permissions": ["organization", "costcenter", "priceTables"]
+      "storefront-permissions": [
+        "organization",
+        "costCenter",
+        "priceTables",
+        "collections"
+      ]
     }
   }
 }

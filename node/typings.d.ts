@@ -8,7 +8,11 @@ interface ReqContext {
 }
 
 interface Logger {
-  log(content: string, level: LogLevel, details?: {}): PromiseLike<void>
+  log(
+    content: string,
+    level: LogLevel,
+    details?: Record<string, unknown>
+  ): PromiseLike<void>
 }
 
 interface OperationState {
@@ -24,7 +28,10 @@ interface OperationData {
   cookie: string
 }
 
-type ProcessPaymentStep = (state: OperationState, next: () => Promise<void>) => Promise<void>
+type ProcessPaymentStep = (
+  state: OperationState,
+  next: () => Promise<void>
+) => Promise<void>
 
 type LogLevel = 'info' | 'error' | 'warning'
 
