@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.4.3] - 2021-09-15
+
 ### Added
 
 - Policy for other apps to call this app's GraphQL routes
