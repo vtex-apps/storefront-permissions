@@ -9,7 +9,10 @@ export class WithSender extends SchemaDirectiveVisitor {
     const { resolve = defaultFieldResolver } = field
 
     field.resolve = async (root: any, args: any, context: any, info: any) => {
-      context.vtex.sender = context?.graphql?.query?.senderApp ?? null
+      context.vtex.sender =
+        context?.graphql?.query?.senderApp ??
+        context?.graphql?.query?.extensions?.persistedQuery?.sender ??
+        null
 
       return resolve(root, args, context, info)
     }

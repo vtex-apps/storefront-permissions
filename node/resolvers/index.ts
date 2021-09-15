@@ -47,7 +47,10 @@ export const resolvers = {
           organization: {
             value: '',
           },
-          costcenter: {
+          costCenter: {
+            value: '',
+          },
+          collections: {
             value: '',
           },
           priceTables: {
@@ -69,6 +72,8 @@ export const resolvers = {
         console.log('USER =>', user)
 
         if (user?.orgId) {
+          res['storefront-permissions'].organization.value = user.orgId
+
           const organizationResponse: any = await graphqlServer.query(
             QUERIES.getOrganizationById,
             { id: user.orgId },
@@ -81,6 +86,19 @@ export const resolvers = {
           )
 
           if (
+            organizationResponse?.data?.getOrganizationById?.collections?.length
+          ) {
+            const collectionsArray =
+              organizationResponse.data.getOrganizationById.collections.map(
+                (collection: any) => collection.id
+              )
+
+            res[
+              'storefront-permissions'
+            ].collections.value = `${collectionsArray.join(';')};`
+          }
+
+          if (
             organizationResponse?.data?.getOrganizationById?.priceTables?.length
           ) {
             res[
@@ -89,12 +107,10 @@ export const resolvers = {
               ';'
             )};`
           }
+        }
 
-          console.log('organizationResponse =>', organizationResponse)
-          // res['storefront-permissions'].priceTables.value = ''
-          // res.public.facets.value = ''
-          // res['storefront-permissions'].organization.value = ''
-          // res['storefront-permissions'].costcenter.value = ''
+        if (user?.costId) {
+          res['storefront-permissions'].costCenter.value = user.costId
         }
       }
 
