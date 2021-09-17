@@ -66,10 +66,7 @@ export const resolvers = {
           organization: {
             value: '',
           },
-          costCenter: {
-            value: '',
-          },
-          collections: {
+          costcenter: {
             value: '',
           },
           priceTables: {
@@ -109,45 +106,78 @@ export const resolvers = {
         }
 
         if (user?.orgId) {
-          res['storefront-permissions'].organization.value = user.orgId
+          try {
+            const organizationResponse: any = await graphqlServer.query(
+              QUERIES.getOrganizationById,
+              { id: user.orgId },
+              {
+                persistedQuery: {
+                  provider: 'vtex.b2b-organizations-graphql@0.x',
+                  sender: 'vtex.storefront-permissions@0.x',
+                },
+              }
+            )
 
-          const organizationResponse: any = await graphqlServer.query(
-            QUERIES.getOrganizationById,
-            { id: user.orgId },
-            {
-              persistedQuery: {
-                provider: 'vtex.b2b-organizations-graphql@0.x',
-                sender: 'vtex.storefront-permissions@0.x',
-              },
+            if (
+              organizationResponse?.data?.getOrganizationById?.priceTables
+                ?.length
+            ) {
+              res[
+                'storefront-permissions'
+              ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
+                ';'
+              )}`
             }
-          )
 
-          if (
-            organizationResponse?.data?.getOrganizationById?.collections?.length
-          ) {
-            const collectionsArray =
-              organizationResponse.data.getOrganizationById.collections.map(
-                (collection: any) => collection.id
+            console.log('organizationResponse =>', organizationResponse)
+
+            await checkout
+              .updateOrderFormMarketingData(orderFormId, {
+                attachmentId: 'marketingData',
+                utmCampaign: user?.orgId,
+                utmMedium: user?.costId,
+              })
+              .catch((err) => {
+                console.log('Error saving marketingData =>', err)
+              })
+
+            if (user?.costId) {
+              const costCenterResponse: any = await graphqlServer.query(
+                QUERIES.getCostCenterById,
+                { id: user.costId },
+                {
+                  persistedQuery: {
+                    provider: 'vtex.b2b-organizations-graphql@0.x',
+                    sender: 'vtex.storefront-permissions@0.x',
+                  },
+                }
               )
 
-            res[
-              'storefront-permissions'
-            ].collections.value = `${collectionsArray.join(';')};`
+              if (
+                costCenterResponse?.data?.getCostCenterById?.addresses?.length
+              ) {
+                const [address] =
+                  costCenterResponse.data.getCostCenterById.addresses
+
+                console.log(
+                  'CostCenter Address =>',
+                  JSON.stringify(costCenterResponse)
+                )
+                await checkout
+                  .updateOrderFormShipping(orderFormId, { address })
+                  .catch((err) => {
+                    console.log('Error saving address =>', err)
+                  })
+              }
+            }
+          } catch (err) {
+            console.log('Error getting orgatization =>', err)
           }
 
-          if (
-            organizationResponse?.data?.getOrganizationById?.priceTables?.length
-          ) {
-            res[
-              'storefront-permissions'
-            ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
-              ';'
-            )};`
-          }
-        }
-
-        if (user?.costId) {
-          res['storefront-permissions'].costCenter.value = user.costId
+          // res['storefront-permissions'].priceTables.value = ''
+          // res.public.facets.value = ''
+          // res['storefront-permissions'].organization.value = ''
+          // res['storefront-permissions'].costcenter.value = ''
         }
       }
 
