@@ -250,9 +250,13 @@ typescript@3.9.7:
   version "3.0.1"
   resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.admin-customers-graphql@3.0.1/public/@types/vtex.admin-customers-graphql#d18295715e60b1b7d917714530c22a98a1f4e88f"
 
-"vtex.render-runtime@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.131.0/public/@types/vtex.render-runtime":
-  version "8.131.0"
-  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.131.0/public/@types/vtex.render-runtime#dcc88828e3d65ecb4e7538a3623a4b1ddd77e034"
+"vtex.graphql-server@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.66.9/public/_types/react":
+  version "0.0.0"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.66.9/public/_types/react#fa7a0347e046eab3dd768998fc9252b2c0dd5aef"
+
+"vtex.render-runtime@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.131.1/public/@types/vtex.render-runtime":
+  version "8.131.1"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.131.1/public/@types/vtex.render-runtime#4db6bcc8796f5a117d07c157afce62f2e8a975c4"
 
 "vtex.styleguide@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.145.0/public/@types/vtex.styleguide":
   version "9.145.0"

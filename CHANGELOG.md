@@ -7,13 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Sets Organization, Costcenter, Address, PriceTables on login
 ## [1.4.3] - 2021-09-15
 
 ### Added
 
 - Policy for other apps to call this app's GraphQL routes
 - `organization`, `costCenter`, `collections` are now populated in user's session
-
 ## [1.4.2] - 2021-09-07
 
 ### Added

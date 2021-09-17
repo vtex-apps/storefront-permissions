@@ -7,6 +7,39 @@ import { getAppSettings } from './Settings'
 
 const config: any = currentSchema('b2b_users')
 
+export const getUserById = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+  } = ctx
+
+  try {
+    const { id } = params
+
+    const cl: any = await masterdata.getDocument({
+      dataEntity: 'CL',
+      id,
+      fields: [
+        'email',
+        'firstName',
+        'lastName',
+        'document',
+        'documentType',
+        'phone',
+        'corporateName',
+        'tradeName',
+        'corporateDocument',
+        'stateInscription',
+        'corporatePhone',
+        'isCorporate',
+      ],
+    })
+
+    return cl ?? null
+  } catch (e) {
+    return { status: 'error', message: e }
+  }
+}
+
 export const getUser = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },

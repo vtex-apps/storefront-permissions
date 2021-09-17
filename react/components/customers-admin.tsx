@@ -102,7 +102,11 @@ const UserEdit: FC<any & WrappedComponentProps> = (props: any) => {
     },
   })
 
-  const { loading: loadingOrg, data: orgData } = useQuery(GET_ORG)
+  const { loading: loadingOrg, data: orgData } = useQuery(GET_ORG, {
+    variables: {
+      pageSize: 999,
+    },
+  })
 
   const [saveUser, { loading: saveUserLoading }] = useMutation(SAVE_USER, {
     onCompleted(res: any) {

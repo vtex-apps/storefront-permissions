@@ -9,6 +9,8 @@ import { AuthenticationError, ForbiddenError, UserInputError } from '@vtex/api'
 import schemas from '../mdSchema'
 import roleNames from '../roleNames'
 
+export * from './cookie'
+
 export const toHash = (obj: any) => {
   return crypto.createHash('md5').update(JSON.stringify(obj)).digest('hex')
 }

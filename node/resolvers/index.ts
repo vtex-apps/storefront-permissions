@@ -13,6 +13,7 @@ import {
   getUserByEmail,
   listUsers,
   checkUserPermission,
+  getUserById,
 } from './Queries/Users'
 
 const getAppId = (): string => {
@@ -28,6 +29,26 @@ const QUERIES = {
       }
     }
   }`,
+  getCostCenterById: `query Costcenter($id: ID!) {
+    getCostCenterById(id: $id) {
+      addresses {
+        addressId
+        addressType
+        addressQuery
+        postalCode
+        country
+        receiverName
+        city
+        state
+        street
+        number
+        complement
+        neighborhood
+        geoCoordinates
+        reference
+      }
+    }
+  }`,
 }
 
 export const resolvers = {
@@ -37,10 +58,8 @@ export const resolvers = {
       ctx.set('Cache-Control', 'no-cache, no-store')
       const body: any = await json(ctx.req)
       const {
-        clients: { graphqlServer },
+        clients: { graphqlServer, checkout },
       } = ctx
-
-      console.log('VTEX SESSION REQUEST BODY =>', body)
 
       const res = {
         'storefront-permissions': {
@@ -57,19 +76,37 @@ export const resolvers = {
             value: '',
           },
         },
-        public: {
-          facets: {
-            value: '',
-          },
-        },
+        // public: {
+        //   facets: {
+        //     value: '',
+        //   },
+        // },
       }
 
       const email = body?.authentication?.storeUserEmail?.value ?? null
+      const orderFormId = body?.checkout?.orderFormId?.value ?? null
+
+      console.log('VTEX SESSION REQUEST BODY =>', body)
+      console.log('EMAIL =>', email)
+      console.log('OrderFormId =>', orderFormId)
 
       if (email) {
         const [user]: any = await getUserByEmail(null, { email }, ctx)
 
         console.log('USER =>', user)
+
+        if (user?.clId) {
+          const clUser = await getUserById(null, { id: user.clId }, ctx)
+
+          console.log('CLUser =>', clUser)
+          if (clUser) {
+            await checkout
+              .updateOrderFormProfile(orderFormId, clUser)
+              .catch((err) => {
+                console.log('Error saving clientProfileData =>', err)
+              })
+          }
+        }
 
         if (user?.orgId) {
           res['storefront-permissions'].organization.value = user.orgId

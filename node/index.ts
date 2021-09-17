@@ -6,6 +6,7 @@ import type {
   RecorderState,
   EventContext,
   IOContext,
+  SegmentData,
 } from '@vtex/api'
 import { Service, AuthType, LRUCache } from '@vtex/api'
 
@@ -40,6 +41,8 @@ declare global {
   type Context = ServiceContext<Clients>
   interface CustomIOContext extends IOContext {
     currentProfile: CurrentProfile
+    segment?: SegmentData
+    orderFormId?: string
   }
 
   interface CurrentProfile {

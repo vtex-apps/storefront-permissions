@@ -16,7 +16,8 @@
     "react-intl": "^2.7.2",
     "typescript": "3.9.7",
     "vtex.admin-customers-graphql": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.admin-customers-graphql@3.0.1/public/@types/vtex.admin-customers-graphql",
-    "vtex.render-runtime": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.131.0/public/@types/vtex.render-runtime",
+    "vtex.graphql-server": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.66.9/public/_types/react",
+    "vtex.render-runtime": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.render-runtime@8.131.1/public/@types/vtex.render-runtime",
     "vtex.styleguide": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.145.0/public/@types/vtex.styleguide"
   },
   "dependencies": {

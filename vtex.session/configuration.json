@@ -1,7 +1,8 @@
 {
   "storefront-permissions": {
     "input": {
-      "authentication": ["storeUserEmail"]
+      "authentication": ["storeUserEmail"],
+      "checkout": ["orderFormId"]
     },
     "output": {
       "storefront-permissions": [
