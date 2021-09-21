@@ -106,6 +106,7 @@ export const resolvers = {
         }
 
         if (user?.orgId) {
+          res['storefront-permissions'].organization.value = user.orgId
           try {
             const organizationResponse: any = await graphqlServer.query(
               QUERIES.getOrganizationById,
@@ -142,6 +143,7 @@ export const resolvers = {
               })
 
             if (user?.costId) {
+              res['storefront-permissions'].costcenter.value = user.costId
               const costCenterResponse: any = await graphqlServer.query(
                 QUERIES.getCostCenterById,
                 { id: user.costId },
@@ -173,11 +175,7 @@ export const resolvers = {
           } catch (err) {
             console.log('Error getting orgatization =>', err)
           }
-
-          // res['storefront-permissions'].priceTables.value = ''
           // res.public.facets.value = ''
-          // res['storefront-permissions'].organization.value = ''
-          // res['storefront-permissions'].costcenter.value = ''
         }
       }
 
