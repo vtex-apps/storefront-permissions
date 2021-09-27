@@ -1,7 +1,9 @@
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 import { syncRoles } from '../Mutations/Roles'
 import { getUserByRole } from './Users'
+import { groupByRole } from './Features'
 
 const config: any = currentSchema('b2b_roles')
 
@@ -12,17 +14,25 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
 
   try {
     const { id } = params
-    const cachedRole = await vbase.getJSON('b2b_roles', id).catch(() => null)
+    let role: any = await vbase.getJSON('b2b_roles', id).catch(() => null)
 
-    if (cachedRole) {
-      return cachedRole
+    if (!role) {
+      role = await masterdata.getDocument({
+        dataEntity: config.name,
+        id,
+        fields: ['id', 'name', 'features', 'locked', 'slug'],
+      })
     }
 
-    const role = await masterdata.getDocument({
-      dataEntity: config.name,
-      id,
-      fields: ['id', 'name', 'features', 'locked', 'slug'],
+    let featureByRole = await groupByRole(ctx)
+
+    featureByRole = featureByRole?.filter((currRole: any) => {
+      return !!currRole[role.slug]
     })
+
+    if (featureByRole?.length) {
+      role.features = featureByRole[0][role.slug]
+    }
 
     return role
   } catch (e) {

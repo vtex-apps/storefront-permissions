@@ -1705,9 +1705,13 @@ vary@^1.1.2:
   version "0.0.0"
   resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.66.9/public/_types/react#fa7a0347e046eab3dd768998fc9252b2c0dd5aef"
 
-"vtex.storefront-permissions@https://profile--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.storefront-permissions@1.4.2+build1631732358/public/@types/vtex.storefront-permissions":
-  version "1.4.2"
-  resolved "https://profile--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.storefront-permissions@1.4.2+build1631732358/public/@types/vtex.storefront-permissions#12b9dbaa99b14632f6ba451128a72fd27b0a6e96"
+"vtex.profile-session@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.profile-session@0.8.2/public/_types/react":
+  version "0.0.0"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.profile-session@0.8.2/public/_types/react#fa7a0347e046eab3dd768998fc9252b2c0dd5aef"
+
+"vtex.storefront-permissions@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.storefront-permissions@1.4.3/public/@types/vtex.storefront-permissions":
+  version "1.4.3"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.storefront-permissions@1.4.3/public/@types/vtex.storefront-permissions#32f723e2b577606726edc90eff9c8368fdd26e8a"
 
 "vtex.styleguide@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.145.0/public/@types/vtex.styleguide":
   version "9.145.0"

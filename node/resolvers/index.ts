@@ -53,12 +53,66 @@ const QUERIES = {
 
 export const resolvers = {
   Routes: {
+    checkPermissions: async (ctx: Context) => {
+      ctx.set('Content-Type', 'application/json')
+      await getAppSettings(null, null, ctx)
+
+      const params: any = await json(ctx.req)
+
+      let ret
+
+      if (!params?.app) {
+        throw new Error('App not defined')
+      }
+
+      if (!params?.email) {
+        throw new Error('Email not defined')
+      }
+
+      const userData: any = await getUserByEmail(
+        null,
+        { email: params.email },
+        ctx
+      )
+
+      if (!userData.length) {
+        throw new Error('User not found')
+      }
+
+      if (userData.length) {
+        const userRole: any = await getRole(
+          null,
+          { id: userData[0].roleId },
+          ctx
+        )
+
+        if (!userRole) {
+          throw new Error('Role not found')
+        }
+
+        if (userRole) {
+          const currentModule = userRole.features.find((feature: any) => {
+            return feature.module === params.app
+          })
+
+          ret = {
+            role: userRole,
+            permissions: currentModule?.features ?? [],
+          }
+        }
+      }
+
+      ctx.response.body = ret
+
+      ctx.response.status = 200
+    },
     setProfile: async (ctx: Context) => {
       ctx.set('Content-Type', 'application/json')
       ctx.set('Cache-Control', 'no-cache, no-store')
       const body: any = await json(ctx.req)
       const {
         clients: { graphqlServer, checkout },
+        vtex: { logger },
       } = ctx
 
       const res = {
@@ -83,24 +137,17 @@ export const resolvers = {
       const email = body?.authentication?.storeUserEmail?.value ?? null
       const orderFormId = body?.checkout?.orderFormId?.value ?? null
 
-      console.log('VTEX SESSION REQUEST BODY =>', body)
-      console.log('EMAIL =>', email)
-      console.log('OrderFormId =>', orderFormId)
-
       if (email) {
         const [user]: any = await getUserByEmail(null, { email }, ctx)
-
-        console.log('USER =>', user)
 
         if (user?.clId) {
           const clUser = await getUserById(null, { id: user.clId }, ctx)
 
-          console.log('CLUser =>', clUser)
           if (clUser) {
             await checkout
               .updateOrderFormProfile(orderFormId, clUser)
               .catch((err) => {
-                console.log('Error saving clientProfileData =>', err)
+                logger.error(err)
               })
           }
         }
@@ -114,7 +161,7 @@ export const resolvers = {
               {
                 persistedQuery: {
                   provider: 'vtex.b2b-organizations-graphql@0.x',
-                  sender: 'vtex.storefront-permissions@0.x',
+                  sender: 'vtex.storefront-permissions@1.x',
                 },
               }
             )
@@ -130,8 +177,6 @@ export const resolvers = {
               )}`
             }
 
-            console.log('organizationResponse =>', organizationResponse)
-
             await checkout
               .updateOrderFormMarketingData(orderFormId, {
                 attachmentId: 'marketingData',
@@ -139,7 +184,7 @@ export const resolvers = {
                 utmMedium: user?.costId,
               })
               .catch((err) => {
-                console.log('Error saving marketingData =>', err)
+                logger.error(err)
               })
 
             if (user?.costId) {
@@ -150,7 +195,7 @@ export const resolvers = {
                 {
                   persistedQuery: {
                     provider: 'vtex.b2b-organizations-graphql@0.x',
-                    sender: 'vtex.storefront-permissions@0.x',
+                    sender: 'vtex.storefront-permissions@1.x',
                   },
                 }
               )
@@ -161,25 +206,19 @@ export const resolvers = {
                 const [address] =
                   costCenterResponse.data.getCostCenterById.addresses
 
-                console.log(
-                  'CostCenter Address =>',
-                  JSON.stringify(costCenterResponse)
-                )
                 await checkout
                   .updateOrderFormShipping(orderFormId, { address })
                   .catch((err) => {
-                    console.log('Error saving address =>', err)
+                    logger.error(err)
                   })
               }
             }
           } catch (err) {
-            console.log('Error getting orgatization =>', err)
+            logger.error(err)
           }
           // res.public.facets.value = ''
         }
       }
-
-      console.log('OUTPUT =>', JSON.stringify(res))
 
       ctx.response.body = res
 

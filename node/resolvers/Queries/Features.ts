@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const sanitizeFeatures = (settings: any) => {
   let ret = {}

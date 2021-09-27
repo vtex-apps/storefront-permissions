@@ -7,7 +7,7 @@
     "output": {
       "storefront-permissions": [
         "organization",
-        "costCenter",
+        "costcenter",
         "priceTables",
         "collections"
       ]

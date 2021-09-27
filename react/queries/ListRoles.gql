@@ -1,6 +1,0 @@
-query ListRoles {
-  listRoles {
-    id
-    name
-  }
-}

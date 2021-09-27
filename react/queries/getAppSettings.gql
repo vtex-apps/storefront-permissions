@@ -1,5 +1,0 @@
-query GetAppSettings {
-  getAppSettings {
-    adminSetup
-  }
-}

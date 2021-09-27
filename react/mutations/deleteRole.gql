@@ -1,6 +1,0 @@
-mutation delete($id: ID!) {
-  deleteRole(id: $id) {
-    status
-    message
-  }
-}

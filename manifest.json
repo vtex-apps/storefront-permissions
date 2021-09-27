@@ -1,7 +1,7 @@
 {
   "name": "storefront-permissions",
   "vendor": "vtex",
-  "version": "1.5.0-beta.2",
+  "version": "1.5.0-beta.4",
   "title": "Storefront Permissions",
   "description": "Manage User's permissions on apps that relates to this app",
   "mustUpdateAt": "2022-08-28",
@@ -11,17 +11,12 @@
   "dependencies": {
     "vtex.profile-session": "0.x",
     "vtex.styleguide": "9.x",
-    "vtex.admin-customers-graphql": "3.x",
-    "vtex.b2b-organizations-graphql": "0.x",
     "vtex.graphql-server": "1.x"
   },
   "builders": {
     "configuration": "0.x",
-    "react": "3.x",
-    "messages": "1.x",
     "node": "6.x",
     "graphql": "1.x",
-    "store": "0.x",
     "docs": "0.x",
     "vtex.session": "0.x"
   },

@@ -15,6 +15,10 @@
     "setProfile": {
       "path": "/_v/storefront-permissions/session/transform",
       "public": true
+    },
+    "checkPermissions": {
+      "path": "/_v/storefront-permissions/check-permissions",
+      "public": false
     }
   }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { removeVersionFromAppId } from '@vtex/api'
 
@@ -239,7 +240,7 @@ export const checkUserPermission = async (
       }
 
       if (userRole) {
-        const currentModule = userRole.features.find((feature: any) => {
+        const currentModule = userRole.features?.find((feature: any) => {
           return feature.module === module
         })
 
