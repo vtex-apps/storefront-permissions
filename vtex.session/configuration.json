@@ -5,6 +5,7 @@
       "checkout": ["orderFormId"]
     },
     "output": {
+      "public": ["facets"],
       "storefront-permissions": [
         "organization",
         "costcenter",

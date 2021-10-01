@@ -127,11 +127,11 @@ export const resolvers = {
             value: '',
           },
         },
-        // public: {
-        //   facets: {
-        //     value: '',
-        //   },
-        // },
+        public: {
+          facets: {
+            value: '',
+          },
+        },
       }
 
       const email = body?.authentication?.storeUserEmail?.value ?? null
@@ -143,7 +143,7 @@ export const resolvers = {
         if (user?.clId) {
           const clUser = await getUserById(null, { id: user.clId }, ctx)
 
-          if (clUser) {
+          if (clUser && orderFormId) {
             await checkout
               .updateOrderFormProfile(orderFormId, clUser)
               .catch((err) => {
@@ -177,15 +177,29 @@ export const resolvers = {
               )}`
             }
 
-            await checkout
-              .updateOrderFormMarketingData(orderFormId, {
-                attachmentId: 'marketingData',
-                utmCampaign: user?.orgId,
-                utmMedium: user?.costId,
-              })
-              .catch((err) => {
-                logger.error(err)
-              })
+            if (
+              organizationResponse?.data?.getOrganizationById?.collections
+                ?.length
+            ) {
+              const collections =
+                organizationResponse.data.getOrganizationById.collections.map(
+                  (collection: any) => `c=${collection.id}`
+                )
+
+              res.public.facets.value = `${collections.join(';')}`
+            }
+
+            if (orderFormId) {
+              await checkout
+                .updateOrderFormMarketingData(orderFormId, {
+                  attachmentId: 'marketingData',
+                  utmCampaign: user?.orgId,
+                  utmMedium: user?.costId,
+                })
+                .catch((err) => {
+                  logger.error(err)
+                })
+            }
 
             if (user?.costId) {
               res['storefront-permissions'].costcenter.value = user.costId
@@ -201,7 +215,9 @@ export const resolvers = {
               )
 
               if (
-                costCenterResponse?.data?.getCostCenterById?.addresses?.length
+                costCenterResponse?.data?.getCostCenterById?.addresses
+                  ?.length &&
+                orderFormId
               ) {
                 const [address] =
                   costCenterResponse.data.getCostCenterById.addresses
@@ -216,9 +232,10 @@ export const resolvers = {
           } catch (err) {
             logger.error(err)
           }
-          // res.public.facets.value = ''
         }
       }
+
+      console.log('OUTPUT transform =>', JSON.stringify(res))
 
       ctx.response.body = res
 

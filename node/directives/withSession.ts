@@ -14,8 +14,11 @@ export class WithSession extends SchemaDirectiveVisitor {
         clients: { session },
       } = context
 
+      const token =
+        context.vtex.sessionToken ?? context.request.header?.sessiontoken
+
       context.vtex.sessionData = await session
-        .getSession(context.vtex.sessionToken as string, ['*'])
+        .getSession(token as string, ['*'])
         .then((currentSession: any) => {
           return currentSession.sessionData
         })
