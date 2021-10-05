@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.5.0] - 2021-10-05
+
 ### Added
 - Sets Organization, Costcenter, Address, PriceTables on login
 ## [1.4.3] - 2021-09-15
