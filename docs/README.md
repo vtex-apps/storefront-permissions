@@ -1,4 +1,4 @@
-# B2B Waffle
+# Storefront Permissions
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 
@@ -6,23 +6,20 @@
 
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-The **Storefront Permissions** is the main dependency for b2b modules, it contains Roles and User management
-This APP doesn't containg an interface, for that, install either `vtex.admin-customers` or `vtex.storefront-permissions-ui`
-
-The `vtex.storefront-permissions-ui` will allow you to also edit permissions for specific roles
-
+The **Storefront Permissions** is the main dependency for b2b modules, it handles user's permissions based on its Roles
+This APP doesn't containg an interface, for managing users, install `vtex.admin-customers` for that, you can opcionally install `vtex.storefront-permissions-ui` to adjust Apps Permissions to specific Roles
 
 ## Functionalities
 
 - Manage Roles
-- Manage Users
+- Manage Permissions
 
 ## Configuration
 
 1. [Install](https://vtex.io/docs/recipes/development/installing-an-app/) the storefront-permissions app by running `vtex install vtex.storefront-permissions` in your terminal.
 2. At the Admin, navigate to **ACCOUNT SETTINGS > Storefront Permissions**.
 
-3. Create Users
+3. Manage Roles
 
 ## Advanced app integration
 
@@ -40,6 +37,7 @@ How to integrate your app with **Storefront Permissions** and make it available 
 - Inside the `vtex.storefront-permissions` folder, create a `configuration.json` file
 
 The content to this file should be in this format containing the name of your App and the features, remember to not use space or special characters as value for the features, you can also define default Roles that will be able to use each feature
+
 
 ```JSON
 {

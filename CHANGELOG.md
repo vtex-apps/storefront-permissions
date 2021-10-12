@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Updated
+
+- Doc update
+
+### Fixed
+- ListFeatures error when there's no apps depending on storefront-permissions
 ## [1.5.0] - 2021-10-05
 
 ### Added
