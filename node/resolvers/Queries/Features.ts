@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const sanitizeFeatures = (settings: any) => {
-  let ret = {}
+  const ret: any = []
 
   settings.forEach((app: any) => {
     const [module] = app.declarer.split('@')
@@ -9,11 +9,11 @@ const sanitizeFeatures = (settings: any) => {
     if (app[module]?.features) {
       const { name, features } = app[module]
 
-      ret = {
+      ret.push({
         module,
         name,
         features,
-      }
+      })
     }
   })
 
@@ -46,7 +46,11 @@ export const listFeatures = async (_: any, __: any, ctx: Context) => {
       ctx.vtex.settings.dependenciesSettings
     )
 
-    return settingsFiles.length ? settingsFiles : [settingsFiles]
+    return settingsFiles?.length
+      ? settingsFiles
+      : Object.getOwnPropertyNames(settingsFiles).length
+      ? [settingsFiles]
+      : []
   }
 
   return []

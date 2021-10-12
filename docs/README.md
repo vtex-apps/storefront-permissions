@@ -25,16 +25,16 @@ This APP doesn't containg an interface, for managing users, install `vtex.admin-
 
 How to integrate your app with **Storefront Permissions** and make it available within the Role management
 
-- Add `storefront-permissions` to the `manifest.json` file under the **builders** property
+- Add `vtex.storefront-permissions` to the `manifest.json` file under the **builders** property
 
 ```JSON
 "builders": {
-    "storefront-permissions": "1.x"
+    "vtex.storefront-permissions": "1.x"
   }
 ```
 
-- Create a folder `storefront-permissions` on the root
-- Inside the `storefront-permissions` folder, create a `configuration.json` file
+- Create a folder `vtex.storefront-permissions` on the root
+- Inside the `vtex.storefront-permissions` folder, create a `configuration.json` file
 
 The content to this file should be in this format containing the name of your App and the features, remember to not use space or special characters as value for the features, you can also define default Roles that will be able to use each feature
 
