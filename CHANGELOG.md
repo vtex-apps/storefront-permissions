@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Collection facets
 ## [1.5.1] - 2021-10-12
 
 ### Updated
