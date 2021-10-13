@@ -183,7 +183,7 @@ export const resolvers = {
             ) {
               const collections =
                 organizationResponse.data.getOrganizationById.collections.map(
-                  (collection: any) => `c=${collection.id}`
+                  (collection: any) => `productClusterIds=${collection.id}`
                 )
 
               res.public.facets.value = `${collections.join(';')}`
