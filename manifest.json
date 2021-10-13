@@ -11,7 +11,10 @@
   "dependencies": {
     "vtex.profile-session": "0.x",
     "vtex.styleguide": "9.x",
-    "vtex.graphql-server": "1.x"
+    "vtex.graphql-server": "1.x",
+    "vtex.search-session": "0.x",
+    "vtex.search-segment-graphql": "0.x",
+    "vtex.search-segment-resolver": "0.x"
   },
   "builders": {
     "configuration": "0.x",
