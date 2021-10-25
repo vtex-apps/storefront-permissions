@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 
@@ -6,9 +7,32 @@ const config: any = currentSchema('b2b_users')
 export const saveUser = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata, lm, vbase },
+    vtex: { logger },
   } = ctx
 
   try {
+    if (!params.id) {
+      const newUser = await masterdata
+        .createDocument({
+          dataEntity: 'CL',
+          fields: {
+            firstName: params.name,
+            email: params.email,
+          },
+        })
+        .then((r: any) => {
+          return r
+        })
+        .catch((err: any) => {
+          logger.error(err)
+          throw err
+        })
+
+      params.id = newUser.DocumentId
+      params.clId = newUser.DocumentId
+      console.log('newUser =>', newUser)
+    }
+
     const {
       roleId,
       canImpersonate,

@@ -181,6 +181,10 @@ export const resolvers = {
               organizationResponse?.data?.getOrganizationById?.collections
                 ?.length
             ) {
+              console.log(
+                'Collection =>',
+                organizationResponse.data.getOrganizationById.collections
+              )
               const collections =
                 organizationResponse.data.getOrganizationById.collections.map(
                   (collection: any) => `productClusterIds=${collection.id}`
@@ -234,6 +238,8 @@ export const resolvers = {
           }
         }
       }
+
+      console.log('OUTPUT =>', res)
 
       ctx.response.body = res
 
