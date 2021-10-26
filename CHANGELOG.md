@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.8.0] - 2021-10-26
+
 ### Added
 
 - Optional `organizationId` and `costCenterId` variables for `listUsers` query
