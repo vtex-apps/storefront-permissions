@@ -164,12 +164,31 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
   }
 }
 
-export const listUsers = async (_: any, __: any, ctx: Context) => {
+export const listUsers = async (
+  _: any,
+  {
+    organizationId = '',
+    costCenterId = '',
+  }: { organizationId: string; costCenterId: string },
+  ctx: Context
+) => {
   const {
     clients: { masterdata },
   } = ctx
 
   let res: any = []
+
+  const whereArray = []
+
+  if (organizationId) {
+    whereArray.push(`orgId=${organizationId}`)
+  }
+
+  if (costCenterId) {
+    whereArray.push(`costId=${costCenterId}`)
+  }
+
+  const where = whereArray.join(' AND ')
 
   try {
     res = await masterdata.searchDocuments({
@@ -187,6 +206,7 @@ export const listUsers = async (_: any, __: any, ctx: Context) => {
       ],
       schema: config.version,
       pagination: { page: 1, pageSize: 50 },
+      ...(where && { where }),
     })
 
     return res
