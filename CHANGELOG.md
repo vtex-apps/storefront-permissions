@@ -7,12 +7,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Optional `organizationId` and `costCenterId` variables for `listUsers` query
+
 ## [1.7.0] - 2021-10-26
 
 ### Added
+
 - `saveUser` now creates users to the CL entity
 
 ### Changed
+
 - Default role labels from `Admin`, `Approver` and `Buyer` to `Organization Admin`, `Organization Approver` and `Organization Buyer`
 
 ## [1.6.1] - 2021-10-25
@@ -20,12 +26,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.6.0] - 2021-10-13
 
 ### Added
+
 - `vtex.search-session`, `vtex.search-segment-graphql` and `vtex.search-segment-resolver` as dependency
 
 ## [1.5.2] - 2021-10-13
 
 ### Fixed
+
 - Collection facets
+
 ## [1.5.1] - 2021-10-12
 
 ### Updated
@@ -33,17 +42,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Doc update
 
 ### Fixed
+
 - ListFeatures error when there's no apps depending on storefront-permissions
+
 ## [1.5.0] - 2021-10-05
 
 ### Added
+
 - Sets Organization, Costcenter, Address, PriceTables on login
+
 ## [1.4.3] - 2021-09-15
 
 ### Added
 
 - Policy for other apps to call this app's GraphQL routes
 - `organization`, `costCenter`, `collections` are now populated in user's session
+
 ## [1.4.2] - 2021-09-07
 
 ### Added
