@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- `saveUser` now creates users to the CL entity
+
 ## [1.6.0] - 2021-10-13
 
 ### Added

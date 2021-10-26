@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { syncRoles } from '../Mutations/Roles'
 import schemas from '../../mdSchema'
 import { toHash } from '../../utils'

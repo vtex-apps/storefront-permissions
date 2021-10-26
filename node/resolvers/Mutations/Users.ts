@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 
@@ -11,7 +10,7 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
-    if (!params.id) {
+    if (!params.clId) {
       const newUser = await masterdata
         .createDocument({
           dataEntity: 'CL',
@@ -24,13 +23,27 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
           return r
         })
         .catch((err: any) => {
+          if (err.response?.data?.Message === 'duplicated entry') {
+            return masterdata
+              .searchDocuments({
+                dataEntity: 'CL',
+                fields: ['id'],
+                where: `email=${params.email}`,
+                pagination: {
+                  page: 1,
+                  pageSize: 1,
+                },
+              })
+              .then((res: any) => {
+                return { DocumentId: res[0].id }
+              })
+          }
+
           logger.error(err)
           throw err
         })
 
-      params.id = newUser.DocumentId
       params.clId = newUser.DocumentId
-      console.log('newUser =>', newUser)
     }
 
     const {
