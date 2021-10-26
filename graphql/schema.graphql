@@ -1,5 +1,7 @@
 type Query {
-  getAppSettings: SettingsResponse @cacheControl(scope: PRIVATE)
+  getAppSettings: SettingsResponse
+    @cacheControl(scope: PRIVATE)
+    @settings(settingsType: "workspace")
   # Roles
   getRole(id: ID!): Role @cacheControl(scope: PRIVATE, maxAge: SHORT)
   hasUsers(slug: String!): Boolean @cacheControl(scope: PRIVATE, maxAge: SHORT)
@@ -54,7 +56,7 @@ type Mutation {
     userId: ID
     orgId: ID
     costId: ID
-    clId: ID!
+    clId: ID
     canImpersonate: Boolean = false
     name: String!
     email: String!

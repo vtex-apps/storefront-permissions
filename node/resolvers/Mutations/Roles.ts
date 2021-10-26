@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema, Slugify, currentRoleNames, toHash } from '../../utils'
 import { getUserByRole } from '../Queries/Users'

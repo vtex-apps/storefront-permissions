@@ -6,9 +6,46 @@ const config: any = currentSchema('b2b_users')
 export const saveUser = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata, lm, vbase },
+    vtex: { logger },
   } = ctx
 
   try {
+    if (!params.clId) {
+      const newUser = await masterdata
+        .createDocument({
+          dataEntity: 'CL',
+          fields: {
+            firstName: params.name,
+            email: params.email,
+          },
+        })
+        .then((r: any) => {
+          return r
+        })
+        .catch((err: any) => {
+          if (err.response?.data?.Message === 'duplicated entry') {
+            return masterdata
+              .searchDocuments({
+                dataEntity: 'CL',
+                fields: ['id'],
+                where: `email=${params.email}`,
+                pagination: {
+                  page: 1,
+                  pageSize: 1,
+                },
+              })
+              .then((res: any) => {
+                return { DocumentId: res[0].id }
+              })
+          }
+
+          logger.error(err)
+          throw err
+        })
+
+      params.clId = newUser.DocumentId
+    }
+
     const {
       roleId,
       canImpersonate,

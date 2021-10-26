@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 import { syncRoles } from '../Mutations/Roles'

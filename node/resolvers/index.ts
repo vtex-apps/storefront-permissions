@@ -235,6 +235,8 @@ export const resolvers = {
         }
       }
 
+      console.log('OUTPUT =>', res)
+
       ctx.response.body = res
 
       ctx.response.status = 200
