@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - Default role labels from `Admin`, `Approver` and `Buyer` to `Organization Admin`, `Organization Approver` and `Organization Buyer`
 
+## [1.6.1] - 2021-10-25
+
 ## [1.6.0] - 2021-10-13
 
 ### Added
