@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Slug being updated if a Role name is changed
+
 ## [1.8.0] - 2021-10-26
 
 ### Added

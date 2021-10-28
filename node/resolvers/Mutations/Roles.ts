@@ -14,12 +14,19 @@ export const saveRole = async (_: any, params: any, ctx: Context) => {
 
   try {
     const { id, name, features } = params
-    const slug = params.slug ?? Slugify(name)
     const locked = params.locked ?? false
+    const data: any = { name, features, locked }
+
+    if (params.slug) {
+      data.slug = params.slug
+    } else if (!id && !params.slug) {
+      data.slug = Slugify(name)
+    }
+
     const ret: any = await masterdata
       .createOrUpdateEntireDocument({
         dataEntity: config.name,
-        fields: { name, features, locked, slug },
+        fields: data,
         id,
         schema: config.version,
       })
@@ -37,11 +44,17 @@ export const saveRole = async (_: any, params: any, ctx: Context) => {
       })
 
     if (ret.DocumentId) {
+      const result: any = await masterdata.getDocument({
+        dataEntity: config.name,
+        fields: ['slug', 'name', 'features', 'locked'],
+        id: ret.DocumentId,
+      })
+
       await vbase.saveJSON('b2b_roles', ret.DocumentId, {
         id: ret.DocumentId,
         name,
         locked,
-        slug,
+        slug: result.slug,
         features,
       })
     }
