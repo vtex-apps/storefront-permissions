@@ -23,7 +23,8 @@ type Query {
   # User
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
   getUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
-  listUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  listUsers(organizationId: ID, costCenterId: ID): [User]
+    @cacheControl(scope: PRIVATE, maxAge: SHORT)
   checkUserPermission: UserPermissions
     @settings(settingsType: "workspace")
     @withSession
