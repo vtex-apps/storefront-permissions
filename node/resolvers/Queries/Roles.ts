@@ -2,7 +2,6 @@
 import { currentSchema } from '../../utils'
 import { syncRoles } from '../Mutations/Roles'
 import { getUserByRole } from './Users'
-import { groupByRole } from './Features'
 
 const config: any = currentSchema('b2b_roles')
 
@@ -21,16 +20,6 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
         id,
         fields: ['id', 'name', 'features', 'locked', 'slug'],
       })
-    }
-
-    let featureByRole = await groupByRole(ctx)
-
-    featureByRole = featureByRole?.filter((currRole: any) => {
-      return !!currRole[role.slug]
-    })
-
-    if (featureByRole?.length) {
-      role.features = featureByRole[0][role.slug]
     }
 
     return role
