@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.8.2] - 2021-11-02
+
 ### Fixed
 - Not loading saved roles from checkPermissions
 ## [1.8.1] - 2021-10-28
