@@ -169,7 +169,8 @@ export const listUsers = async (
   {
     organizationId = '',
     costCenterId = '',
-  }: { organizationId: string; costCenterId: string },
+    roleId = '',
+  }: { organizationId: string; costCenterId: string, roleId: string },
   ctx: Context
 ) => {
   const {
@@ -178,7 +179,9 @@ export const listUsers = async (
 
   let res: any = []
 
-  const whereArray = []
+  const whereArray: string[] = []
+
+  console.log('args ==>', {organizationId, costCenterId, roleId})
 
   if (organizationId) {
     whereArray.push(`orgId=${organizationId}`)
@@ -186,6 +189,10 @@ export const listUsers = async (
 
   if (costCenterId) {
     whereArray.push(`costId=${costCenterId}`)
+  }
+
+  if (roleId) {
+    whereArray.push(`roleId=${roleId}`)
   }
 
   const where = whereArray.join(' AND ')

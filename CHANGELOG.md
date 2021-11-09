@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Optional `permissionId` variables for `listUsers` query
+
+
 ## [1.8.2] - 2021-11-02
 
 ### Fixed
