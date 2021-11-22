@@ -7,20 +7,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- When syncing roles and features, new modules are now added to existing modules instead of replacing them
+
 ## [1.9.0] - 2021-11-09
 
 ### Added
 
 - Optional `permissionId` variables for `listUsers` query
 
-
 ## [1.8.2] - 2021-11-02
 
 ### Fixed
+
 - Not loading saved roles from checkPermissions
+
 ## [1.8.1] - 2021-10-28
 
 ### Fixed
+
 - Slug being updated if a Role name is changed
 
 ## [1.8.0] - 2021-10-26

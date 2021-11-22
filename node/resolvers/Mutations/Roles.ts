@@ -116,7 +116,7 @@ export const syncRoles = async (ctx: Context) => {
 
       currRole = {
         ...roles[roleIndex],
-        features: newModules,
+        features: currModules,
       }
     }
 
