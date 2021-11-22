@@ -170,7 +170,7 @@ export const listUsers = async (
     organizationId = '',
     costCenterId = '',
     roleId = '',
-  }: { organizationId: string; costCenterId: string, roleId: string },
+  }: { organizationId: string; costCenterId: string; roleId: string },
   ctx: Context
 ) => {
   const {
@@ -180,8 +180,6 @@ export const listUsers = async (
   let res: any = []
 
   const whereArray: string[] = []
-
-  console.log('args ==>', {organizationId, costCenterId, roleId})
 
   if (organizationId) {
     whereArray.push(`orgId=${organizationId}`)
