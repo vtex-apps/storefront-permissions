@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.9.1] - 2021-11-22
+
 ### Fixed
 
 - When syncing roles and features, new modules are now added to existing modules instead of replacing them
