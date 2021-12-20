@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Prevent login for users in inactive organizations by throwing error in `setProfile` route handler
+
 ## [1.9.1] - 2021-11-22
 
 ### Fixed
