@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { json } from 'co-body'
+import { ForbiddenError } from '@vtex/api'
 
 import { deleteRole, saveRole } from './Mutations/Roles'
 import { getRole, listRoles, hasUsers } from './Queries/Roles'
@@ -23,6 +24,7 @@ const getAppId = (): string => {
 const QUERIES = {
   getOrganizationById: `query Organization($id: ID!){
     getOrganizationById(id: $id) @context(provider: "vtex.b2b-organizations-graphql"){
+      status
       priceTables
       collections {
         id
@@ -154,8 +156,9 @@ export const resolvers = {
 
         if (user?.orgId) {
           res['storefront-permissions'].organization.value = user.orgId
-          try {
-            const organizationResponse: any = await graphqlServer.query(
+
+          const organizationResponse: any = await graphqlServer
+            .query(
               QUERIES.getOrganizationById,
               { id: user.orgId },
               {
@@ -165,77 +168,80 @@ export const resolvers = {
                 },
               }
             )
+            .catch((err) => {
+              logger.error(err)
+            })
+
+          // prevent login if org is inactive
+          if (
+            organizationResponse?.data?.getOrganizationById?.status ===
+            'inactive'
+          ) {
+            throw new ForbiddenError('Organization is inactive')
+          }
+
+          if (
+            organizationResponse?.data?.getOrganizationById?.priceTables?.length
+          ) {
+            res[
+              'storefront-permissions'
+            ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
+              ';'
+            )}`
+          }
+
+          if (
+            organizationResponse?.data?.getOrganizationById?.collections?.length
+          ) {
+            const collections =
+              organizationResponse.data.getOrganizationById.collections.map(
+                (collection: any) => `productClusterIds=${collection.id}`
+              )
+
+            res.public.facets.value = `${collections.join(';')}`
+          }
+
+          if (orderFormId) {
+            await checkout
+              .updateOrderFormMarketingData(orderFormId, {
+                attachmentId: 'marketingData',
+                utmCampaign: user?.orgId,
+                utmMedium: user?.costId,
+              })
+              .catch((err) => {
+                logger.error(err)
+              })
+          }
+
+          if (user?.costId) {
+            res['storefront-permissions'].costcenter.value = user.costId
+            const costCenterResponse: any = await graphqlServer.query(
+              QUERIES.getCostCenterById,
+              { id: user.costId },
+              {
+                persistedQuery: {
+                  provider: 'vtex.b2b-organizations-graphql@0.x',
+                  sender: 'vtex.storefront-permissions@1.x',
+                },
+              }
+            )
 
             if (
-              organizationResponse?.data?.getOrganizationById?.priceTables
-                ?.length
+              costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
+              orderFormId
             ) {
-              res[
-                'storefront-permissions'
-              ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
-                ';'
-              )}`
-            }
+              const [address] =
+                costCenterResponse.data.getCostCenterById.addresses
 
-            if (
-              organizationResponse?.data?.getOrganizationById?.collections
-                ?.length
-            ) {
-              const collections =
-                organizationResponse.data.getOrganizationById.collections.map(
-                  (collection: any) => `productClusterIds=${collection.id}`
-                )
-
-              res.public.facets.value = `${collections.join(';')}`
-            }
-
-            if (orderFormId) {
               await checkout
-                .updateOrderFormMarketingData(orderFormId, {
-                  attachmentId: 'marketingData',
-                  utmCampaign: user?.orgId,
-                  utmMedium: user?.costId,
-                })
+                .updateOrderFormShipping(orderFormId, { address })
                 .catch((err) => {
                   logger.error(err)
                 })
             }
-
-            if (user?.costId) {
-              res['storefront-permissions'].costcenter.value = user.costId
-              const costCenterResponse: any = await graphqlServer.query(
-                QUERIES.getCostCenterById,
-                { id: user.costId },
-                {
-                  persistedQuery: {
-                    provider: 'vtex.b2b-organizations-graphql@0.x',
-                    sender: 'vtex.storefront-permissions@1.x',
-                  },
-                }
-              )
-
-              if (
-                costCenterResponse?.data?.getCostCenterById?.addresses
-                  ?.length &&
-                orderFormId
-              ) {
-                const [address] =
-                  costCenterResponse.data.getCostCenterById.addresses
-
-                await checkout
-                  .updateOrderFormShipping(orderFormId, { address })
-                  .catch((err) => {
-                    logger.error(err)
-                  })
-              }
-            }
-          } catch (err) {
-            logger.error(err)
           }
         }
       }
-
-      console.log('OUTPUT =>', res)
 
       ctx.response.body = res
 
