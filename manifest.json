@@ -106,6 +106,13 @@
     {
       "name": "outbound-access",
       "attrs": {
+        "host": "portal.vtexcommercestable.com.br",
+        "path": "/api/profile-system/*"
+      }
+    },
+    {
+      "name": "outbound-access",
+      "attrs": {
         "host": "{{account}}.vtexcommercestable.com.br",
         "path": "/api/scheduler/master/vtex.gmc-keep-alive"
       }

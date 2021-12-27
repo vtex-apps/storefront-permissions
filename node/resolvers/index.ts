@@ -111,7 +111,7 @@ export const resolvers = {
       ctx.set('Cache-Control', 'no-cache, no-store')
       const body: any = await json(ctx.req)
       const {
-        clients: { graphqlServer, checkout },
+        clients: { graphqlServer, checkout, profileSystem },
         vtex: { logger },
       } = ctx
 
@@ -126,6 +126,12 @@ export const resolvers = {
           priceTables: {
             value: '',
           },
+          storeUserId: {
+            value: '',
+          },
+          storeUserEmail: {
+            value: '',
+          },
         },
         public: {
           facets: {
@@ -134,8 +140,20 @@ export const resolvers = {
         },
       }
 
+      const impersonate = body?.public?.impersonate?.value ?? null
       const email = body?.authentication?.storeUserEmail?.value ?? null
       const orderFormId = body?.checkout?.orderFormId?.value ?? null
+
+      if (impersonate) {
+        const profile: any = await profileSystem.getProfileInfo(impersonate)
+
+        if (profile) {
+          res['storefront-permissions'].storeUserId.value = profile.userId
+          res['storefront-permissions'].storeUserEmail.value = profile.email
+        }
+
+        console.log('Profile =>', profile)
+      }
 
       if (email) {
         const [user]: any = await getUserByEmail(null, { email }, ctx)
