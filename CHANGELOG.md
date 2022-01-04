@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.10.1] - 2022-01-04
+
 ### Fixed
 
 - `checkUserPermissions` query will no longer throw an error if the user's role has no enabled permissions for the app making the request
