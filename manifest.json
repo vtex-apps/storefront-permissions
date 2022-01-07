@@ -1,7 +1,7 @@
 {
   "name": "storefront-permissions",
   "vendor": "vtex",
-  "version": "1.9.1",
+  "version": "1.10.1",
   "title": "Storefront Permissions",
   "description": "Manage User's permissions on apps that relates to this app",
   "mustUpdateAt": "2022-08-28",
@@ -118,16 +118,5 @@
       }
     }
   ],
-  "settingsSchema": {
-    "title": "B2B Admin",
-    "type": "object",
-    "properties": {
-      "masterEmail": {
-        "title": "Main admin email",
-        "description": "Only the user with this email address can do the initial setup",
-        "type": "string"
-      }
-    }
-  },
   "$schema": "https://raw.githubusercontent.com/vtex/node-vtex-api/master/gen/manifest.schema"
 }
