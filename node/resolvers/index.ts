@@ -5,7 +5,7 @@ import { json } from 'co-body'
 
 import { deleteRole, saveRole } from './Mutations/Roles'
 import { getRole, listRoles, hasUsers } from './Queries/Roles'
-import { deleteUser, saveUser } from './Mutations/Users'
+import { deleteUser, saveUser, impersonateUser } from './Mutations/Users'
 import { getFeaturesByModule, listFeatures } from './Queries/Features'
 import { getAppSettings } from './Queries/Settings'
 import {
@@ -31,6 +31,10 @@ const QUERIES = {
   }`,
   getCostCenterById: `query Costcenter($id: ID!) {
     getCostCenterById(id: $id) {
+      paymentTerms {
+        id
+        name
+      }
       addresses {
         addressId
         addressType
@@ -151,8 +155,6 @@ export const resolvers = {
           res['storefront-permissions'].storeUserId.value = profile.userId
           res['storefront-permissions'].storeUserEmail.value = profile.email
         }
-
-        console.log('Profile =>', profile)
       }
 
       if (email) {
@@ -265,6 +267,7 @@ export const resolvers = {
     saveRole,
     deleteUser,
     saveUser,
+    impersonateUser,
     saveAppSettings: async (_: any, __: any, ctx: Context) => {
       const {
         clients: { apps },

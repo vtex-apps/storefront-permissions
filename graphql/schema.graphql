@@ -51,6 +51,7 @@ type Mutation {
   # saveProfile(roleId: ID!, features: [FeatureInput]!): MutationResponse @cacheControl(scope: PRIVATE)
   # deleteProfile(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
   # User
+
   saveUser(
     id: ID
     roleId: ID!
@@ -62,6 +63,8 @@ type Mutation {
     name: String!
     email: String!
   ): MutationResponse @cacheControl(scope: PRIVATE)
+
+  impersonateUser(userId: ID): MutationResponse @cacheControl(scope: PRIVATE)
   deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
     @cacheControl(scope: PRIVATE)
 }

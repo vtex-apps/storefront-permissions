@@ -11,8 +11,9 @@ This APP doesn't containg an interface, for managing users, install `vtex.admin-
 
 ## Functionalities
 
-- Manage Roles
-- Manage Permissions
+- Centralize App Permissions
+- Manage Roles Permissions
+- Impersonation
 
 ## Configuration
 
@@ -37,7 +38,6 @@ How to integrate your app with **Storefront Permissions** and make it available 
 - Inside the `vtex.storefront-permissions` folder, create a `configuration.json` file
 
 The content to this file should be in this format containing the name of your App and the features, remember to not use space or special characters as value for the features, you can also define default Roles that will be able to use each feature
-
 
 ```JSON
 {
@@ -75,14 +75,13 @@ The content to this file should be in this format containing the name of your Ap
 | Sales Admin          | `sales-admin`          |
 | Sales Manager        | `sales-manager`        |
 | Sales Representative | `sales-representative` |
-| Admin       | `customer-admin`       |
-| Approver    | `customer-approver`    |
-| Buyer       | `customer-buyer`       |
+| Admin                | `customer-admin`       |
+| Approver             | `customer-approver`    |
+| Buyer                | `customer-buyer`       |
 
 Once your app is installed, this information will be automatically loaded on the **Storefront Permissions** Roles section
 
 Now that your app is integrated, and you have associated your test user to a Role containing your app's permission, you can write a GraphQL query on your app to check the current user's permission within the context of your app, it's not necessary to declare your app name nor user credentials, the query will take care of these details
-
 
 ### Graphql queries
 
@@ -118,12 +117,12 @@ The response will be a simple list with all the permissions the current user has
 }
 ```
 
-
 `hasUsers`
 
 ```graphql
 query HasUsers {
-  hasUsers(slug: "sales-admin") @context(provider: "vtex.storefront-permissions")
+  hasUsers(slug: "sales-admin")
+    @context(provider: "vtex.storefront-permissions")
 }
 ```
 
@@ -133,6 +132,20 @@ The response will be a boolean
 {
   "data": {
     "hasUsers": true
+  }
+}
+```
+
+### Graphql mutation
+
+Use `userId` to impersonate, to remove impersonation send an empty `userId` instead
+
+```graphql
+mutation impersonateUser($userId: ID)
+@context(provider: "vtex.storefront-permissions") {
+  impersonateUser(userId: $userId) {
+    status
+    message
   }
 }
 ```

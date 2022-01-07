@@ -189,3 +189,22 @@ export const deleteUser = async (_: any, params: any, ctx: Context) => {
     return { status: 'error', message: e }
   }
 }
+
+export const impersonateUser = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { session },
+    cookies,
+  } = ctx
+
+  const { userId } = params
+
+  const sessionCookie = cookies.get('vtex_session')
+
+  try {
+    session.updateSession('impersonate', userId, [], sessionCookie)
+
+    return { status: 'success', message: '' }
+  } catch (e) {
+    return { status: 'error', message: e }
+  }
+}
