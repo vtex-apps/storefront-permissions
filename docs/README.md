@@ -77,7 +77,7 @@ The content to this file should be in this format containing the name of your Ap
 | Sales Representative | `sales-representative` |
 | Admin                | `customer-admin`       |
 | Approver             | `customer-approver`    |
-| Buyer                | `customer-buyer`       |
+| Customer Buyer                | `customer-buyer`       |
 
 Once your app is installed, this information will be automatically loaded on the **Storefront Permissions** Roles section
 
