@@ -201,7 +201,7 @@ export const impersonateUser = async (_: any, params: any, ctx: Context) => {
   const sessionCookie = cookies.get('vtex_session')
 
   try {
-    session.updateSession('impersonate', userId, [], sessionCookie)
+    await session.updateSession('impersonate', userId, [], sessionCookie)
 
     return { status: 'success', message: '' }
   } catch (e) {
