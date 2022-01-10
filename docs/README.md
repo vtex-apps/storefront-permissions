@@ -75,7 +75,7 @@ The content to this file should be in this format containing the name of your Ap
 | Sales Admin          | `sales-admin`          |
 | Sales Manager        | `sales-manager`        |
 | Sales Representative | `sales-representative` |
-| Admin                | `customer-admin`       |
+| Customer Admin                | `customer-admin`       |
 | Customer Approver             | `customer-approver`    |
 | Customer Buyer                | `customer-buyer`       |
 
