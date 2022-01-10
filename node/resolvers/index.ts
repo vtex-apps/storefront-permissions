@@ -6,7 +6,7 @@ import { ForbiddenError } from '@vtex/api'
 
 import { deleteRole, saveRole } from './Mutations/Roles'
 import { getRole, listRoles, hasUsers } from './Queries/Roles'
-import { deleteUser, saveUser } from './Mutations/Users'
+import { deleteUser, saveUser, impersonateUser } from './Mutations/Users'
 import { getFeaturesByModule, listFeatures } from './Queries/Features'
 import { getAppSettings } from './Queries/Settings'
 import {
@@ -33,6 +33,10 @@ const QUERIES = {
   }`,
   getCostCenterById: `query Costcenter($id: ID!) {
     getCostCenterById(id: $id) {
+      paymentTerms {
+        id
+        name
+      }
       addresses {
         addressId
         addressType
@@ -113,7 +117,7 @@ export const resolvers = {
       ctx.set('Cache-Control', 'no-cache, no-store')
       const body: any = await json(ctx.req)
       const {
-        clients: { graphqlServer, checkout },
+        clients: { graphqlServer, checkout, profileSystem },
         vtex: { logger },
       } = ctx
 
@@ -128,6 +132,12 @@ export const resolvers = {
           priceTables: {
             value: '',
           },
+          storeUserId: {
+            value: '',
+          },
+          storeUserEmail: {
+            value: '',
+          },
         },
         public: {
           facets: {
@@ -136,8 +146,18 @@ export const resolvers = {
         },
       }
 
+      const impersonate = body?.public?.impersonate?.value ?? null
       const email = body?.authentication?.storeUserEmail?.value ?? null
       const orderFormId = body?.checkout?.orderFormId?.value ?? null
+
+      if (impersonate) {
+        const profile: any = await profileSystem.getProfileInfo(impersonate)
+
+        if (profile) {
+          res['storefront-permissions'].storeUserId.value = profile.userId
+          res['storefront-permissions'].storeUserEmail.value = profile.email
+        }
+      }
 
       if (email) {
         const [user]: any = await getUserByEmail(null, { email }, ctx)
@@ -253,6 +273,7 @@ export const resolvers = {
     saveRole,
     deleteUser,
     saveUser,
+    impersonateUser,
     saveAppSettings: async (_: any, __: any, ctx: Context) => {
       const {
         clients: { apps },

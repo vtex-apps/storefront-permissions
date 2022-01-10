@@ -2,11 +2,14 @@
   "storefront-permissions": {
     "input": {
       "authentication": ["storeUserEmail"],
-      "checkout": ["orderFormId"]
+      "checkout": ["orderFormId"],
+      "public": ["impersonate"]
     },
     "output": {
       "public": ["facets"],
       "storefront-permissions": [
+        "storeUserId",
+        "storeUserEmail",
         "organization",
         "costcenter",
         "priceTables",

@@ -1,6 +1,7 @@
 import { IOClients } from '@vtex/api'
 
 import { LMClient } from '../utils/LicenseManager'
+import { ProfileSystemClient } from '../utils/ProfileSystem'
 import { GraphQLServer } from './GraphQLServer'
 import { Checkout } from './checkout'
 
@@ -8,6 +9,10 @@ import { Checkout } from './checkout'
 export class Clients extends IOClients {
   public get lm() {
     return this.getOrSet('lm', LMClient)
+  }
+
+  public get profileSystem() {
+    return this.getOrSet('profileSystem', ProfileSystemClient)
   }
 
   public get checkout() {
