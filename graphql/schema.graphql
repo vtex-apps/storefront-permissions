@@ -25,11 +25,23 @@ type Query {
   getUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
   listUsers(organizationId: ID, costCenterId: ID, roleId: ID): [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  checkImpersonation: UserImpersonation
+    @settings(settingsType: "workspace")
+    @withSession
+    @cacheControl(scope: PRIVATE)
   checkUserPermission: UserPermissions
     @settings(settingsType: "workspace")
     @withSession
     @withSender
     @cacheControl(scope: PRIVATE)
+}
+
+type UserImpersonation {
+  firstName: String
+  lastName: String
+  email: String
+  userId: ID
+  error: String
 }
 
 type UserPermissions {

@@ -136,6 +136,36 @@ The response will be a boolean
 }
 ```
 
+`checkImpersonation`
+
+```graphql
+query checkImpersonation {
+  checkImpersonation {
+    firstName
+    lastName
+    email
+    userId
+    error
+  }
+}
+```
+
+The response will be a boolean
+
+```JSON
+{
+  "data": {
+    "checkImpersonation": {
+      "firstName": "Andrew",
+      "lastName": "Smith",
+      "email": "testemail@mail.com",
+      "userId": "aaaaa-bbbb-cccc-dddd-eeeee",
+      "error": null
+    }
+  }
+}
+```
+
 ### Graphql mutation
 
 Use `userId` to impersonate, to remove impersonation send an empty `userId` instead
