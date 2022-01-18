@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { json } from 'co-body'
@@ -14,6 +13,7 @@ import {
   getUserByEmail,
   listUsers,
   checkUserPermission,
+  checkImpersonation,
   getUserById,
 } from './Queries/Users'
 
@@ -302,6 +302,7 @@ export const resolvers = {
     getUserByEmail,
     listUsers,
     checkUserPermission,
+    checkImpersonation,
     getAppSettings,
   },
 }

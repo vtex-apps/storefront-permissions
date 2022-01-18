@@ -278,3 +278,43 @@ export const checkUserPermission = async (
 
   return ret
 }
+
+export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
+  const {
+    clients: { profileSystem },
+  } = ctx
+
+  const { sessionData }: any = ctx.vtex
+
+  if (!sessionData?.namespaces) {
+    throw new Error('User not authenticated, make sure the query is private')
+  }
+
+  const profile = sessionData?.namespaces?.profile
+  const sfp = sessionData?.namespaces['storefront-permissions']
+
+  let ret = null
+
+  if (
+    sfp?.storeUserId?.value &&
+    profile?.id?.value &&
+    sfp?.storeUserId?.value === profile?.id?.value
+  ) {
+    const userData: any = await profileSystem
+      .getProfileInfo(profile.id.value)
+      .catch(() => null)
+
+    if (!userData) {
+      ret = { error: 'User not found' }
+    } else {
+      ret = {
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        userId: userData.userId,
+      }
+    }
+  }
+
+  return ret
+}
