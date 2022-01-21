@@ -10,6 +10,7 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
+    // check if new user already exists in CL and create profile if not
     if (!params.clId) {
       const newUser = await masterdata
         .createDocument({
@@ -59,6 +60,7 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
     } = params
 
     let UserId = userId
+    let mdId = id
 
     if (canImpersonate) {
       await lm.saveUser(name, email).catch((err) => {
@@ -71,6 +73,24 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
       await lm.deleteUser(userId).catch((err) => {
         throw new Error(err)
       })
+    }
+
+    // check if new user's email already exists in storefront-permissions MD
+    if (!mdId) {
+      mdId = await masterdata
+        .searchDocuments({
+          dataEntity: config.name,
+          fields: ['id'],
+          schema: config.version,
+          pagination: { page: 1, pageSize: 90 },
+          where: `email=${email}`,
+        })
+        .then((r: any) => {
+          return r?.length ? r[0].id : null
+        })
+        .catch(() => {
+          return null
+        })
     }
 
     const ret = await masterdata
@@ -86,13 +106,13 @@ export const saveUser = async (_: any, params: any, ctx: Context) => {
           name,
           email,
         },
-        id,
+        id: mdId,
         schema: config.version,
       })
       .then((r: any) => {
         return r
       })
-      .catch((err: any) => {
+      .catch((err) => {
         if (err.response.status < 400) {
           return {
             DocumentId: id,

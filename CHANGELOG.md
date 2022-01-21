@@ -7,13 +7,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- When adding a new user, check if their email already exists in MD
+
 ## [1.12.0] - 2022-01-18
 
 ### Added
+
 - `checkImpersonation` Graphql query
+
 ## [1.11.0] - 2022-01-10
 
 ### Added
+
 - `impersonateUser` mutation
 
 ## [1.10.1] - 2022-01-04
