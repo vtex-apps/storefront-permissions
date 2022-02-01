@@ -179,10 +179,3 @@ mutation impersonateUser($userId: ID)
   }
 }
 ```
-
-### Troubleshooting
-
-By default the app settings has the Session Watcher active, it's used to detect changes to authentication, orderFormId or impersonation request. When active, sets priceTable, Collection, Cart Settings, Organizations and Cost Center to the session
-
-If loaded via dependency, it may cause unecessary use of resources, to turn this feature off, head over to `{accountName}.myvtex.com/admin/apps/vtex.storefront-permissions@1.x/setup/` uncheck the **YES** option and click **SAVE**
-

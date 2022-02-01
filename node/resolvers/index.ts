@@ -114,13 +114,9 @@ export const resolvers = {
     },
     setProfile: async (ctx: Context) => {
       const {
-        clients: { graphqlServer, checkout, profileSystem, apps },
+        clients: { graphqlServer, checkout, profileSystem },
         vtex: { logger },
       } = ctx
-
-      const settings = await apps.getAppSettings(getAppId()).catch((error) => {
-        logger.error({ message: 'setProfile.getAppSettingsError', error })
-      })
 
       const res = {
         'storefront-permissions': {
@@ -150,61 +146,122 @@ export const resolvers = {
       ctx.set('Content-Type', 'application/json')
       ctx.set('Cache-Control', 'no-cache, no-store')
 
-      if (!settings?.sessionWatcher || settings?.sessionWatcher?.active) {
-        const body: any = await json(ctx.req)
+      const body: any = await json(ctx.req)
 
-        const impersonate = body?.public?.impersonate?.value ?? null
-        const email = body?.authentication?.storeUserEmail?.value ?? null
-        const orderFormId = body?.checkout?.orderFormId?.value ?? null
+      const impersonate = body?.public?.impersonate?.value ?? null
+      const email = body?.authentication?.storeUserEmail?.value ?? null
+      const orderFormId = body?.checkout?.orderFormId?.value ?? null
 
-        if (impersonate) {
-          const profile: any = await profileSystem
-            .getProfileInfo(impersonate)
-            .catch((error) => {
-              logger.error({ message: 'setProfile.getProfileInfoError', error })
-            })
+      if (impersonate) {
+        const profile: any = await profileSystem
+          .getProfileInfo(impersonate)
+          .catch((error) => {
+            logger.error({ message: 'setProfile.getProfileInfoError', error })
+          })
 
-          if (profile) {
-            res['storefront-permissions'].storeUserId.value = profile.userId
-            res['storefront-permissions'].storeUserEmail.value = profile.email
-          }
+        if (profile) {
+          res['storefront-permissions'].storeUserId.value = profile.userId
+          res['storefront-permissions'].storeUserEmail.value = profile.email
         }
+      }
 
-        if (email) {
-          const [user]: any = await getUserByEmail(null, { email }, ctx).catch(
+      if (email) {
+        const [user]: any = await getUserByEmail(null, { email }, ctx).catch(
+          (error) => {
+            logger.warn({ message: 'setProfile.getUserByEmailError', error })
+          }
+        )
+
+        if (user?.clId) {
+          const clUser = await getUserById(null, { id: user.clId }, ctx).catch(
             (error) => {
-              logger.warn({ message: 'setProfile.getUserByEmailError', error })
+              logger.error({ message: 'setProfile.getUserByIdError', error })
             }
           )
 
-          if (user?.clId) {
-            const clUser = await getUserById(
-              null,
-              { id: user.clId },
-              ctx
-            ).catch((error) => {
-              logger.error({ message: 'setProfile.getUserByIdError', error })
+          if (clUser && orderFormId) {
+            await checkout
+              .updateOrderFormProfile(orderFormId, clUser)
+              .catch((error) => {
+                logger.error({
+                  message: 'setProfile.updateOrderFormProfileError',
+                  error,
+                })
+              })
+          }
+        }
+
+        if (user?.orgId) {
+          res['storefront-permissions'].organization.value = user.orgId
+
+          const organizationResponse: any = await graphqlServer
+            .query(
+              QUERIES.getOrganizationById,
+              { id: user.orgId },
+              {
+                persistedQuery: {
+                  provider: 'vtex.b2b-organizations-graphql@0.x',
+                  sender: 'vtex.storefront-permissions@1.x',
+                },
+              }
+            )
+            .catch((error) => {
+              logger.error({
+                message: 'setProfile.graphqlGetOrganizationById',
+                error,
+              })
             })
 
-            if (clUser && orderFormId) {
-              await checkout
-                .updateOrderFormProfile(orderFormId, clUser)
-                .catch((error) => {
-                  logger.error({
-                    message: 'setProfile.updateOrderFormProfileError',
-                    error,
-                  })
-                })
-            }
+          // prevent login if org is inactive
+          if (
+            organizationResponse?.data?.getOrganizationById?.status ===
+            'inactive'
+          ) {
+            throw new ForbiddenError('Organization is inactive')
           }
 
-          if (user?.orgId) {
-            res['storefront-permissions'].organization.value = user.orgId
+          if (
+            organizationResponse?.data?.getOrganizationById?.priceTables?.length
+          ) {
+            res[
+              'storefront-permissions'
+            ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
+              ';'
+            )}`
+          }
 
-            const organizationResponse: any = await graphqlServer
+          if (
+            organizationResponse?.data?.getOrganizationById?.collections?.length
+          ) {
+            const collections =
+              organizationResponse.data.getOrganizationById.collections.map(
+                (collection: any) => `productClusterIds=${collection.id}`
+              )
+
+            res.public.facets.value = `${collections.join(';')}`
+          }
+
+          if (orderFormId) {
+            await checkout
+              .updateOrderFormMarketingData(orderFormId, {
+                attachmentId: 'marketingData',
+                utmCampaign: user?.orgId,
+                utmMedium: user?.costId,
+              })
+              .catch((error) => {
+                logger.error({
+                  message: 'setProfile.updateOrderFormMarketingDataError',
+                  error,
+                })
+              })
+          }
+
+          if (user?.costId) {
+            res['storefront-permissions'].costcenter.value = user.costId
+            const costCenterResponse: any = await graphqlServer
               .query(
-                QUERIES.getOrganizationById,
-                { id: user.orgId },
+                QUERIES.getCostCenterById,
+                { id: user.costId },
                 {
                   persistedQuery: {
                     provider: 'vtex.b2b-organizations-graphql@0.x',
@@ -214,94 +271,26 @@ export const resolvers = {
               )
               .catch((error) => {
                 logger.error({
-                  message: 'setProfile.graphqlGetOrganizationById',
+                  message: 'setProfile.graphqlGetCostCenterById',
                   error,
                 })
               })
 
-            // prevent login if org is inactive
             if (
-              organizationResponse?.data?.getOrganizationById?.status ===
-              'inactive'
+              costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
+              orderFormId
             ) {
-              throw new ForbiddenError('Organization is inactive')
-            }
+              const [address] =
+                costCenterResponse.data.getCostCenterById.addresses
 
-            if (
-              organizationResponse?.data?.getOrganizationById?.priceTables
-                ?.length
-            ) {
-              res[
-                'storefront-permissions'
-              ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
-                ';'
-              )}`
-            }
-
-            if (
-              organizationResponse?.data?.getOrganizationById?.collections
-                ?.length
-            ) {
-              const collections =
-                organizationResponse.data.getOrganizationById.collections.map(
-                  (collection: any) => `productClusterIds=${collection.id}`
-                )
-
-              res.public.facets.value = `${collections.join(';')}`
-            }
-
-            if (orderFormId) {
               await checkout
-                .updateOrderFormMarketingData(orderFormId, {
-                  attachmentId: 'marketingData',
-                  utmCampaign: user?.orgId,
-                  utmMedium: user?.costId,
-                })
+                .updateOrderFormShipping(orderFormId, { address })
                 .catch((error) => {
                   logger.error({
-                    message: 'setProfile.updateOrderFormMarketingDataError',
+                    message: 'setProfile.updateOrderFormShippingError',
                     error,
                   })
                 })
-            }
-
-            if (user?.costId) {
-              res['storefront-permissions'].costcenter.value = user.costId
-              const costCenterResponse: any = await graphqlServer
-                .query(
-                  QUERIES.getCostCenterById,
-                  { id: user.costId },
-                  {
-                    persistedQuery: {
-                      provider: 'vtex.b2b-organizations-graphql@0.x',
-                      sender: 'vtex.storefront-permissions@1.x',
-                    },
-                  }
-                )
-                .catch((error) => {
-                  logger.error({
-                    message: 'setProfile.graphqlGetCostCenterById',
-                    error,
-                  })
-                })
-
-              if (
-                costCenterResponse?.data?.getCostCenterById?.addresses
-                  ?.length &&
-                orderFormId
-              ) {
-                const [address] =
-                  costCenterResponse.data.getCostCenterById.addresses
-
-                await checkout
-                  .updateOrderFormShipping(orderFormId, { address })
-                  .catch((error) => {
-                    logger.error({
-                      message: 'setProfile.updateOrderFormShippingError',
-                      error,
-                    })
-                  })
-              }
             }
           }
         }
