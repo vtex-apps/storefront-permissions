@@ -119,7 +119,7 @@ export const resolvers = {
       } = ctx
 
       const settings = await apps.getAppSettings(getAppId()).catch((error) => {
-        logger.error({ message: 'Error getting app settings', error })
+        logger.error({ message: 'setProfile.getAppSettingsError', error })
       })
 
       const res = {
@@ -161,7 +161,7 @@ export const resolvers = {
           const profile: any = await profileSystem
             .getProfileInfo(impersonate)
             .catch((error) => {
-              logger.error({ message: 'Error getting user profile', error })
+              logger.error({ message: 'setProfile.getProfileInfoError', error })
             })
 
           if (profile) {
@@ -173,7 +173,7 @@ export const resolvers = {
         if (email) {
           const [user]: any = await getUserByEmail(null, { email }, ctx).catch(
             (error) => {
-              logger.error({ message: 'Error getting user by email', error })
+              logger.error({ message: 'setProfile.getUserByEmailError', error })
             }
           )
 
@@ -183,7 +183,7 @@ export const resolvers = {
               { id: user.clId },
               ctx
             ).catch((error) => {
-              logger.error({ message: 'Error getting user by id', error })
+              logger.error({ message: 'setProfile.getUserByIdError', error })
             })
 
             if (clUser && orderFormId) {
@@ -191,7 +191,7 @@ export const resolvers = {
                 .updateOrderFormProfile(orderFormId, clUser)
                 .catch((error) => {
                   logger.error({
-                    message: 'Error updating orderForm clientProfileData',
+                    message: 'setProfile.updateOrderFormProfileError',
                     error,
                   })
                 })
@@ -213,7 +213,10 @@ export const resolvers = {
                 }
               )
               .catch((error) => {
-                logger.error({ message: 'Error getting organization', error })
+                logger.error({
+                  message: 'setProfile.graphqlGetOrganizationById',
+                  error,
+                })
               })
 
             // prevent login if org is inactive
@@ -256,7 +259,7 @@ export const resolvers = {
                 })
                 .catch((error) => {
                   logger.error({
-                    message: 'Error updating orderForm marketingData',
+                    message: 'setProfile.updateOrderFormMarketingDataError',
                     error,
                   })
                 })
@@ -276,7 +279,10 @@ export const resolvers = {
                   }
                 )
                 .catch((error) => {
-                  logger.error({ message: 'Error getting cost center', error })
+                  logger.error({
+                    message: 'setProfile.graphqlGetCostCenterById',
+                    error,
+                  })
                 })
 
               if (
@@ -291,7 +297,7 @@ export const resolvers = {
                   .updateOrderFormShipping(orderFormId, { address })
                   .catch((error) => {
                     logger.error({
-                      message: 'Error updating orderForm shippingData',
+                      message: 'setProfile.updateOrderFormShippingError',
                       error,
                     })
                   })
