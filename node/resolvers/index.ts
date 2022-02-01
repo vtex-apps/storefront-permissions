@@ -113,9 +113,6 @@ export const resolvers = {
       ctx.response.status = 200
     },
     setProfile: async (ctx: Context) => {
-      ctx.set('Content-Type', 'application/json')
-      ctx.set('Cache-Control', 'no-cache, no-store')
-      const body: any = await json(ctx.req)
       const {
         clients: { graphqlServer, checkout, profileSystem },
         vtex: { logger },
@@ -146,12 +143,21 @@ export const resolvers = {
         },
       }
 
+      ctx.set('Content-Type', 'application/json')
+      ctx.set('Cache-Control', 'no-cache, no-store')
+
+      const body: any = await json(ctx.req)
+
       const impersonate = body?.public?.impersonate?.value ?? null
       const email = body?.authentication?.storeUserEmail?.value ?? null
       const orderFormId = body?.checkout?.orderFormId?.value ?? null
 
       if (impersonate) {
-        const profile: any = await profileSystem.getProfileInfo(impersonate)
+        const profile: any = await profileSystem
+          .getProfileInfo(impersonate)
+          .catch((error) => {
+            logger.error({ message: 'setProfile.getProfileInfoError', error })
+          })
 
         if (profile) {
           res['storefront-permissions'].storeUserId.value = profile.userId
@@ -160,16 +166,27 @@ export const resolvers = {
       }
 
       if (email) {
-        const [user]: any = await getUserByEmail(null, { email }, ctx)
+        const [user]: any = await getUserByEmail(null, { email }, ctx).catch(
+          (error) => {
+            logger.warn({ message: 'setProfile.getUserByEmailError', error })
+          }
+        )
 
         if (user?.clId) {
-          const clUser = await getUserById(null, { id: user.clId }, ctx)
+          const clUser = await getUserById(null, { id: user.clId }, ctx).catch(
+            (error) => {
+              logger.error({ message: 'setProfile.getUserByIdError', error })
+            }
+          )
 
           if (clUser && orderFormId) {
             await checkout
               .updateOrderFormProfile(orderFormId, clUser)
-              .catch((err) => {
-                logger.error(err)
+              .catch((error) => {
+                logger.error({
+                  message: 'setProfile.updateOrderFormProfileError',
+                  error,
+                })
               })
           }
         }
@@ -188,8 +205,11 @@ export const resolvers = {
                 },
               }
             )
-            .catch((err) => {
-              logger.error(err)
+            .catch((error) => {
+              logger.error({
+                message: 'setProfile.graphqlGetOrganizationById',
+                error,
+              })
             })
 
           // prevent login if org is inactive
@@ -228,23 +248,33 @@ export const resolvers = {
                 utmCampaign: user?.orgId,
                 utmMedium: user?.costId,
               })
-              .catch((err) => {
-                logger.error(err)
+              .catch((error) => {
+                logger.error({
+                  message: 'setProfile.updateOrderFormMarketingDataError',
+                  error,
+                })
               })
           }
 
           if (user?.costId) {
             res['storefront-permissions'].costcenter.value = user.costId
-            const costCenterResponse: any = await graphqlServer.query(
-              QUERIES.getCostCenterById,
-              { id: user.costId },
-              {
-                persistedQuery: {
-                  provider: 'vtex.b2b-organizations-graphql@0.x',
-                  sender: 'vtex.storefront-permissions@1.x',
-                },
-              }
-            )
+            const costCenterResponse: any = await graphqlServer
+              .query(
+                QUERIES.getCostCenterById,
+                { id: user.costId },
+                {
+                  persistedQuery: {
+                    provider: 'vtex.b2b-organizations-graphql@0.x',
+                    sender: 'vtex.storefront-permissions@1.x',
+                  },
+                }
+              )
+              .catch((error) => {
+                logger.error({
+                  message: 'setProfile.graphqlGetCostCenterById',
+                  error,
+                })
+              })
 
             if (
               costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
@@ -255,8 +285,11 @@ export const resolvers = {
 
               await checkout
                 .updateOrderFormShipping(orderFormId, { address })
-                .catch((err) => {
-                  logger.error(err)
+                .catch((error) => {
+                  logger.error({
+                    message: 'setProfile.updateOrderFormShippingError',
+                    error,
+                  })
                 })
             }
           }
