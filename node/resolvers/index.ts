@@ -113,13 +113,14 @@ export const resolvers = {
       ctx.response.status = 200
     },
     setProfile: async (ctx: Context) => {
-      ctx.set('Content-Type', 'application/json')
-      ctx.set('Cache-Control', 'no-cache, no-store')
-      const body: any = await json(ctx.req)
       const {
-        clients: { graphqlServer, checkout, profileSystem },
+        clients: { graphqlServer, checkout, profileSystem, apps },
         vtex: { logger },
       } = ctx
+
+      const settings = await apps.getAppSettings(getAppId()).catch((error) => {
+        logger.error({ message: 'Error getting app settings', error })
+      })
 
       const res = {
         'storefront-permissions': {
@@ -146,118 +147,155 @@ export const resolvers = {
         },
       }
 
-      const impersonate = body?.public?.impersonate?.value ?? null
-      const email = body?.authentication?.storeUserEmail?.value ?? null
-      const orderFormId = body?.checkout?.orderFormId?.value ?? null
+      ctx.set('Content-Type', 'application/json')
+      ctx.set('Cache-Control', 'no-cache, no-store')
 
-      if (impersonate) {
-        const profile: any = await profileSystem.getProfileInfo(impersonate)
+      if (!settings?.sessionWatcher || settings?.sessionWatcher?.active) {
+        const body: any = await json(ctx.req)
 
-        if (profile) {
-          res['storefront-permissions'].storeUserId.value = profile.userId
-          res['storefront-permissions'].storeUserEmail.value = profile.email
-        }
-      }
+        const impersonate = body?.public?.impersonate?.value ?? null
+        const email = body?.authentication?.storeUserEmail?.value ?? null
+        const orderFormId = body?.checkout?.orderFormId?.value ?? null
 
-      if (email) {
-        const [user]: any = await getUserByEmail(null, { email }, ctx)
-
-        if (user?.clId) {
-          const clUser = await getUserById(null, { id: user.clId }, ctx)
-
-          if (clUser && orderFormId) {
-            await checkout
-              .updateOrderFormProfile(orderFormId, clUser)
-              .catch((err) => {
-                logger.error(err)
-              })
-          }
-        }
-
-        if (user?.orgId) {
-          res['storefront-permissions'].organization.value = user.orgId
-
-          const organizationResponse: any = await graphqlServer
-            .query(
-              QUERIES.getOrganizationById,
-              { id: user.orgId },
-              {
-                persistedQuery: {
-                  provider: 'vtex.b2b-organizations-graphql@0.x',
-                  sender: 'vtex.storefront-permissions@1.x',
-                },
-              }
-            )
-            .catch((err) => {
-              logger.error(err)
+        if (impersonate) {
+          const profile: any = await profileSystem
+            .getProfileInfo(impersonate)
+            .catch((error) => {
+              logger.error({ message: 'Error getting user profile', error })
             })
 
-          // prevent login if org is inactive
-          if (
-            organizationResponse?.data?.getOrganizationById?.status ===
-            'inactive'
-          ) {
-            throw new ForbiddenError('Organization is inactive')
+          if (profile) {
+            res['storefront-permissions'].storeUserId.value = profile.userId
+            res['storefront-permissions'].storeUserEmail.value = profile.email
+          }
+        }
+
+        if (email) {
+          const [user]: any = await getUserByEmail(null, { email }, ctx).catch(
+            (error) => {
+              logger.error({ message: 'Error getting user by email', error })
+            }
+          )
+
+          if (user?.clId) {
+            const clUser = await getUserById(
+              null,
+              { id: user.clId },
+              ctx
+            ).catch((error) => {
+              logger.error({ message: 'Error getting user by id', error })
+            })
+
+            if (clUser && orderFormId) {
+              await checkout
+                .updateOrderFormProfile(orderFormId, clUser)
+                .catch((error) => {
+                  logger.error({
+                    message: 'Error updating orderForm clientProfileData',
+                    error,
+                  })
+                })
+            }
           }
 
-          if (
-            organizationResponse?.data?.getOrganizationById?.priceTables?.length
-          ) {
-            res[
-              'storefront-permissions'
-            ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
-              ';'
-            )}`
-          }
+          if (user?.orgId) {
+            res['storefront-permissions'].organization.value = user.orgId
 
-          if (
-            organizationResponse?.data?.getOrganizationById?.collections?.length
-          ) {
-            const collections =
-              organizationResponse.data.getOrganizationById.collections.map(
-                (collection: any) => `productClusterIds=${collection.id}`
+            const organizationResponse: any = await graphqlServer
+              .query(
+                QUERIES.getOrganizationById,
+                { id: user.orgId },
+                {
+                  persistedQuery: {
+                    provider: 'vtex.b2b-organizations-graphql@0.x',
+                    sender: 'vtex.storefront-permissions@1.x',
+                  },
+                }
               )
-
-            res.public.facets.value = `${collections.join(';')}`
-          }
-
-          if (orderFormId) {
-            await checkout
-              .updateOrderFormMarketingData(orderFormId, {
-                attachmentId: 'marketingData',
-                utmCampaign: user?.orgId,
-                utmMedium: user?.costId,
+              .catch((error) => {
+                logger.error({ message: 'Error getting organization', error })
               })
-              .catch((err) => {
-                logger.error(err)
-              })
-          }
 
-          if (user?.costId) {
-            res['storefront-permissions'].costcenter.value = user.costId
-            const costCenterResponse: any = await graphqlServer.query(
-              QUERIES.getCostCenterById,
-              { id: user.costId },
-              {
-                persistedQuery: {
-                  provider: 'vtex.b2b-organizations-graphql@0.x',
-                  sender: 'vtex.storefront-permissions@1.x',
-                },
-              }
-            )
+            // prevent login if org is inactive
+            if (
+              organizationResponse?.data?.getOrganizationById?.status ===
+              'inactive'
+            ) {
+              throw new ForbiddenError('Organization is inactive')
+            }
 
             if (
-              costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
-              orderFormId
+              organizationResponse?.data?.getOrganizationById?.priceTables
+                ?.length
             ) {
-              const [address] =
-                costCenterResponse.data.getCostCenterById.addresses
+              res[
+                'storefront-permissions'
+              ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
+                ';'
+              )}`
+            }
 
+            if (
+              organizationResponse?.data?.getOrganizationById?.collections
+                ?.length
+            ) {
+              const collections =
+                organizationResponse.data.getOrganizationById.collections.map(
+                  (collection: any) => `productClusterIds=${collection.id}`
+                )
+
+              res.public.facets.value = `${collections.join(';')}`
+            }
+
+            if (orderFormId) {
               await checkout
-                .updateOrderFormShipping(orderFormId, { address })
-                .catch((err) => {
-                  logger.error(err)
+                .updateOrderFormMarketingData(orderFormId, {
+                  attachmentId: 'marketingData',
+                  utmCampaign: user?.orgId,
+                  utmMedium: user?.costId,
                 })
+                .catch((error) => {
+                  logger.error({
+                    message: 'Error updating orderForm marketingData',
+                    error,
+                  })
+                })
+            }
+
+            if (user?.costId) {
+              res['storefront-permissions'].costcenter.value = user.costId
+              const costCenterResponse: any = await graphqlServer
+                .query(
+                  QUERIES.getCostCenterById,
+                  { id: user.costId },
+                  {
+                    persistedQuery: {
+                      provider: 'vtex.b2b-organizations-graphql@0.x',
+                      sender: 'vtex.storefront-permissions@1.x',
+                    },
+                  }
+                )
+                .catch((error) => {
+                  logger.error({ message: 'Error getting cost center', error })
+                })
+
+              if (
+                costCenterResponse?.data?.getCostCenterById?.addresses
+                  ?.length &&
+                orderFormId
+              ) {
+                const [address] =
+                  costCenterResponse.data.getCostCenterById.addresses
+
+                await checkout
+                  .updateOrderFormShipping(orderFormId, { address })
+                  .catch((error) => {
+                    logger.error({
+                      message: 'Error updating orderForm shippingData',
+                      error,
+                    })
+                  })
+              }
             }
           }
         }

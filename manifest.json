@@ -118,5 +118,23 @@
       }
     }
   ],
+  "settingsSchema": {
+    "title": "Storefront Permissions",
+    "type": "object",
+    "properties": {
+      "sessionWatcher": {
+        "type": "object",
+        "title": "Watch session changes",
+        "description": "Detects changes to authentication, orderFormId or impersonation request. When active, sets priceTable, Collection, Cart Settings, Organizations and Cost Center to the session",
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "title": "Yes",
+            "default": true
+          }
+        }
+      }
+    }
+  },
   "$schema": "https://raw.githubusercontent.com/vtex/node-vtex-api/master/gen/manifest.schema"
 }
