@@ -173,7 +173,7 @@ export const resolvers = {
         if (email) {
           const [user]: any = await getUserByEmail(null, { email }, ctx).catch(
             (error) => {
-              logger.error({ message: 'setProfile.getUserByEmailError', error })
+              logger.warn({ message: 'setProfile.getUserByEmailError', error })
             }
           )
 
