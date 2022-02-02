@@ -150,7 +150,7 @@ query checkImpersonation {
 }
 ```
 
-The response will be a boolean
+The response
 
 ```JSON
 {
@@ -166,7 +166,27 @@ The response will be a boolean
 }
 ```
 
+`getSessionWatcher`
+
+```graphql
+query getSessionWatcher {
+  getSessionWatcher
+}
+```
+
+The response will be a boolean
+
+```JSON
+{
+  "data": {
+    "getSessionWatcher": false
+  }
+}
+```
+
 ### Graphql mutation
+
+`impersonateUser`
 
 Use `userId` to impersonate, to remove impersonation send an empty `userId` instead
 
@@ -176,6 +196,28 @@ mutation impersonateUser($userId: ID)
   impersonateUser(userId: $userId) {
     status
     message
+  }
+}
+```
+
+
+`sessionWatcher`
+
+**Storefront Permissions** detects changes to the user authentication to trigger changes to its Cart and Navigation (Price Tables, Collections, Profile, Shipping)
+If your account is not using `vtex.organizations` you may want to disable the Session Watcher to avoid unnecessary operations
+
+```graphql
+mutation setSessionWatcher {
+  sessionWatcher(active: false)
+}
+```
+
+The response will be a boolean with `true` for a successful operation or `false` for a failure
+
+```JSON
+{
+  "data": {
+    "sessionWatcher": true
   }
 }
 ```
