@@ -34,6 +34,7 @@ type Query {
     @withSession
     @withSender
     @cacheControl(scope: PRIVATE)
+  getSessionWatcher: Boolean @cacheControl(scope: PRIVATE)
 }
 
 type UserImpersonation {
@@ -50,7 +51,7 @@ type UserPermissions {
 }
 
 type Mutation {
-  saveAppSettings: MutationResponse @cacheControl(scope: PRIVATE)
+  sessionWatcher(active: Boolean!): Boolean @cacheControl(scope: PRIVATE)
   # Roles
   saveRole(
     id: ID

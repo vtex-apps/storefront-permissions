@@ -2,7 +2,7 @@ import { syncRoles } from '../Mutations/Roles'
 import schemas from '../../mdSchema'
 import { toHash } from '../../utils'
 
-const getAppId = (): string => {
+export const getAppId = (): string => {
   const app = process.env.VTEX_APP_ID
   const [appName] = String(app).split('@')
 
@@ -61,7 +61,7 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
         }
       })
 
-    await vbase.saveJSON('b2b_settigns', app, settings)
+    await vbase.saveJSON('b2b_settings', app, settings)
   }
 
   const roles: any = await syncRoles(ctx).catch(() => [])
@@ -69,4 +69,22 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
   settings.adminSetup.roles = !!roles.length
 
   return settings
+}
+
+export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
+  const {
+    clients: { vbase },
+  } = ctx
+
+  const app: string = getAppId()
+
+  const settings: any = await vbase.getJSON('b2b_settings', app).catch(() => {
+    return {}
+  })
+
+  try {
+    return settings?.sessionWatcher?.active ?? true
+  } catch (e) {
+    return { status: 'error', message: e }
+  }
 }
