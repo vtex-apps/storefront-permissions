@@ -25,9 +25,6 @@
   },
   "policies": [
     {
-      "name": "graphql-query"
-    },
-    {
       "name": "update-app-settings"
     },
     {
