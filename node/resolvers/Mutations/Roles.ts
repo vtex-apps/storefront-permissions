@@ -1,15 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { currentSchema, Slugify, currentRoleNames, toHash } from '../../utils'
-import { getUserByRole } from '../Queries/Users'
-import { deleteUserProfile } from './Users'
+import { Slugify, currentRoleNames, toHash, rolesVbaseId } from '../../utils'
 import { groupByRole } from '../Queries/Features'
 import { searchRoles } from '../Queries/Roles'
 
-const config: any = currentSchema('b2b_roles')
-
 export const saveRole = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, vbase },
+    clients: { vbase },
   } = ctx
 
   try {
@@ -23,43 +19,20 @@ export const saveRole = async (_: any, params: any, ctx: Context) => {
       data.slug = Slugify(name)
     }
 
-    const ret: any = await masterdata
-      .createOrUpdateEntireDocument({
-        dataEntity: config.name,
-        fields: data,
-        id,
-        schema: config.version,
-      })
-      .then((r: any) => {
-        return r
-      })
-      .catch((err: any) => {
-        if (err.response.status < 400) {
-          return {
-            DocumentId: id,
-          }
-        }
+    const roles = await searchRoles(null, ctx)
 
-        throw err
-      })
-
-    if (ret.DocumentId) {
-      const result: any = await masterdata.getDocument({
-        dataEntity: config.name,
-        fields: ['slug', 'name', 'features', 'locked'],
-        id: ret.DocumentId,
-      })
-
-      await vbase.saveJSON('b2b_roles', ret.DocumentId, {
-        id: ret.DocumentId,
+    await vbase.saveJSON('b2b_roles', rolesVbaseId, [
+      ...roles.filter((item) => item.slug !== data.slug),
+      {
+        id: data.slug,
         name,
         locked,
-        slug: result.slug,
+        slug: data.slug,
         features,
-      })
-    }
+      },
+    ])
 
-    return { status: 'success', message: '', id: ret.DocumentId }
+    return { status: 'success', message: '', id: data.slug }
   } catch (e) {
     return { status: 'error', message: e }
   }
@@ -79,7 +52,7 @@ export const syncRoles = async (ctx: Context) => {
   const groups = await groupByRole(ctx)
 
   // List all roles from MD
-  const roles: any = await searchRoles(null, null, ctx)
+  const roles: any = await searchRoles(null, ctx)
   // Compare existing roles (MD) to save only differences
 
   groups?.forEach((role: any) => {
@@ -142,21 +115,17 @@ export const syncRoles = async (ctx: Context) => {
 
 export const deleteRole = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata },
+    clients: { vbase },
   } = ctx
 
   try {
-    const checkUsers: any = await getUserByRole(_, { id: params.id }, ctx)
+    const roles = await searchRoles(null, ctx)
 
-    if (checkUsers.length) {
-      const ids = checkUsers.map((item: any) => {
-        return item.id
-      })
-
-      await deleteUserProfile(_, { ids }, ctx)
-    }
-
-    await masterdata.deleteDocument({ dataEntity: config.name, id: params.id })
+    await vbase.saveJSON(
+      'b2b_roles',
+      rolesVbaseId,
+      roles.filter((item) => item.id !== params.id)
+    )
 
     return { status: 'success', message: '', id: params.id }
   } catch (e) {

@@ -34,6 +34,8 @@ export const currentSchema = (entity: string) => {
   })
 }
 
+export const rolesVbaseId = 'allRoles'
+
 export const currentRoleNames = (locale: any) => {
   return roleNames[locale] ?? roleNames['en-US']
 }
