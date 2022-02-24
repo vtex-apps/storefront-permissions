@@ -3,6 +3,8 @@ import { syncRoles } from '../Mutations/Roles'
 import { currentRoleNames, rolesVbaseId } from '../../utils'
 import { getUserByRole } from './Users'
 
+const sorting = (a: any, b: any) => (a.name > b.name ? 1 : -1)
+
 const getDefaultRoles = (locale: string) => {
   const roleNames = currentRoleNames(locale)
   const values = []
@@ -17,7 +19,7 @@ const getDefaultRoles = (locale: string) => {
     })
   }
 
-  return values
+  return values.sort(sorting)
 }
 
 export const searchRoles = async (_: any, ctx: Context) => {
@@ -28,9 +30,7 @@ export const searchRoles = async (_: any, ctx: Context) => {
   try {
     const roles = (await vbase.getJSON('b2b_roles', rolesVbaseId)) as any[]
 
-    roles.sort((a, b) => {
-      return a.name > b.name ? 1 : -1
-    })
+    roles.sort(sorting)
 
     return roles
   } catch (e) {
