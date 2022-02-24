@@ -35,7 +35,7 @@ export const searchRoles = async (_: any, ctx: Context) => {
     return roles
   } catch (e) {
     if (e?.response?.status === 404) {
-      return getDefaultRoles(ctx.vtex.tenant?.locale as string)
+      return getDefaultRoles(ctx.vtex.tenant?.locale ?? '')
     }
 
     throw new Error(e)
