@@ -1,10 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// import { currentSchema } from '../../utils'
 import { syncRoles } from '../Mutations/Roles'
-import { rolesVbaseId } from '../../utils'
+import { currentRoleNames, rolesVbaseId } from '../../utils'
 import { getUserByRole } from './Users'
 
-// const config: any = currentSchema('b2b_roles')
+const getDefaultRoles = (locale: string) => {
+  const roleNames = currentRoleNames(locale)
+  const values = []
+
+  for (const slug in roleNames) {
+    values.push({
+      id: slug,
+      name: roleNames[slug],
+      locked: true,
+      slug,
+      features: [],
+    })
+  }
+
+  return values
+}
 
 export const searchRoles = async (_: any, ctx: Context) => {
   const {
@@ -21,7 +35,7 @@ export const searchRoles = async (_: any, ctx: Context) => {
     return roles
   } catch (e) {
     if (e?.response?.status === 404) {
-      return []
+      return getDefaultRoles(ctx.vtex.tenant?.locale as string)
     }
 
     throw new Error(e)
@@ -45,7 +59,7 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
 export const hasUsers = async (_: any, params: any, ctx: Context) => {
   const role: any = await getRole(null, { id: params.slug || params.id }, ctx)
 
-  if (role) {
+  if (role?.id) {
     const usersByRole: any = await getUserByRole(_, { id: role.id }, ctx)
 
     return usersByRole.length > 0

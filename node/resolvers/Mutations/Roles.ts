@@ -51,9 +51,8 @@ export const syncRoles = async (ctx: Context) => {
   // List all features grouped by Role
   const groups = await groupByRole(ctx)
 
-  // List all roles from MD
+  // List all roles from VB
   const roles: any = await searchRoles(null, ctx)
-  // Compare existing roles (MD) to save only differences
 
   groups?.forEach((role: any) => {
     const [slug] = Object.getOwnPropertyNames(role)
