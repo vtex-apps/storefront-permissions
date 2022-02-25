@@ -70,7 +70,7 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
   } catch (e) {
     logger.error({
       message: 'Roles.getRole',
-      e,
+      error: e,
     })
 
     return { status: 'error', message: e }
