@@ -55,6 +55,10 @@ export const searchRoles = async (_: any, ctx: Context) => {
 }
 
 export const getRole = async (_: any, params: any, ctx: Context) => {
+  const {
+    vtex: { logger },
+  } = ctx
+
   try {
     const { id, slug } = params
 
@@ -64,6 +68,11 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
 
     return role
   } catch (e) {
+    logger.error({
+      message: 'Roles.getRole',
+      e,
+    })
+
     return { status: 'error', message: e }
   }
 }
