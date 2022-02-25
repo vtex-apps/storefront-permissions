@@ -1,26 +1,54 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { currentSchema } from '../../utils'
 import { syncRoles } from '../Mutations/Roles'
+import { currentRoleNames, rolesVbaseId } from '../../utils'
 import { getUserByRole } from './Users'
 
-const config: any = currentSchema('b2b_roles')
+const sorting = (a: any, b: any) => (a.name > b.name ? 1 : -1)
 
-export const getRole = async (_: any, params: any, ctx: Context) => {
+const getDefaultRoles = (locale: string) => {
+  const roleNames = currentRoleNames(locale)
+  const values = []
+
+  for (const slug in roleNames) {
+    values.push({
+      id: slug,
+      name: roleNames[slug],
+      locked: true,
+      slug,
+      features: [],
+    })
+  }
+
+  return values.sort(sorting)
+}
+
+export const searchRoles = async (_: any, ctx: Context) => {
   const {
-    clients: { masterdata, vbase },
+    clients: { vbase },
   } = ctx
 
   try {
-    const { id } = params
-    let role: any = await vbase.getJSON('b2b_roles', id).catch(() => null)
+    const roles = (await vbase.getJSON('b2b_roles', rolesVbaseId)) as any[]
 
-    if (!role) {
-      role = await masterdata.getDocument({
-        dataEntity: config.name,
-        id,
-        fields: ['id', 'name', 'features', 'locked', 'slug'],
-      })
+    roles.sort(sorting)
+
+    return roles
+  } catch (e) {
+    if (e?.response?.status === 404) {
+      return getDefaultRoles(ctx.vtex.tenant?.locale ?? '')
     }
+
+    throw new Error(e)
+  }
+}
+
+export const getRole = async (_: any, params: any, ctx: Context) => {
+  try {
+    const { id } = params
+
+    const role: any = (await searchRoles(null, ctx)).find(
+      (item: any) => item.id === id
+    )
 
     return role
   } catch (e) {
@@ -28,32 +56,11 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
   }
 }
 
-export const searchRoles = async (_: any, params: any, ctx: Context) => {
-  const {
-    clients: { masterdata },
-  } = ctx
-
-  const options: any = {
-    dataEntity: config.name,
-    fields: ['id', 'name', 'features', 'locked', 'slug'],
-    schema: config.version,
-    pagination: { page: 1, pageSize: 50 },
-  }
-
-  if (params?.query) {
-    options.where = params?.query
-  }
-
-  const roles = await masterdata.searchDocuments(options)
-
-  return roles
-}
-
 export const hasUsers = async (_: any, params: any, ctx: Context) => {
-  const roles: any = await searchRoles(_, { query: `slug=${params.slug}` }, ctx)
+  const role: any = await getRole(null, { id: params.slug || params.id }, ctx)
 
-  if (roles.length) {
-    const usersByRole: any = await getUserByRole(_, { id: roles[0].id }, ctx)
+  if (role?.id) {
+    const usersByRole: any = await getUserByRole(_, { id: role.id }, ctx)
 
     return usersByRole.length > 0
   }
@@ -65,9 +72,7 @@ export const listRoles = async (_: any, __: any, ctx: Context) => {
   try {
     await syncRoles(ctx)
 
-    const roles = await searchRoles(_, null, ctx)
-
-    return roles
+    return await searchRoles(null, ctx)
   } catch (e) {
     return { status: 'error', message: e }
   }
