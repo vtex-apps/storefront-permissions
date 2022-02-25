@@ -20,11 +20,12 @@ export const saveRole = async (_: any, params: any, ctx: Context) => {
     }
 
     const roles = await searchRoles(null, ctx)
+    const role = roles.find((item) => item.slug === data.slug)
 
     await vbase.saveJSON('b2b_roles', rolesVbaseId, [
       ...roles.filter((item) => item.slug !== data.slug),
       {
-        id: data.slug,
+        id: role?.id ? role.id : data.id ?? data.slug,
         name,
         locked,
         slug: data.slug,
