@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { syncRoles } from '../Mutations/Roles'
-import { currentRoleNames, rolesVbaseId } from '../../utils'
+import { currentRoleNames, currentSchema, rolesVbaseId } from '../../utils'
 import { getUserByRole } from './Users'
 
 const sorting = (a: any, b: any) => (a.name > b.name ? 1 : -1)
+const config: any = currentSchema('b2b_roles')
 
 const getDefaultRoles = (locale: string) => {
   const roleNames = currentRoleNames(locale)
@@ -24,7 +25,7 @@ const getDefaultRoles = (locale: string) => {
 
 export const searchRoles = async (_: any, ctx: Context) => {
   const {
-    clients: { vbase },
+    clients: { vbase, masterdata },
   } = ctx
 
   try {
@@ -35,7 +36,18 @@ export const searchRoles = async (_: any, ctx: Context) => {
     return roles
   } catch (e) {
     if (e?.response?.status === 404) {
-      return getDefaultRoles(ctx.vtex.tenant?.locale ?? '')
+      const options: any = {
+        dataEntity: config.name,
+        fields: ['id', 'name', 'features', 'locked', 'slug'],
+        schema: config.version,
+        pagination: { page: 1, pageSize: 50 },
+      }
+
+      const roles = await masterdata.searchDocuments(options)
+
+      return !roles || roles.length === 0
+        ? getDefaultRoles(ctx.vtex.tenant?.locale ?? '')
+        : roles
     }
 
     throw new Error(e)
@@ -43,21 +55,34 @@ export const searchRoles = async (_: any, ctx: Context) => {
 }
 
 export const getRole = async (_: any, params: any, ctx: Context) => {
-  try {
-    const { id } = params
+  const {
+    vtex: { logger },
+  } = ctx
 
-    const role: any = (await searchRoles(null, ctx)).find(
-      (item: any) => item.id === id
-    )
+  try {
+    const { id, slug } = params
+
+    const role: any = id
+      ? (await searchRoles(null, ctx)).find((item: any) => item.id === id)
+      : (await searchRoles(null, ctx)).find((item: any) => item.slug === slug)
 
     return role
   } catch (e) {
+    logger.error({
+      message: 'Roles.getRole',
+      error: e,
+    })
+
     return { status: 'error', message: e }
   }
 }
 
 export const hasUsers = async (_: any, params: any, ctx: Context) => {
-  const role: any = await getRole(null, { id: params.slug || params.id }, ctx)
+  const role: any = await getRole(
+    null,
+    { id: params.id, slug: params.slug },
+    ctx
+  )
 
   if (role?.id) {
     const usersByRole: any = await getUserByRole(_, { id: role.id }, ctx)
