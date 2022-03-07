@@ -14,7 +14,7 @@ import { schemaDirectives } from './directives'
 import { Clients } from './clients'
 import { resolvers } from './resolvers'
 
-const TIMEOUT_MS = 2000
+const TIMEOUT_MS = 4000
 
 const defaultClientOptions = {
   retries: 1,

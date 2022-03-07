@@ -214,11 +214,13 @@ export const impersonateUser = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { session },
     cookies,
+    request,
   } = ctx
 
   const { userId } = params
 
-  const sessionCookie = cookies.get('vtex_session')
+  const sessionCookie =
+    cookies.get('vtex_session') ?? request.header?.sessiontoken
 
   try {
     await session.updateSession('impersonate', userId, [], sessionCookie)

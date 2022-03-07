@@ -239,16 +239,16 @@ export const checkUserPermission = async (
     throw new Error('Sender not available, make sure the query is private')
   }
 
-  const user = sessionData?.namespaces?.profile
+  const user = sessionData?.namespaces?.authentication
 
   let ret = null
 
-  if (user?.email?.value && sender) {
+  if (user?.storeUserEmail?.value && sender) {
     const module = removeVersionFromAppId(sender)
 
     const userData: any = await getUserByEmail(
       _,
-      { email: user.email.value },
+      { email: user.storeUserEmail.value },
       ctx
     )
 
