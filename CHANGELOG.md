@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.14.0] - 2022-03-08
+
 ### Changed
 
 - `checkUserPermissions` will now always return the "parent" user's role and permissions regardless of impersonation
