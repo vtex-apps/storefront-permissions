@@ -149,7 +149,7 @@ export const resolvers = {
         const body: any = await json(ctx.req)
 
         const impersonate = body?.public?.impersonate?.value ?? null
-        const email = body?.authentication?.storeUserEmail?.value ?? null
+        let email = body?.authentication?.storeUserEmail?.value ?? null
         const orderFormId = body?.checkout?.orderFormId?.value ?? null
 
         if (impersonate) {
@@ -162,6 +162,7 @@ export const resolvers = {
           if (profile) {
             res['storefront-permissions'].storeUserId.value = profile.userId
             res['storefront-permissions'].storeUserEmail.value = profile.email
+            email = profile.email
           }
         }
 

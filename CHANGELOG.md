@@ -7,21 +7,31 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- `checkUserPermissions` will now always return the "parent" user's role and permissions regardless of impersonation
+- If impersonating a user, their organization and cost center will be applied to the session (and therefore their price list, catalog, etc)
+
 ## [1.13.2] - 2022-02-28
 
 ## [1.13.1] - 2022-02-25
 
 ### Fixed
+
 - Changed the role handling from masterdata to vbase to avoid duplicated entries
 
 ## [1.13.0] - 2022-02-02
 
 ### Added
+
 - GraphQL query `getSessionWatcher` and mutation `sessionWatcher`
+
 ## [1.12.2] - 2022-02-01
 
 ### Added
+
 - Better logging
+
 ## [1.12.1] - 2022-01-21
 
 ### Fixed
