@@ -290,7 +290,10 @@ export const resolvers = {
                   costCenterResponse.data.getCostCenterById.addresses
 
                 await checkout
-                  .updateOrderFormShipping(orderFormId, { address })
+                  .updateOrderFormShipping(orderFormId, {
+                    address,
+                    clearAddressIfPostalCodeNotFound: false,
+                  })
                   .catch((error) => {
                     logger.error({
                       message: 'setProfile.updateOrderFormShippingError',
