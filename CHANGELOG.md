@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Removed
+- Dependencies `search-segment-resolver` and `search-segment-graphql`
+
+### Added
+- Addition information to the `impersonateUser` Mutation 
+
 ## [1.14.1] - 2022-03-16
 
 - Fix on shipping data payload

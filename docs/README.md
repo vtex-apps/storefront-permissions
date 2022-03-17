@@ -188,7 +188,8 @@ The response will be a boolean
 
 `impersonateUser`
 
-Use `userId` to impersonate, to remove impersonation send an empty `userId` instead
+Use `userId` to impersonate, to remove impersonation send an empty `userId` instead.
+You can find `userId` from the user's Profile System, when available, it will also be accessible through the MasterData `CL` entity as a field named `userId`
 
 ```graphql
 mutation impersonateUser($userId: ID)
