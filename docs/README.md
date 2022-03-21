@@ -27,7 +27,7 @@ In the following table, you can see the available storefront roles, their key us
 | Sales Representative | `sales-representative` | Sales representative user who can assist or impersonate buyers in the same cost center during navigation or purchase. |
 | Organization Admin | `customer-admin` | Main organization user who manages the organization information, as well as its members and cost centers. |
 | Organization Approver | `customer-approver` | Organization user who can take a saved cart or quote that was created by an **Organization Buyer** and use it to place an order. |
-| Organization Buyer | `customer-buyer` | Organization user who has the ability to to add items to cart. If the **B2B Quotes** app is installed, they are also able to save their cart for future use or create a quote. |
+| Organization Buyer | `customer-buyer` | Organization user who has the ability to add items to cart. If the **B2B Quotes** app is installed, they are also able to save their cart for future use or create a quote. |
 
 
 ## How it works
