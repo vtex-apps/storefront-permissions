@@ -24,7 +24,7 @@ In the following table, you can see the available storefront roles, their key us
 | Store Admin | `store-admin` | Store administrator, that is, a user who has access to the VTEX Admin. |
 | Sales Admin | `sales-admin` | Sales administrator user who can manage all sales users. |
 | Sales Manager | `sales-manager` | Sales manager user who can manage sales users in the same organization, as well as assist or impersonate buyers during navigation or purchase. |
-| Sales Representative | `sales-representative` | Sales representative user who can assist or impersonate buyers during navigation or purchase. |
+| Sales Representative | `sales-representative` | Sales representative user who can assist or impersonate buyers in the same cost center during navigation or purchase. |
 | Organization Admin | `customer-admin` | Main organization user who manages the organization information, as well as its members and cost centers. |
 | Organization Approver | `customer-approver` | Organization user who is in charge of reviewing orders placed by buyers, with the ability to approve them or deny them. |
 | Organization Buyer | `customer-buyer` | Organization user who has the ability to place orders in your store. |
