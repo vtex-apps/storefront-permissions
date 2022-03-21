@@ -6,86 +6,140 @@
 
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-The **Storefront Permissions** is the main dependency for b2b modules, it handles user's permissions based on its Roles
-This APP doesn't containg an interface, for managing users, install `vtex.admin-customers` for that, you can opcionally install `vtex.storefront-permissions-ui` to adjust Apps Permissions to specific Roles
+> ℹ The **Storefront Permissions** app is part of VTEX’s [B2B Suite](https://developers.vtex.com/vtex-developer-docs/docs/vtex-b2b-suite) solution, which is a collection of apps that allow stores to manage organizations, storefront roles and permissions, and checkout settings for B2B commerce relationships. We recommend that you use it alongside the other apps in this suite for all functionalities to work as expected.
 
-## Functionalities
+When navigating a B2B store as a customer, it is common for a main user from an organization to have other people under their structure, each with their own information and access privileges.
 
-- Centralize App Permissions
-- Manage Roles Permissions
-- Impersonation
+Within an organization, each user can have different roles, such as a professional buyer that places orders with budget limits from a predefined cost center or  a manager in charge of reviewing and approving orders. These roles can be associated with multiple permissions, depending on the actions this user needs to perform.
 
-## Configuration
+The **Storefront Permissions** app stores a predefined set of roles and app permissions related to what B2B users can access and do in your storefront, making this information available for other integrated apps to check. This is useful for stores who want to set specific app permissions for users with different roles in an organization.
 
-1. [Install](https://vtex.io/docs/recipes/development/installing-an-app/) the storefront-permissions app by running `vtex install vtex.storefront-permissions` in your terminal.
-2. At the Admin, navigate to **ACCOUNT SETTINGS > Storefront Permissions**.
 
-3. Manage Roles
+## Available storefront roles
 
-## Advanced app integration
+In the following table, you can see the available storefront roles, their key used for identification in the app’s code, and their description.
 
-How to integrate your app with **Storefront Permissions** and make it available within the Role management
+| **Role** | **Key** | **Description** |
+|---|---|---|
+| Store Admin | `store-admin` | Store administrator, that is, a user who has access to the VTEX Admin. |
+| Sales Admin | `sales-admin` | Sales administrator user who can manage all sales users. |
+| Sales Manager | `sales-manager` | Sales manager user who can manage sales users in the same organization, as well as assist or impersonate buyers during navigation or purchase. |
+| Sales Representative | `sales-representative` | Sales representative user who can assist or impersonate buyers in the same cost center during navigation or purchase. |
+| Organization Admin | `customer-admin` | Main organization user who manages the organization information, as well as its members and cost centers. |
+| Organization Approver | `customer-approver` | Organization user who can take a saved cart or quote that was created by an **Organization Buyer** and use it to place an order. |
+| Organization Buyer | `customer-buyer` | Organization user who has the ability to add items to cart. If the **B2B Quotes** app is installed, they are also able to save their cart for future use or create a quote. |
 
-- Add `vtex.storefront-permissions` to the `manifest.json` file under the **builders** property
 
-```JSON
-"builders": {
+## How it works
+
+**Storefront Permissions** communicates automatically with other [B2B Suite](https://developers.vtex.com/vtex-developer-docs/docs/vtex-b2b-suite) apps, such as [B2B Organizations](https://developers.vtex.com/vtex-developer-docs/docs/vtex-b2b-organizations), where it enables different organization management capabilities depending on each user’s role.
+
+It also allows you to configure available permissions when developing your own app, associate them with the predefined roles, and have these permissions checked by other applications – if you perform the steps described in the [Advanced app integration](#advanced-app-integration-optional) section.
+
+The **Storefront Permissions** app does not contain an interface – it operates “backstage”, storing the predefined roles and serving as a bridge to communicate with other apps in order to check user permissions. If you would like to manage roles and app permissions using the VTEX Admin interface, you must also install the [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui) app. As an optional feature, you can install the [Admin Customers](https://developers.vtex.com/vtex-developer-docs/docs/vtex-admin-customers) app for additional customer management capabilities.
+
+
+## Before you start
+
+Make sure you have the [VTEX IO CLI (Command Line Interface)](https://developers.vtex.com/vtex-developer-docs/docs/vtex-io-documentation-vtex-io-cli-install) installed in your machine.
+
+If you opt to develop your own app and [integrate](#advanced-app-integration-optional) it with **Storefront Permissions**, read our documentation on [Developing an app](https://developers.vtex.com/vtex-developer-docs/docs/vtex-io-documentation-developing-an-app).
+
+
+## Installation
+
+You can install the app by running `vtex install vtex.storefront-permissions` in your terminal, using the [VTEX IO CLI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-io-documentation-vtex-io-cli-installation-and-command-reference).
+
+
+## Advanced app integration [optional]
+
+If you would like to develop your own app and integrate it with **Storefront Permissions**, follow the steps below.
+
+1. Open your app’s repository.
+2. In the `manifest.json` file, add `vtex.storefront-permissions` under the `builders` property, as follows.
+
+    ```json
+    "builders": {
     "vtex.storefront-permissions": "1.x"
-  }
-```
-
-- Create a folder `vtex.storefront-permissions` on the root
-- Inside the `vtex.storefront-permissions` folder, create a `configuration.json` file
-
-The content to this file should be in this format containing the name of your App and the features, remember to not use space or special characters as value for the features, you can also define default Roles that will be able to use each feature
-
-```JSON
-{
-  "name": "My awesome app",
-  "features": [
-    {
-      "label": "View",
-      "value": "view-awesome-things",
-      "roles": ["store-admin","sales-admin","sales-manager","sales-representative","customer-admin","customer-approver","customer-buyer"]
-    },
-    {
-      "label": "Create",
-      "value": "create-awesome-things",
-      "roles": ["store-admin","sales-admin","sales-manager","sales-representative"]
-    },
-    {
-      "label": "Delete",
-      "value": "delete-awesome-things",
-      "roles": ["store-admin","sales-admin","sales-manager","sales-representative"]
-    },
-    {
-      "label": "Special Access",
-      "value": "allow-special-access",
-      "roles": ["store-admin","sales-admin"]
     }
-  ]
-}
-```
+    ```
 
-### Available Roles
+3. In the root folder, create a new folder named `vtex.storefront-permissions`.
+4. In the `vtex.storefront-permissions` folder, create a `configuration.json` file. The content of this file should follow the format below. Keep in mind that you must replace the example information with the `name` of your app and its `features`.
 
-| Role                 | Key                    |
-| -------------------- | ---------------------- |
-| Store Admin          | `store-admin`          |
-| Sales Admin          | `sales-admin`          |
-| Sales Manager        | `sales-manager`        |
-| Sales Representative | `sales-representative` |
-| Customer Admin                | `customer-admin`       |
-| Customer Approver             | `customer-approver`    |
-| Customer Buyer                | `customer-buyer`       |
+    ```json
+    {
+      "name": "My awesome app",
+      "features": [
+        {
+          "label": "View",
+          "value": "view-awesome-things",
+          "roles": ["store-admin","sales-admin","sales-manager","sales-representative","customer-admin","customer-approver","customer-buyer"]
+        },
+        {
+          "label": "Create",
+          "value": "create-awesome-things",
+          "roles": ["store-admin","sales-admin","sales-manager","sales-representative"]
+        },
+        {
+          "label": "Delete",
+          "value": "delete-awesome-things",
+          "roles": ["store-admin","sales-admin","sales-manager","sales-representative"]
+        },
+        {
+          "label": "Special Access",
+          "value": "allow-special-access",
+          "roles": ["store-admin","sales-admin"]
+        }
+      ]
+    }
+    ```
 
-Once your app is installed, this information will be automatically loaded on the **Storefront Permissions** Roles section
+    Below you can find a description of each property.
 
-Now that your app is integrated, and you have associated your test user to a Role containing your app's permission, you can write a GraphQL query on your app to check the current user's permission within the context of your app, it's not necessary to declare your app name nor user credentials, the query will take care of these details
+    | **Property** | **Type** | **Description** |
+    |---|---|---|
+    | `name` | string | Name of your app. |
+    | `features` | array of objects | List of features related to your app – the functionalities of your app that you want to set permissions for users to be able to access or not. |
+    |  ⤷  | object | Object containing information about each feature of your app. |
+    |    ⤷ `label` | string | Name or description of the feature. |
+    |    ⤷ `value` | string | Identifier key you want to use for the feature, as used in your app’s [custom storefront components](https://developers.vtex.com/vtex-developer-docs/docs/vtex-io-documentation-developing-custom-storefront-components). Do not use space or special characters in this field. |
+    |    ⤷ `roles` | array of strings | List with the keys for all the roles you want to associate with the permission to use the feature by default. You can find more information about each role and its key in the [Available Storefront Roles section](#available-storefront-roles) of this documentation. |
 
-### Graphql queries
+5. Make sure you refer to the `value` – the identifier key – for each feature you want to set permissions for in your [custom storefront components](https://developers.vtex.com/vtex-developer-docs/docs/vtex-io-documentation-developing-custom-storefront-components)’ code, when developing your app.
 
-`checkUserPermission`
+    Example: in the B2B Organizations app, one of the permissions created is represented by the following object.
+
+    ```json
+    {
+      "label": "Create Cost Center",
+      "value": "create-cost-center-organization",
+      "roles": ["store-admin","sales-admin","customer-admin"]
+    }
+    ```
+
+    Therefore, in a [custom storefront component’s code](https://github.com/vtex-apps/b2b-organizations/blob/366a28add226eac5d9b104bb13a9f2cd1d574f02/react/components/CostCenterDetails.tsx) in TypeScript, whenever referring to this feature, it uses `create-cost-center-organization`.
+
+
+Once you are done developing and installing your own app, if you have [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui), the features of your app associated with each role will be automatically loaded on the **Storefront Permissions** page. For more details on this, read our documentation on the [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui) app.
+
+
+### GraphQL queries
+
+Now that your app is integrated, you can write a GraphQL query on your app to check the current user's permission within the context of your app.
+
+First, you need to associate your test user to a Role containing your app's permission by following the [B2B Organizations documentation](https://developers.vtex.com/vtex-developer-docs/docs/vtex-b2b-organizations#users).
+
+It is not necessary to declare your app name nor user credentials, the query will take care of these details.
+
+
+#### checkUserPermission
+
+This query allows you to check which permissions a user has in the context of your app. When the query is performed, **Storefront Permissions** checks which app the request is coming from, and returns the current user's permissions for that specific app.
+
+The response will be a list with all the permissions the current user has on the app.
+
+Sample query:
 
 ```graphql
 query permissions {
@@ -100,9 +154,11 @@ query permissions {
 }
 ```
 
-The response will be a simple list with all the permissions the current user has on the current app
 
-```JSON
+Sample response:
+
+
+```graphql
 {
   "data":{
     "checkUserPermission": {
@@ -117,18 +173,27 @@ The response will be a simple list with all the permissions the current user has
 }
 ```
 
-`hasUsers`
+
+
+#### hasUsers
+
+This query allows you to check if there are any users associated with a specific role. The response will be a boolean, with `"hasUsers": true` if there are users with this role or `false` if there are not.
+
+Sample query:
+
 
 ```graphql
-query HasUsers {
+query hasUsers {
   hasUsers(slug: "sales-admin")
     @context(provider: "vtex.storefront-permissions")
 }
 ```
 
-The response will be a boolean
 
-```JSON
+Sample response:
+
+
+```graphql
 {
   "data": {
     "hasUsers": true
@@ -136,7 +201,14 @@ The response will be a boolean
 }
 ```
 
-`checkImpersonation`
+
+
+#### checkImpersonation
+
+This query allows you to check if the current user is [impersonating](https://developers.vtex.com/vtex-developer-docs/docs/vtex-b2b-organizations#impersonate-users) another user, and retrieve information on the impersonated user.
+
+Sample query:
+
 
 ```graphql
 query checkImpersonation {
@@ -150,9 +222,11 @@ query checkImpersonation {
 }
 ```
 
-The response
 
-```JSON
+Sample response:
+
+
+```graphql
 {
   "data": {
     "checkImpersonation": {
@@ -166,7 +240,13 @@ The response
 }
 ```
 
-`getSessionWatcher`
+#### getSessionWatcher
+
+Using Session Watcher, **Storefront Permissions** detects changes to the user authentication to trigger changes to its cart and navigation, based on associated price tables, collections, profile information and shipping options.
+
+This query fetches Session Watcher’s status, that is, whether it is active or not. The response will be a boolean, with `true` meaning that it is enabled or `false` meaning it is disabled.
+
+Sample query:
 
 ```graphql
 query getSessionWatcher {
@@ -174,9 +254,11 @@ query getSessionWatcher {
 }
 ```
 
-The response will be a boolean
 
-```JSON
+Sample response:
+
+
+```graphql
 {
   "data": {
     "getSessionWatcher": false
@@ -184,12 +266,17 @@ The response will be a boolean
 }
 ```
 
-### Graphql mutation
 
-`impersonateUser`
 
-Use `userId` to impersonate, to remove impersonation send an empty `userId` instead.
-You can find `userId` from the user's Profile System, when available, it will also be accessible through the MasterData `CL` entity as a field named `userId`
+### GraphQL mutation
+
+
+#### impersonateUser
+
+Using this mutation, you can inform the `userId` to [impersonate an user](https://developers.vtex.com/vtex-developer-docs/docs/vtex-b2b-organizations#impersonate-users). To remove impersonation, send an empty `userId` instead.
+
+Sample mutation:
+
 
 ```graphql
 mutation impersonateUser($userId: ID)
@@ -201,11 +288,13 @@ mutation impersonateUser($userId: ID)
 }
 ```
 
+#### setSessionWatcher
 
-`sessionWatcher`
+If your account is not using `vtex.b2b-organizations` you may want to disable the Session Watcher to avoid unnecessary operations. To do so, set the `active` property to `false` in the mutation exemplified below.
 
-**Storefront Permissions** detects changes to the user authentication to trigger changes to its Cart and Navigation (Price Tables, Collections, Profile, Shipping)
-If your account is not using `vtex.organizations` you may want to disable the Session Watcher to avoid unnecessary operations
+The response will be a boolean, with `true` for a successful operation or `false` for a failure.
+
+Sample mutation:
 
 ```graphql
 mutation setSessionWatcher {
@@ -213,9 +302,9 @@ mutation setSessionWatcher {
 }
 ```
 
-The response will be a boolean with `true` for a successful operation or `false` for a failure
+Sample response:
 
-```JSON
+```graphql
 {
   "data": {
     "sessionWatcher": true
