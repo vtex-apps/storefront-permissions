@@ -76,18 +76,18 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
 
     const ret = user.length
       ? {
-          ...user[0],
-          name: `${cl.firstName} ${cl.lastName}`,
-          email: cl.email,
-        }
+        ...user[0],
+        name: `${cl.firstName} ${cl.lastName}`,
+        email: cl.email,
+      }
       : {
-          roleId: null,
-          userId: cl.userId,
-          clId: id,
-          canImpersonate: false,
-          name: `${cl.firstName} ${cl.lastName}`,
-          email: cl.email,
-        }
+        roleId: null,
+        userId: cl.userId,
+        clId: id,
+        canImpersonate: false,
+        name: `${cl.firstName} ${cl.lastName}`,
+        email: cl.email,
+      }
 
     return ret
   } catch (e) {
@@ -157,7 +157,7 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
         where: `email=${email}`,
       })
       .catch(() => [])
-
+      
     return ret
   } catch (e) {
     return { status: 'error', message: e }
@@ -239,16 +239,16 @@ export const checkUserPermission = async (
     throw new Error('Sender not available, make sure the query is private')
   }
 
-  const user = sessionData?.namespaces?.authentication
+  const { email } = sessionData?.namespaces?.profile || {}
 
   let ret = null
 
-  if (user?.storeUserEmail?.value && sender) {
+  if (email?.value && sender) {
     const module = removeVersionFromAppId(sender)
 
     const userData: any = await getUserByEmail(
       _,
-      { email: user.storeUserEmail.value },
+      { email: email?.value },
       ctx
     )
 
