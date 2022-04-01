@@ -112,6 +112,7 @@ export const resolvers = {
     setProfile: async (ctx: Context) => {
       const {
         clients: { graphqlServer, checkout, profileSystem },
+        req,
         vtex: { logger },
       } = ctx
 
@@ -146,11 +147,21 @@ export const resolvers = {
       const isWatchActive = await getSessionWatcher(null, null, ctx)
 
       if (isWatchActive) {
-        const body: any = await json(ctx.req)
+        const body: any = await json(req)
 
-        const impersonate = body?.public?.impersonate?.value ?? null
+        let impersonate = body?.public?.impersonate?.value ?? null
         let email = body?.authentication?.storeUserEmail?.value ?? null
         const orderFormId = body?.checkout?.orderFormId?.value ?? null
+
+        const orderFormData = await checkout.orderForm(orderFormId)
+
+        if (
+          orderFormData?.userProfileId &&
+          orderFormData?.userType === 'callCenterOperator' &&
+          orderFormData?.clientProfileData?.email !== email
+        ) {
+          impersonate = orderFormData.userProfileId
+        }
 
         if (impersonate) {
           const profile: any = await profileSystem
@@ -183,6 +194,7 @@ export const resolvers = {
             })
 
             if (clUser && orderFormId) {
+              if (clUser.isCorporate === null) clUser.isCorporate = false
               await checkout
                 .updateOrderFormProfile(orderFormId, clUser)
                 .catch((error) => {

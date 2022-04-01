@@ -220,6 +220,60 @@ export const listUsers = async (
   }
 }
 
+const getRoleAndPermissionsByEmail = async ({
+  email,
+  module,
+  skipError = false,
+  ctx,
+}: {
+  email: string
+  module: string
+  skipError: boolean
+  ctx: Context
+}) => {
+  let ret = {
+    role: {
+      id: '',
+      name: '',
+      slug: '',
+    },
+    permissions: [],
+  }
+
+  if (!email) return ret
+
+  const userData: any = await getUserByEmail(null, { email }, ctx)
+
+  if (!userData.length && !skipError) {
+    throw new Error('User not found')
+  }
+
+  if (!userData.length) return ret
+
+  const userRole: any = await getRole(null, { id: userData[0].roleId }, ctx)
+
+  if (!userRole && !skipError) {
+    throw new Error('Role not found')
+  }
+
+  if (!userRole) return ret
+
+  const currentModule = userRole.features?.find((feature: any) => {
+    return feature.module === module
+  })
+
+  ret = {
+    role: {
+      id: userRole.id,
+      name: userRole.name,
+      slug: userRole.slug,
+    },
+    permissions: currentModule?.features || [],
+  }
+
+  return ret
+}
+
 export const checkUserPermission = async (
   _: any,
   params: any,
@@ -239,41 +293,52 @@ export const checkUserPermission = async (
     throw new Error('Sender not available, make sure the query is private')
   }
 
-  const user = sessionData?.namespaces?.authentication
+  const authEmail =
+    sessionData?.namespaces?.authentication?.storeUserEmail?.value
 
-  let ret = null
+  const profileEmail = sessionData?.namespaces?.profile?.email?.value
 
-  if (user?.storeUserEmail?.value && sender) {
-    const module = removeVersionFromAppId(sender)
+  let ret = {
+    role: {
+      id: '',
+      name: '',
+      slug: '',
+    },
+    permissions: [],
+  }
 
-    const userData: any = await getUserByEmail(
-      _,
-      { email: user.storeUserEmail.value },
-      ctx
-    )
+  if (!sender) return ret
 
-    if (!userData.length && !skipError) {
-      throw new Error('User not found')
-    }
+  const module = removeVersionFromAppId(sender)
 
-    if (userData.length) {
-      const userRole: any = await getRole(_, { id: userData[0].roleId }, ctx)
+  const authPermissions = await getRoleAndPermissionsByEmail({
+    email: authEmail,
+    module,
+    skipError: true,
+    ctx,
+  })
 
-      if (!userRole && !skipError) {
-        throw new Error('Role not found')
-      }
+  let profilePermissions = ret
 
-      if (userRole) {
-        const currentModule = userRole.features?.find((feature: any) => {
-          return feature.module === module
-        })
+  if (profileEmail && authEmail !== profileEmail) {
+    profilePermissions = await getRoleAndPermissionsByEmail({
+      email: profileEmail,
+      module,
+      skipError: true,
+      ctx,
+    })
+  }
 
-        ret = {
-          role: userRole,
-          permissions: currentModule?.features ?? [],
-        }
-      }
-    }
+  ret = {
+    role: authPermissions.role.id
+      ? authPermissions.role
+      : profilePermissions.role,
+    permissions: [
+      ...new Set([
+        ...authPermissions.permissions,
+        ...profilePermissions.permissions,
+      ]),
+    ],
   }
 
   return ret

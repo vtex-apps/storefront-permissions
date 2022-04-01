@@ -1,3 +1,4 @@
+/* eslint-disable max-params */
 import type {
   InstanceOptions,
   RequestConfig,
@@ -43,7 +44,7 @@ export class Checkout extends JanusClient {
 
   private getChannelQueryString = () => {
     const { segment } = this.context as CustomIOContext
-    const channel = segment && segment.channel
+    const channel = segment?.channel
     const queryString = channel ? `?sc=${channel}` : ''
 
     return queryString
@@ -169,11 +170,9 @@ export class Checkout extends JanusClient {
     })
 
   public orderForm = (orderFormId?: string) => {
-    return this.post<OrderForm>(
-      this.routes.orderForm(orderFormId),
-      { expectedOrderFormSections: ['items'] },
-      { metric: 'checkout-orderForm' }
-    )
+    return this.get<OrderForm>(this.routes.orderForm(orderFormId), {
+      metric: 'checkout-orderForm',
+    })
   }
 
   public orderFormRaw = () => {

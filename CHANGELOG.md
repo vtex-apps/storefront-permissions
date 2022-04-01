@@ -7,21 +7,35 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Support for user impersonation via Telemarketing app
+
+### Changed
+
+- `checkUserPermission` will return a superset of the original user's and the impersonated user's permissions, if impersonation is active. If the original user has a role, that user's role will be returned. If not, the impersonated user's role will be returned
+
 ## [1.14.4] - 2022-03-21
 
 ### Changed
+
 - Reviewed README.md file
 
 ## [1.14.3] - 2022-03-17
+
 ### Changed
+
 - New version to re-deploy
+
 ## [1.14.2] - 2022-03-17
 
 ### Removed
+
 - Dependencies `search-segment-resolver` and `search-segment-graphql`
 
 ### Added
-- Addition information to the `impersonateUser` Mutation 
+
+- Addition information to the `impersonateUser` Mutation
 
 ## [1.14.1] - 2022-03-16
 
