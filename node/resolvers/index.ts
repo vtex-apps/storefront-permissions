@@ -57,6 +57,10 @@ const QUERIES = {
 export const resolvers = {
   Routes: {
     checkPermissions: async (ctx: Context) => {
+      const {
+        vtex: { logger },
+      } = ctx
+
       ctx.set('Content-Type', 'application/json')
       await getAppSettings(null, null, ctx)
 
@@ -65,10 +69,18 @@ export const resolvers = {
       let ret
 
       if (!params?.app) {
+        logger.warn({
+          message: `checkPermissions-appNotDefined`,
+          params,
+        })
         throw new Error('App not defined')
       }
 
       if (!params?.email) {
+        logger.warn({
+          message: `checkPermissions-emailNotDefined`,
+          params,
+        })
         throw new Error('Email not defined')
       }
 
@@ -79,6 +91,10 @@ export const resolvers = {
       )
 
       if (!userData.length) {
+        logger.warn({
+          message: `checkPermissions-userNotFound`,
+          email: params.email,
+        })
         throw new Error('User not found')
       }
 
@@ -90,6 +106,10 @@ export const resolvers = {
         )
 
         if (!userRole) {
+          logger.warn({
+            message: `checkPermissions-roleNotFound`,
+            roleId: userData[0].roleId,
+          })
           throw new Error('Role not found')
         }
 
@@ -232,6 +252,12 @@ export const resolvers = {
               organizationResponse?.data?.getOrganizationById?.status ===
               'inactive'
             ) {
+              logger.warn({
+                message: `setProfile-organizationInactive`,
+                organizationId: user.orgId,
+                organizationData:
+                  organizationResponse?.data?.getOrganizationById,
+              })
               throw new ForbiddenError('Organization is inactive')
             }
 

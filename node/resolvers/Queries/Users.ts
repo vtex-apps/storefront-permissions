@@ -231,6 +231,10 @@ const getRoleAndPermissionsByEmail = async ({
   skipError: boolean
   ctx: Context
 }) => {
+  const {
+    vtex: { logger },
+  } = ctx
+
   let ret = {
     role: {
       id: '',
@@ -245,6 +249,10 @@ const getRoleAndPermissionsByEmail = async ({
   const userData: any = await getUserByEmail(null, { email }, ctx)
 
   if (!userData.length && !skipError) {
+    logger.warn({
+      message: `getRoleAndPermissionsByEmail-userNotFound`,
+      email,
+    })
     throw new Error('User not found')
   }
 
@@ -253,6 +261,10 @@ const getRoleAndPermissionsByEmail = async ({
   const userRole: any = await getRole(null, { id: userData[0].roleId }, ctx)
 
   if (!userRole && !skipError) {
+    logger.warn({
+      message: `getRoleAndPermissionsByEmail-roleNotFound`,
+      roleId: userData[0].roleId,
+    })
     throw new Error('Role not found')
   }
 
@@ -281,15 +293,25 @@ export const checkUserPermission = async (
 ) => {
   await getAppSettings(null, null, ctx)
 
+  const {
+    vtex: { logger },
+  } = ctx
+
   const { sessionData, sender }: any = ctx.vtex
 
   const skipError = params?.skipError ?? false
 
   if (!sessionData?.namespaces && !skipError) {
+    logger.warn({
+      message: `checkUserPermission-userNotAuthenticated`,
+    })
     throw new Error('User not authenticated, make sure the query is private')
   }
 
   if (!sender && !skipError) {
+    logger.warn({
+      message: `checkUserPermission-senderNotFound`,
+    })
     throw new Error('Sender not available, make sure the query is private')
   }
 
@@ -347,11 +369,15 @@ export const checkUserPermission = async (
 export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
   const {
     clients: { profileSystem },
+    vtex: { logger },
   } = ctx
 
   const { sessionData }: any = ctx.vtex
 
   if (!sessionData?.namespaces) {
+    logger.warn({
+      message: `checkImpersonation-userNotAuthenticated`,
+    })
     throw new Error('User not authenticated, make sure the query is private')
   }
 
