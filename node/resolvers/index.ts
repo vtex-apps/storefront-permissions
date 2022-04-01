@@ -57,6 +57,10 @@ const QUERIES = {
 export const resolvers = {
   Routes: {
     checkPermissions: async (ctx: Context) => {
+      const {
+        vtex: { logger },
+      } = ctx
+
       ctx.set('Content-Type', 'application/json')
       await getAppSettings(null, null, ctx)
 
@@ -65,10 +69,18 @@ export const resolvers = {
       let ret
 
       if (!params?.app) {
+        logger.warn({
+          message: `checkPermissions-appNotDefined`,
+          params,
+        })
         throw new Error('App not defined')
       }
 
       if (!params?.email) {
+        logger.warn({
+          message: `checkPermissions-emailNotDefined`,
+          params,
+        })
         throw new Error('Email not defined')
       }
 
@@ -79,6 +91,10 @@ export const resolvers = {
       )
 
       if (!userData.length) {
+        logger.warn({
+          message: `checkPermissions-userNotFound`,
+          email: params.email,
+        })
         throw new Error('User not found')
       }
 
@@ -90,6 +106,10 @@ export const resolvers = {
         )
 
         if (!userRole) {
+          logger.warn({
+            message: `checkPermissions-roleNotFound`,
+            roleId: userData[0].roleId,
+          })
           throw new Error('Role not found')
         }
 
@@ -112,6 +132,7 @@ export const resolvers = {
     setProfile: async (ctx: Context) => {
       const {
         clients: { graphqlServer, checkout, profileSystem },
+        req,
         vtex: { logger },
       } = ctx
 
@@ -146,11 +167,21 @@ export const resolvers = {
       const isWatchActive = await getSessionWatcher(null, null, ctx)
 
       if (isWatchActive) {
-        const body: any = await json(ctx.req)
+        const body: any = await json(req)
 
-        const impersonate = body?.public?.impersonate?.value ?? null
+        let impersonate = body?.public?.impersonate?.value ?? null
         let email = body?.authentication?.storeUserEmail?.value ?? null
         const orderFormId = body?.checkout?.orderFormId?.value ?? null
+
+        const orderFormData = await checkout.orderForm(orderFormId)
+
+        if (
+          orderFormData?.userProfileId &&
+          orderFormData?.userType === 'callCenterOperator' &&
+          orderFormData?.clientProfileData?.email !== email
+        ) {
+          impersonate = orderFormData.userProfileId
+        }
 
         if (impersonate) {
           const profile: any = await profileSystem
@@ -183,6 +214,7 @@ export const resolvers = {
             })
 
             if (clUser && orderFormId) {
+              if (clUser.isCorporate === null) clUser.isCorporate = false
               await checkout
                 .updateOrderFormProfile(orderFormId, clUser)
                 .catch((error) => {
@@ -220,6 +252,12 @@ export const resolvers = {
               organizationResponse?.data?.getOrganizationById?.status ===
               'inactive'
             ) {
+              logger.warn({
+                message: `setProfile-organizationInactive`,
+                organizationId: user.orgId,
+                organizationData:
+                  organizationResponse?.data?.getOrganizationById,
+              })
               throw new ForbiddenError('Organization is inactive')
             }
 
