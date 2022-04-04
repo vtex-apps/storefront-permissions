@@ -8,13 +8,13 @@ import type {
   IOContext,
   SegmentData,
 } from '@vtex/api'
-import { Service, AuthType, LRUCache } from '@vtex/api'
+import { method, Service, AuthType, LRUCache } from '@vtex/api'
 
 import { schemaDirectives } from './directives'
 import { Clients } from './clients'
 import { resolvers } from './resolvers'
 
-const TIMEOUT_MS = 4000
+const TIMEOUT_MS = 5000
 
 const defaultClientOptions = {
   retries: 1,
@@ -74,5 +74,12 @@ export default new Service<Clients, RecorderState, ParamsContext>({
     },
     schemaDirectives,
   },
-  routes: resolvers.Routes,
+  routes: {
+    setProfile: method({
+      POST: resolvers.Routes.setProfile,
+    }),
+    checkPermissions: method({
+      GET: resolvers.Routes.checkPermissions,
+    }),
+  },
 })

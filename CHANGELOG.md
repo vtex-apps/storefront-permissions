@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Support for `businessDocument` field on user's cost center
+
+### Fixed
+
+- Don't await orderForm update promises in session hook to avoid timeouts
+- Check user impersonation status via session properties rather than orderForm
+- Adjust conditional in `checkImpersonation` query so that only data related to B2B impersonation solution is returned
+
 ## [1.15.0] - 2022-04-01
 
 ### Added

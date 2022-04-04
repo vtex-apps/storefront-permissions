@@ -383,10 +383,14 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
 
   const profile = sessionData?.namespaces?.profile
   const sfp = sessionData?.namespaces['storefront-permissions']
+  const authEmail =
+    sessionData?.namespaces?.authentication?.storeUserEmail?.value
 
   let ret = null
 
   if (
+    authEmail &&
+    profile?.email?.value !== authEmail &&
     sfp?.storeUserId?.value &&
     profile?.id?.value &&
     sfp?.storeUserId?.value === profile?.id?.value
