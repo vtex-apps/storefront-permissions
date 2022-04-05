@@ -21,6 +21,7 @@ import {
 const QUERIES = {
   getOrganizationById: `query Organization($id: ID!){
     getOrganizationById(id: $id) @context(provider: "vtex.b2b-organizations-graphql"){
+      name
       status
       priceTables
       collections {
@@ -50,6 +51,7 @@ const QUERIES = {
         geoCoordinates
         reference
       }
+      businessDocument
     }
   }`,
 }
@@ -167,25 +169,22 @@ export const resolvers = {
       const isWatchActive = await getSessionWatcher(null, null, ctx)
 
       if (isWatchActive) {
+        const promises = [] as Array<Promise<any>>
         const body: any = await json(req)
 
-        let impersonate = body?.public?.impersonate?.value ?? null
+        const b2bImpersonate = body?.public?.impersonate?.value ?? null
+
+        const telemarketingImpersonate =
+          body?.impersonate?.storeUserId?.value ?? null
+
         let email = body?.authentication?.storeUserEmail?.value ?? null
         const orderFormId = body?.checkout?.orderFormId?.value ?? null
+        let businessName = null
+        let businessDocument = null
 
-        const orderFormData = await checkout.orderForm(orderFormId)
-
-        if (
-          orderFormData?.userProfileId &&
-          orderFormData?.userType === 'callCenterOperator' &&
-          orderFormData?.clientProfileData?.email !== email
-        ) {
-          impersonate = orderFormData.userProfileId
-        }
-
-        if (impersonate) {
+        if (b2bImpersonate) {
           const profile: any = await profileSystem
-            .getProfileInfo(impersonate)
+            .getProfileInfo(b2bImpersonate)
             .catch((error) => {
               logger.error({ message: 'setProfile.getProfileInfoError', error })
             })
@@ -195,6 +194,15 @@ export const resolvers = {
             res['storefront-permissions'].storeUserEmail.value = profile.email
             email = profile.email
           }
+        } else if (telemarketingImpersonate) {
+          const telemarketingEmail =
+            body?.impersonate?.storeUserEmail?.value ?? null
+
+          res['storefront-permissions'].storeUserId.value =
+            telemarketingImpersonate
+          res['storefront-permissions'].storeUserEmail.value =
+            telemarketingEmail
+          email = telemarketingEmail
         }
 
         if (email) {
@@ -203,28 +211,6 @@ export const resolvers = {
               logger.warn({ message: 'setProfile.getUserByEmailError', error })
             }
           )
-
-          if (user?.clId) {
-            const clUser = await getUserById(
-              null,
-              { id: user.clId },
-              ctx
-            ).catch((error) => {
-              logger.error({ message: 'setProfile.getUserByIdError', error })
-            })
-
-            if (clUser && orderFormId) {
-              if (clUser.isCorporate === null) clUser.isCorporate = false
-              await checkout
-                .updateOrderFormProfile(orderFormId, clUser)
-                .catch((error) => {
-                  logger.error({
-                    message: 'setProfile.updateOrderFormProfileError',
-                    error,
-                  })
-                })
-            }
-          }
 
           if (user?.orgId) {
             res['storefront-permissions'].organization.value = user.orgId
@@ -261,6 +247,11 @@ export const resolvers = {
               throw new ForbiddenError('Organization is inactive')
             }
 
+            if (organizationResponse?.data?.getOrganizationById?.name) {
+              businessName =
+                organizationResponse?.data?.getOrganizationById?.name
+            }
+
             if (
               organizationResponse?.data?.getOrganizationById?.priceTables
                 ?.length
@@ -285,18 +276,20 @@ export const resolvers = {
             }
 
             if (orderFormId) {
-              await checkout
-                .updateOrderFormMarketingData(orderFormId, {
-                  attachmentId: 'marketingData',
-                  utmCampaign: user?.orgId,
-                  utmMedium: user?.costId,
-                })
-                .catch((error) => {
-                  logger.error({
-                    message: 'setProfile.updateOrderFormMarketingDataError',
-                    error,
+              promises.push(
+                checkout
+                  .updateOrderFormMarketingData(orderFormId, {
+                    attachmentId: 'marketingData',
+                    utmCampaign: user?.orgId,
+                    utmMedium: user?.costId,
                   })
-                })
+                  .catch((error) => {
+                    logger.error({
+                      message: 'setProfile.updateOrderFormMarketingDataError',
+                      error,
+                    })
+                  })
+              )
             }
 
             if (user?.costId) {
@@ -320,6 +313,13 @@ export const resolvers = {
                 })
 
               if (
+                costCenterResponse?.data?.getCostCenterById?.businessDocument
+              ) {
+                businessDocument =
+                  costCenterResponse.data.getCostCenterById.businessDocument
+              }
+
+              if (
                 costCenterResponse?.data?.getCostCenterById?.addresses
                   ?.length &&
                 orderFormId
@@ -327,21 +327,57 @@ export const resolvers = {
                 const [address] =
                   costCenterResponse.data.getCostCenterById.addresses
 
-                await checkout
-                  .updateOrderFormShipping(orderFormId, {
-                    address,
-                    clearAddressIfPostalCodeNotFound: false,
-                  })
-                  .catch((error) => {
-                    logger.error({
-                      message: 'setProfile.updateOrderFormShippingError',
-                      error,
+                promises.push(
+                  checkout
+                    .updateOrderFormShipping(orderFormId, {
+                      address,
+                      clearAddressIfPostalCodeNotFound: false,
                     })
-                  })
+                    .catch((error) => {
+                      logger.error({
+                        message: 'setProfile.updateOrderFormShippingError',
+                        error,
+                      })
+                    })
+                )
+              }
+            }
+
+            if (user?.clId) {
+              const clUser = await getUserById(
+                null,
+                { id: user.clId },
+                ctx
+              ).catch((error) => {
+                logger.error({ message: 'setProfile.getUserByIdError', error })
+              })
+
+              if (clUser && orderFormId) {
+                if (clUser.isCorporate === null) clUser.isCorporate = false
+
+                if (businessName && businessDocument) {
+                  clUser.isCorporate = true
+                  clUser.corporateName = businessName
+                  clUser.corporateDocument = businessDocument
+                }
+
+                promises.push(
+                  checkout
+                    .updateOrderFormProfile(orderFormId, clUser)
+                    .catch((error) => {
+                      logger.error({
+                        message: 'setProfile.updateOrderFormProfileError',
+                        error,
+                      })
+                    })
+                )
               }
             }
           }
         }
+
+        // Don't await promises, to avoid session timeout
+        Promise.all(promises)
       }
 
       ctx.response.body = res

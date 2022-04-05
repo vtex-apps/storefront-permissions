@@ -3,6 +3,7 @@
     "input": {
       "authentication": ["storeUserEmail"],
       "checkout": ["orderFormId"],
+      "impersonate": ["storeUserEmail", "storeUserId"],
       "public": ["impersonate"]
     },
     "output": {
