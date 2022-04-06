@@ -4,6 +4,7 @@
 import { deleteRole, saveRole } from './Mutations/Roles'
 import { sessionWatcher } from './Mutations/Settings'
 import {
+  addUser,
   deleteUser,
   impersonateUser,
   saveUser,
@@ -23,6 +24,7 @@ import { Routes } from './Routes'
 
 export const resolvers = {
   Mutation: {
+    addUser,
     deleteRole,
     deleteUser,
     impersonateUser,
