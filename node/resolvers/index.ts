@@ -19,7 +19,7 @@ import {
   getUserByEmail,
   listUsers,
 } from './Queries/Users'
-import { checkPermissions, setProfile } from './Routes'
+import { Routes } from './Routes'
 
 export const resolvers = {
   Mutation: {
@@ -45,8 +45,5 @@ export const resolvers = {
     listRoles,
     listUsers,
   },
-  Routes: {
-    checkPermissions,
-    setProfile,
-  },
+  Routes,
 }
