@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- create a new Mutation to add a single user
+- create a new Mutation to update a single user
+- optimize code / structure
+
+
 ## [1.16.0] - 2022-04-05
 
 ### Added
