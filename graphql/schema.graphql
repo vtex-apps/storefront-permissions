@@ -77,6 +77,27 @@ type Mutation {
     email: String!
   ): MutationResponse @cacheControl(scope: PRIVATE)
 
+  updateUser(
+    id: ID
+    roleId: ID!
+    userId: ID
+    orgId: ID
+    costId: ID
+    clId: ID
+    canImpersonate: Boolean = false
+  ): MutationResponse @cacheControl(scope: PRIVATE)
+
+  addUser(
+    id: ID
+    roleId: ID!
+    userId: ID
+    orgId: ID
+    costId: ID
+    canImpersonate: Boolean = false
+    name: String!
+    email: String!
+  ): MutationResponse @cacheControl(scope: PRIVATE)
+
   impersonateUser(userId: ID): MutationResponse @cacheControl(scope: PRIVATE)
   deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
     @cacheControl(scope: PRIVATE)
