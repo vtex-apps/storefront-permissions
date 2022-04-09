@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - HOTFIX on addUser
 
+## [1.17.0] - 2022-04-07
+
 ### Added
 
 - create a new Mutation to add a single user
