@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- HOTFIX on addUser
+
 ### Added
 
 - create a new Mutation to add a single user

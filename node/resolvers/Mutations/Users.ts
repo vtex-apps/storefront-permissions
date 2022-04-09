@@ -140,7 +140,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
       masterdata,
       params: {
         ...params,
-        cId,
+        clId: cId,
       },
       vbase,
     })
