@@ -26,9 +26,9 @@ const createPermission = async ({ lm, masterdata, vbase, params }: any) => {
     const user = await lm.getUserIdByEmail(email)
 
     UserId = user ?? userId
-  } else {
+  } else if (userId) {
     await lm.deleteUser(userId).catch((err: any) => {
-      throw new Error(err)
+      return err
     })
   }
 
@@ -129,7 +129,6 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
             })
         }
 
-        logger.error(err)
         throw err
       })
 
@@ -147,6 +146,8 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
 
     return { status: 'success', message: '', id: cId }
   } catch (err) {
+    logger.error(err)
+
     return { status: 'error', message: err }
   }
 }
@@ -160,13 +161,9 @@ export const updateUser = async (_: any, params: any, ctx: Context) => {
   try {
     // check if new user already exists in CL and create profile if not
     if (!params.clId) {
-      const { id: cId } = (await addUser(_, params, ctx)) as {
-        status: string
-        message: string
-        id: string
-      }
+      const { id: cId } = await addUser(_, params, ctx)
 
-      params.cId = cId
+      params.clId = cId
     }
 
     await createPermission({
