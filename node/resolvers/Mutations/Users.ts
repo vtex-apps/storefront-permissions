@@ -3,6 +3,41 @@ import { currentSchema } from '../../utils'
 
 const config: any = currentSchema('b2b_users')
 
+const addUserToMasterdata = async ({ masterdata, params }: any) => {
+  const newUser = await masterdata
+    .createDocument({
+      dataEntity: 'CL',
+      fields: {
+        email: params.email,
+        firstName: params.name,
+      },
+    })
+    .then((r: any) => {
+      return r
+    })
+    .catch((err: any) => {
+      if (err.response?.data?.Message === 'duplicated entry') {
+        return masterdata
+          .searchDocuments({
+            dataEntity: 'CL',
+            fields: ['id'],
+            pagination: {
+              page: 1,
+              pageSize: 1,
+            },
+            where: `email=${params.email}`,
+          })
+          .then((res: any) => {
+            return { DocumentId: res[0].id }
+          })
+      }
+
+      throw err
+    })
+
+  return newUser.DocumentId
+}
+
 const createPermission = async ({ lm, masterdata, vbase, params }: any) => {
   const {
     roleId,
@@ -101,38 +136,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
-    const newUser = await masterdata
-      .createDocument({
-        dataEntity: 'CL',
-        fields: {
-          email: params.email,
-          firstName: params.name,
-        },
-      })
-      .then((r: any) => {
-        return r
-      })
-      .catch((err: any) => {
-        if (err.response?.data?.Message === 'duplicated entry') {
-          return masterdata
-            .searchDocuments({
-              dataEntity: 'CL',
-              fields: ['id'],
-              pagination: {
-                page: 1,
-                pageSize: 1,
-              },
-              where: `email=${params.email}`,
-            })
-            .then((res: any) => {
-              return { DocumentId: res[0].id }
-            })
-        }
-
-        throw err
-      })
-
-    const cId = newUser.DocumentId
+    const cId = await addUserToMasterdata({ masterdata, params })
 
     await createPermission({
       lm,
@@ -161,9 +165,7 @@ export const updateUser = async (_: any, params: any, ctx: Context) => {
   try {
     // check if new user already exists in CL and create profile if not
     if (!params.clId) {
-      const { id: cId } = await addUser(_, params, ctx)
-
-      params.clId = cId
+      params.clId = await addUserToMasterdata({ masterdata, params })
     }
 
     await createPermission({
