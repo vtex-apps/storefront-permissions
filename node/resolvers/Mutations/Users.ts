@@ -38,7 +38,7 @@ const addUserToMasterdata = async ({ masterdata, params }: any) => {
   return newUser.DocumentId
 }
 
-const createPermission = async ({ lm, masterdata, vbase, params }: any) => {
+const createPermission = async ({ masterdata, vbase, params }: any) => {
   const {
     roleId,
     canImpersonate,
@@ -51,21 +51,8 @@ const createPermission = async ({ lm, masterdata, vbase, params }: any) => {
     id,
   } = params
 
-  let UserId = userId
+  const UserId = userId
   let mdId = id
-
-  if (canImpersonate) {
-    await lm.saveUser(name, email).catch((err: any) => {
-      throw new Error(err)
-    })
-    const user = await lm.getUserIdByEmail(email)
-
-    UserId = user ?? userId
-  } else if (userId) {
-    await lm.deleteUser(userId).catch((err: any) => {
-      return err
-    })
-  }
 
   // check if new user's email already exists in storefront-permissions MD
   if (!mdId) {
@@ -222,10 +209,10 @@ export const deleteUserProfile = async (_: any, params: any, ctx: Context) => {
 
 export const deleteUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, lm, vbase },
+    clients: { masterdata, vbase },
   } = ctx
 
-  const { id, userId, email } = params
+  const { id, email } = params
 
   try {
     await vbase.deleteFile('b2b_users', email).catch(() => null)
@@ -234,16 +221,6 @@ export const deleteUser = async (_: any, params: any, ctx: Context) => {
       dataEntity: config.name,
       id,
     })
-
-    if (userId) {
-      await lm.deleteUser(userId)
-    } else {
-      const user = await lm.getUserIdByEmail(email)
-
-      if (user) {
-        await lm.deleteUser(user)
-      }
-    }
 
     return { status: 'success', message: '' }
   } catch (e) {
