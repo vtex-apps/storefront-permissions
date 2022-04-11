@@ -3,7 +3,42 @@ import { currentSchema } from '../../utils'
 
 const config: any = currentSchema('b2b_users')
 
-const createPermission = async ({ lm, masterdata, vbase, params }: any) => {
+const addUserToMasterdata = async ({ masterdata, params }: any) => {
+  const newUser = await masterdata
+    .createDocument({
+      dataEntity: 'CL',
+      fields: {
+        email: params.email,
+        firstName: params.name,
+      },
+    })
+    .then((r: any) => {
+      return r
+    })
+    .catch((err: any) => {
+      if (err.response?.data?.Message === 'duplicated entry') {
+        return masterdata
+          .searchDocuments({
+            dataEntity: 'CL',
+            fields: ['id'],
+            pagination: {
+              page: 1,
+              pageSize: 1,
+            },
+            where: `email=${params.email}`,
+          })
+          .then((res: any) => {
+            return { DocumentId: res[0].id }
+          })
+      }
+
+      throw err
+    })
+
+  return newUser.DocumentId
+}
+
+const createPermission = async ({ masterdata, vbase, params }: any) => {
   const {
     roleId,
     canImpersonate,
@@ -16,21 +51,8 @@ const createPermission = async ({ lm, masterdata, vbase, params }: any) => {
     id,
   } = params
 
-  let UserId = userId
+  const UserId = userId
   let mdId = id
-
-  if (canImpersonate) {
-    await lm.saveUser(name, email).catch((err: any) => {
-      throw new Error(err)
-    })
-    const user = await lm.getUserIdByEmail(email)
-
-    UserId = user ?? userId
-  } else {
-    await lm.deleteUser(userId).catch((err: any) => {
-      throw new Error(err)
-    })
-  }
 
   // check if new user's email already exists in storefront-permissions MD
   if (!mdId) {
@@ -101,52 +123,22 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
-    const newUser = await masterdata
-      .createDocument({
-        dataEntity: 'CL',
-        fields: {
-          email: params.email,
-          firstName: params.name,
-        },
-      })
-      .then((r: any) => {
-        return r
-      })
-      .catch((err: any) => {
-        if (err.response?.data?.Message === 'duplicated entry') {
-          return masterdata
-            .searchDocuments({
-              dataEntity: 'CL',
-              fields: ['id'],
-              pagination: {
-                page: 1,
-                pageSize: 1,
-              },
-              where: `email=${params.email}`,
-            })
-            .then((res: any) => {
-              return { DocumentId: res[0].id }
-            })
-        }
-
-        logger.error(err)
-        throw err
-      })
-
-    const cId = newUser.DocumentId
+    const cId = await addUserToMasterdata({ masterdata, params })
 
     await createPermission({
       lm,
       masterdata,
       params: {
         ...params,
-        cId,
+        clId: cId,
       },
       vbase,
     })
 
     return { status: 'success', message: '', id: cId }
   } catch (err) {
+    logger.error(err)
+
     return { status: 'error', message: err }
   }
 }
@@ -160,13 +152,7 @@ export const updateUser = async (_: any, params: any, ctx: Context) => {
   try {
     // check if new user already exists in CL and create profile if not
     if (!params.clId) {
-      const { id: cId } = (await addUser(_, params, ctx)) as {
-        status: string
-        message: string
-        id: string
-      }
-
-      params.cId = cId
+      params.clId = await addUserToMasterdata({ masterdata, params })
     }
 
     await createPermission({
@@ -223,10 +209,10 @@ export const deleteUserProfile = async (_: any, params: any, ctx: Context) => {
 
 export const deleteUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, lm, vbase },
+    clients: { masterdata, vbase },
   } = ctx
 
-  const { id, userId, email } = params
+  const { id, email } = params
 
   try {
     await vbase.deleteFile('b2b_users', email).catch(() => null)
@@ -235,16 +221,6 @@ export const deleteUser = async (_: any, params: any, ctx: Context) => {
       dataEntity: config.name,
       id,
     })
-
-    if (userId) {
-      await lm.deleteUser(userId)
-    } else {
-      const user = await lm.getUserIdByEmail(email)
-
-      if (user) {
-        await lm.deleteUser(user)
-      }
-    }
 
     return { status: 'success', message: '' }
   } catch (e) {
