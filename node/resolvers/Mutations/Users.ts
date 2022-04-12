@@ -41,7 +41,7 @@ const addUserToMasterdata = async ({ masterdata, params }: any) => {
 const getUser = async ({ masterdata, params }: any) => {
   return masterdata
     .searchDocuments({
-      dataEntity: 'CL',
+      dataEntity: config.name,
       fields: ['id', 'email', 'orgId'],
       pagination: {
         page: 1,
