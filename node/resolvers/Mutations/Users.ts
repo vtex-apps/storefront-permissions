@@ -38,6 +38,25 @@ const addUserToMasterdata = async ({ masterdata, params }: any) => {
   return newUser.DocumentId
 }
 
+const getUser = async ({ masterdata, params }: any) => {
+  return masterdata
+    .searchDocuments({
+      dataEntity: config.name,
+      fields: ['id', 'email', 'orgId'],
+      pagination: {
+        page: 1,
+        pageSize: 1,
+      },
+      where: `email=${params.email}`,
+    })
+    .then((res: any) => {
+      return res[0].length > 0 ? res[0] : null
+    })
+    .catch(() => {
+      return null
+    })
+}
+
 const createPermission = async ({ masterdata, vbase, params }: any) => {
   const {
     roleId,
@@ -56,20 +75,11 @@ const createPermission = async ({ masterdata, vbase, params }: any) => {
 
   // check if new user's email already exists in storefront-permissions MD
   if (!mdId) {
-    mdId = await masterdata
-      .searchDocuments({
-        dataEntity: config.name,
-        fields: ['id'],
-        pagination: { page: 1, pageSize: 90 },
-        schema: config.version,
-        where: `email=${email}`,
-      })
-      .then((r: any) => {
-        return r?.length ? r[0].id : null
-      })
-      .catch(() => {
-        return null
-      })
+    const userExists = await getUser({ masterdata, params: { email } })
+
+    if (userExists) {
+      mdId = userExists.id
+    }
   }
 
   const ret = await masterdata
@@ -123,6 +133,14 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
+    const userExists = await getUser({ masterdata, params })
+
+    if (userExists) {
+      throw new Error(
+        `User with email ${params.email} already exists, id="${userExists.id}"`
+      )
+    }
+
     const cId = await addUserToMasterdata({ masterdata, params })
 
     await createPermission({

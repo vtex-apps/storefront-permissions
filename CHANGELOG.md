@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Validation if the user is already on MD and check if the orgId is different
+
 ## [1.17.1] - 2022-04-11
 
 ### Fixed
