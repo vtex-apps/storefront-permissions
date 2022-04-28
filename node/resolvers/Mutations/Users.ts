@@ -43,6 +43,7 @@ const getUser = async ({ masterdata, params }: any) => {
     .searchDocuments({
       dataEntity: config.name,
       fields: ['id', 'email', 'orgId'],
+      schema: config.version,
       pagination: {
         page: 1,
         pageSize: 1,
@@ -50,11 +51,9 @@ const getUser = async ({ masterdata, params }: any) => {
       where: `email=${params.email}`,
     })
     .then((res: any) => {
-      return res[0].length > 0 ? res[0] : null
+      return res.length > 0 ? res[0] : null
     })
-    .catch(() => {
-      return null
-    })
+    .catch(() => null)
 }
 
 const createPermission = async ({ masterdata, vbase, params }: any) => {

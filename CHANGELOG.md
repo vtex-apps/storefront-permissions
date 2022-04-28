@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed on checking if the user already exists
+
 ## [1.18.0] - 2022-04-12
 
 ### Added
