@@ -19,6 +19,7 @@ import {
   getUser,
   getUserByEmail,
   listUsers,
+  listUsersPaginated,
 } from './Queries/Users'
 import { Routes } from './Routes'
 
@@ -46,6 +47,7 @@ export const resolvers = {
     listFeatures,
     listRoles,
     listUsers,
+    listUsersPaginated,
   },
   Routes,
 }

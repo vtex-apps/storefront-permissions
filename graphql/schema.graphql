@@ -23,8 +23,13 @@ type Query {
   # User
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
   getUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
+  listUsers(organizationId: ID, costCenterId: ID, roleId: ID): [User]
+    @cacheControl(scope: PRIVATE, maxAge: SHORT)
+    @deprecated(
+      reason: "This query is deprecated, use listUsersPaginated query instead."
+    )
 
-  listUsers(
+  listUsersPaginated(
     organizationId: ID
     costCenterId: ID
     roleId: ID

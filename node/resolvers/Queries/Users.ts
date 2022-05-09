@@ -166,6 +166,62 @@ export const listUsers = async (
     organizationId = '',
     costCenterId = '',
     roleId = '',
+  }: { organizationId: string; costCenterId: string; roleId: string },
+  ctx: Context
+) => {
+  const {
+    clients: { masterdata },
+  } = ctx
+
+  let res: any = []
+
+  const whereArray: string[] = []
+
+  if (organizationId) {
+    whereArray.push(`orgId=${organizationId}`)
+  }
+
+  if (costCenterId) {
+    whereArray.push(`costId=${costCenterId}`)
+  }
+
+  if (roleId) {
+    whereArray.push(`roleId=${roleId}`)
+  }
+
+  const where = whereArray.join(' AND ')
+
+  try {
+    res = await masterdata.searchDocuments({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'userId',
+        'clId',
+        'orgId',
+        'costId',
+        'name',
+        'email',
+        'canImpersonate',
+      ],
+      schema: config.version,
+      pagination: { page: 1, pageSize: 50 },
+      ...(where && { where }),
+    })
+
+    return res
+  } catch (e) {
+    return { status: 'error', message: e }
+  }
+}
+
+export const listUsersPaginated = async (
+  _: any,
+  {
+    organizationId = '',
+    costCenterId = '',
+    roleId = '',
     page = 1,
     pageSize = 25,
     search = '',
@@ -243,8 +299,6 @@ export const listUsers = async (
 
     return res
   } catch (e) {
-    console.error(e)
-
     return { status: 'error', message: e }
   }
 }
