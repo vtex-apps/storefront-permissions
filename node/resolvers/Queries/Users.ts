@@ -74,7 +74,7 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
       where: `clId=${id}`,
     })
 
-    const ret = user.length
+    return user.length
       ? {
           ...user[0],
           name: `${cl.firstName} ${cl.lastName}`,
@@ -88,8 +88,6 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
           name: `${cl.firstName} ${cl.lastName}`,
           email: cl.email,
         }
-
-    return ret
   } catch (e) {
     return { status: 'error', message: e }
   }
@@ -138,7 +136,7 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
       return [cachedUser]
     }
 
-    const ret = await masterdata
+    return await masterdata
       .searchDocuments({
         dataEntity: config.name,
         fields: [
@@ -157,8 +155,6 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
         where: `email=${email}`,
       })
       .catch(() => [])
-
-    return ret
   } catch (e) {
     return { status: 'error', message: e }
   }
@@ -211,6 +207,93 @@ export const listUsers = async (
       ],
       schema: config.version,
       pagination: { page: 1, pageSize: 50 },
+      ...(where && { where }),
+    })
+
+    return res
+  } catch (e) {
+    return { status: 'error', message: e }
+  }
+}
+
+export const listUsersPaginated = async (
+  _: any,
+  {
+    organizationId = '',
+    costCenterId = '',
+    roleId = '',
+    page = 1,
+    pageSize = 25,
+    search = '',
+    sortOrder = 'asc',
+    sortedBy = 'email',
+  }: {
+    organizationId: string
+    costCenterId: string
+    roleId: string
+    page: number
+    pageSize: number
+    search: string
+    sortOrder: string
+    sortedBy: string
+  },
+  ctx: Context
+) => {
+  const {
+    clients: { masterdata },
+  } = ctx
+
+  let res: any = []
+
+  const whereArray: string[] = []
+
+  if (organizationId) {
+    whereArray.push(`orgId=${organizationId}`)
+  }
+
+  if (costCenterId) {
+    whereArray.push(`costId=${costCenterId}`)
+  }
+
+  if (roleId) {
+    whereArray.push(`roleId=${roleId}`)
+  }
+
+  let whereSearchFields: any[] = []
+
+  if (search && search.length > 0) {
+    const fields = ['email']
+
+    whereSearchFields = fields.map((field) => `${field}="*${search}*"`)
+  }
+
+  let where = `${whereArray.join(' AND ')}`
+
+  if (whereSearchFields.length > 0) {
+    if (where.length > 0) {
+      where += ' AND '
+    }
+
+    where += `(${whereSearchFields.join(' OR ')})`
+  }
+
+  try {
+    res = await masterdata.searchDocumentsWithPaginationInfo({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'userId',
+        'clId',
+        'orgId',
+        'costId',
+        'name',
+        'email',
+        'canImpersonate',
+      ],
+      pagination: { page, pageSize },
+      schema: config.version,
+      sort: `${sortedBy} ${sortOrder}`,
       ...(where && { where }),
     })
 
