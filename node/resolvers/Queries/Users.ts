@@ -7,6 +7,16 @@ import { getAppSettings } from './Settings'
 
 const config: any = currentSchema('b2b_users')
 
+const SCROLL_AWAIT_TIME = 100
+const SLEEP_ADD_PERCENTAGE = 0.1
+const SCROLL_SIZE = 1000
+
+const sleep = (ms: number) => {
+  const time = ms + SLEEP_ADD_PERCENTAGE * ms
+
+  return new Promise((resolve) => setTimeout(resolve, time))
+}
+
 export const getUserById = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
@@ -155,6 +165,65 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
         where: `email=${email}`,
       })
       .catch(() => [])
+  } catch (e) {
+    return { status: 'error', message: e }
+  }
+}
+
+export const listAllUsers = async (_: any, __: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+  } = ctx
+
+  try {
+    let token: string | undefined
+    let hasMore = true
+    const users = [] as any[]
+
+    const scrollMasterData = async () => {
+      await sleep(SCROLL_AWAIT_TIME)
+      const {
+        mdToken,
+        data,
+      }: {
+        mdToken: string
+        data: any
+      } = await masterdata.scrollDocuments({
+        dataEntity: config.name,
+        fields: [
+          'id',
+          'roleId',
+          'userId',
+          'clId',
+          'orgId',
+          'costId',
+          'name',
+          'email',
+          'canImpersonate',
+        ],
+        mdToken: token,
+        schema: config.version,
+        size: SCROLL_SIZE,
+      })
+
+      if (!data.length && token) {
+        hasMore = false
+      }
+
+      if (!token && mdToken) {
+        token = mdToken
+      }
+
+      users.push(...data)
+
+      if (hasMore) {
+        await scrollMasterData()
+      }
+    }
+
+    await scrollMasterData()
+
+    return users
   } catch (e) {
     return { status: 'error', message: e }
   }

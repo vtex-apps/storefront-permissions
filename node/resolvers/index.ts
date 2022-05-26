@@ -18,6 +18,7 @@ import {
   checkUserPermission,
   getUser,
   getUserByEmail,
+  listAllUsers,
   listUsers,
   listUsersPaginated,
 } from './Queries/Users'
@@ -44,6 +45,7 @@ export const resolvers = {
     getUser,
     getUserByEmail,
     hasUsers,
+    listAllUsers,
     listFeatures,
     listRoles,
     listUsers,

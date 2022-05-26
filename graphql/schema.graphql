@@ -23,6 +23,8 @@ type Query {
   # User
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
   getUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
+  listAllUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
+
   listUsers(organizationId: ID, costCenterId: ID, roleId: ID): [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @deprecated(
