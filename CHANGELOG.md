@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.20.0] - 2022-05-31
+
 ### Added
 
 - Added a graphql query to get all users by using the scroll MD function
