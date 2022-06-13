@@ -2,7 +2,7 @@ name: '[PSH] Quality Engineering'
 
 on:
   push:
-    branches: 
+    branches:
       - master
       - main
       - bugfix/*
@@ -22,7 +22,7 @@ jobs:
       nodeLint: true
       nodeTest: false
       nodeSonar: true
-      nodeSonarProjectKey: vtex-apps_flow-finance-components
+      nodeSonarProjectKey: vtex-apps_storefront-permissions
       nodeSonarOrganization: vtex-apps
     secrets:
       githubToken: ${{ secrets.GITHUB_TOKEN }}

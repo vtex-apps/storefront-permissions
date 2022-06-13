@@ -21,7 +21,7 @@ jobs:
       nodeLint: true
       nodeTest: false
       nodeSonar: true
-      nodeSonarProjectKey: vtex-apps_flow-finance-components
+      nodeSonarProjectKey: vtex-apps_storefront-permissions
       nodeSonarOrganization: vtex-apps
       cypress: false
     secrets:
