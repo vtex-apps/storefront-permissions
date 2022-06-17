@@ -22,6 +22,7 @@ type Query {
   # listProfiles: [Profile] @cacheControl(scope: PRIVATE, maxAge: SHORT)
   # User
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
+  checkSchema: Boolean @cacheControl(scope: PRIVATE)
   getUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
   listAllUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
 

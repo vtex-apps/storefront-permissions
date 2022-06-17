@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
+import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
 
 const config: any = currentSchema('b2b_users')
 
 const addUserToMasterdata = async ({ masterdata, params }: any) => {
   const newUser = await masterdata
     .createDocument({
-      dataEntity: 'CL',
+      dataEntity: CUSTOMER_SCHEMA_NAME,
       fields: {
         email: params.email,
         firstName: params.name,
@@ -19,7 +20,7 @@ const addUserToMasterdata = async ({ masterdata, params }: any) => {
       if (err.response?.data?.Message === 'duplicated entry') {
         return masterdata
           .searchDocuments({
-            dataEntity: 'CL',
+            dataEntity: CUSTOMER_SCHEMA_NAME,
             fields: ['id'],
             pagination: {
               page: 1,

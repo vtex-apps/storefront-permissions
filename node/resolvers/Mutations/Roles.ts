@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Slugify, currentRoleNames, toHash, rolesVbaseId } from '../../utils'
+import { Slugify, currentRoleNames, toHash } from '../../utils'
+import { ROLES_VBASE_ID } from '../../utils/constants'
 import { groupByRole } from '../Queries/Features'
 import { searchRoles } from '../Queries/Roles'
 
@@ -22,7 +23,7 @@ export const saveRole = async (_: any, params: any, ctx: Context) => {
     const roles = await searchRoles(null, ctx)
     const role = roles.find((item) => item.slug === data.slug)
 
-    await vbase.saveJSON('b2b_roles', rolesVbaseId, [
+    await vbase.saveJSON('b2b_roles', ROLES_VBASE_ID, [
       ...roles.filter((item) => item.slug !== data.slug),
       {
         id: role?.id ? role.id : data.id ?? data.slug,
@@ -123,7 +124,7 @@ export const deleteRole = async (_: any, params: any, ctx: Context) => {
 
     await vbase.saveJSON(
       'b2b_roles',
-      rolesVbaseId,
+      ROLES_VBASE_ID,
       roles.filter((item) => item.id !== params.id)
     )
 

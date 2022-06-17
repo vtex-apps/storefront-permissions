@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Added a mutation to check if the schema is correctly configured.
+- Created a constants file
+
 ## [1.20.0] - 2022-05-31
 
 ### Added

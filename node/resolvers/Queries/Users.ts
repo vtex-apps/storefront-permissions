@@ -2,6 +2,10 @@
 import { removeVersionFromAppId } from '@vtex/api'
 
 import { currentSchema } from '../../utils'
+import {
+  CUSTOMER_REQUIRED_FIELDS,
+  CUSTOMER_SCHEMA_NAME,
+} from '../../utils/constants'
 import { getRole } from './Roles'
 import { getAppSettings } from './Settings'
 
@@ -26,7 +30,7 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
     const { id } = params
 
     const cl: any = await masterdata.getDocument({
-      dataEntity: 'CL',
+      dataEntity: CUSTOMER_SCHEMA_NAME,
       id,
       fields: [
         'email',
@@ -50,6 +54,28 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
   }
 }
 
+export const checkSchema = async (_: any, __: any, ctx: Context) => {
+  const {
+    clients: { schema },
+  } = ctx
+
+  const latestSchema = await schema.getLatestSchema(CUSTOMER_SCHEMA_NAME)
+
+  if (!latestSchema) {
+    return { status: 'error', message: 'Schema not found' }
+  }
+
+  const {
+    schema: { required },
+  } = latestSchema
+
+  const diff = required.filter(
+    (value: any) => !CUSTOMER_REQUIRED_FIELDS.includes(value)
+  )
+
+  return diff.length <= 0
+}
+
 export const getUser = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
@@ -59,7 +85,7 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
     const { id } = params
 
     const cl: any = await masterdata.getDocument({
-      dataEntity: 'CL',
+      dataEntity: CUSTOMER_SCHEMA_NAME,
       id,
       fields: ['firstName', 'lastName', 'email', 'userId'],
     })
