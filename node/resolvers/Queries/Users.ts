@@ -54,7 +54,7 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
   }
 }
 
-export const checkSchema = async (_: any, __: any, ctx: Context) => {
+export const checkCustomerSchema = async (_: any, __: any, ctx: Context) => {
   const {
     clients: { schema },
   } = ctx

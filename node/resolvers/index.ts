@@ -15,7 +15,7 @@ import { getRole, hasUsers, listRoles } from './Queries/Roles'
 import { getAppSettings, getSessionWatcher } from './Queries/Settings'
 import {
   checkImpersonation,
-  checkSchema,
+  checkCustomerSchema,
   checkUserPermission,
   getUser,
   getUserByEmail,
@@ -38,7 +38,7 @@ export const resolvers = {
   },
   Query: {
     checkImpersonation,
-    checkSchema,
+    checkCustomerSchema,
     checkUserPermission,
     getAppSettings,
     getFeaturesByModule,
