@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { syncRoles } from '../Mutations/Roles'
-import { currentRoleNames, currentSchema, rolesVbaseId } from '../../utils'
+import { currentRoleNames, currentSchema } from '../../utils'
 import { getUserByRole } from './Users'
+import { ROLES_VBASE_ID } from '../../utils/constants'
 
 const sorting = (a: any, b: any) => (a.name > b.name ? 1 : -1)
 const config: any = currentSchema('b2b_roles')
@@ -29,7 +30,7 @@ export const searchRoles = async (_: any, ctx: Context) => {
   } = ctx
 
   try {
-    const roles = (await vbase.getJSON('b2b_roles', rolesVbaseId)) as any[]
+    const roles = (await vbase.getJSON('b2b_roles', ROLES_VBASE_ID)) as any[]
 
     roles.sort(sorting)
 
