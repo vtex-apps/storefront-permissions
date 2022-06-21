@@ -136,8 +136,14 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
     const userExists = await getUser({ masterdata, params })
 
     if (userExists) {
+      if (userExists.orgId === params.orgId) {
+        throw new Error(
+          `User with email ${params.email} already exists in the organization, id="${userExists.id}"`
+        )
+      }
+
       throw new Error(
-        `User with email ${params.email} already exists, id="${userExists.id}"`
+        `User with email ${params.email} already exists in another organization, id="${userExists.id}"`
       )
     }
 
