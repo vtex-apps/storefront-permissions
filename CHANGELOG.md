@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Support for `tradeName` field on user's organization and `phoneNumber` field on user's cost center
+
 ## [1.21.1] - 2022-06-22
 
 ### Added
@@ -57,7 +61,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - create a new Mutation to add a single user
 - create a new Mutation to update a single user
 - optimize code / structure
-
 
 ## [1.16.0] - 2022-04-05
 
