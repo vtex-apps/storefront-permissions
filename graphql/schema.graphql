@@ -102,6 +102,8 @@ type Mutation {
     costId: ID
     clId: ID
     canImpersonate: Boolean = false
+    email: String
+    name: String
   ): MutationResponse @cacheControl(scope: PRIVATE)
 
   addUser(
