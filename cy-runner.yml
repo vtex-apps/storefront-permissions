@@ -1,0 +1,180 @@
+---
+base:
+  secrets:
+    enabled: true
+    name: VTEX_QE
+  vtex:
+    account: productusqa
+    id: 2001459804
+    domain: myvtex.com
+    urlExternalSeller: https://productusqaseller.myvtex.com
+    vtexIdUrl: https://vtexid.vtex.com.br/api/vtexid/pub/authenticate/default
+    orderFormConfig: https://productusqa.vtexcommercestable.com.br/api/checkout/pvt/configuration/orderForm
+    deployCli:
+      # Implies login with credentials from base.secrets.name
+      # If you want to use the current vtex login, disable it
+      enabled: true
+      git: https://github.com/vtex/toolbelt.git
+      branch: qe/cypress
+  twilio:
+    enabled: true
+  jira:
+    enabled: true
+    account: vtex-dev
+    board: B2BQUOTES
+    issueType: Bug
+    priority: High
+    testing: true
+  slack:
+    enabled: false
+    channel: some-channel
+  cypress:
+    devMode: false
+    runHeaded: false
+    getCookies: true
+    maxJobs: 3
+    quiet: true
+    projectId: w81mpx
+    video: false
+    videoCompression: false
+    videoUploadOnPasses: false
+    screenshotOnRunFailure: true
+    trashAssetsBeforeRuns: false
+    viewportWidth: 1440
+    viewportHeight: 900
+    defaultCommandTimeout: 25000
+    requestTimeout: 25000
+    watchForFileChanges: false
+    pageLoadTimeout: 45000
+    browser: chrome
+    chromeWebSecurity: false
+    sorry: false
+  stateFiles:
+    - .organization.json
+    - .quotes.json
+
+workspace:
+  # If random a new name will be generated with prefix (ie b2b1234567)
+  name: random
+  prefix: b2b
+  # If enabled it'll link the app for integration tests with PR code
+  linkApp:
+    enabled: true
+    logOutput:
+      enabled: false
+  # List of apps will be installed, if not empty and config.vtexCli disabled,
+  # you must ensure your vtex cli is authenticated already
+  installApps:
+    - vtex.b2b-suite
+    - vtex.b2b-quotes
+    - vtex.quickorder
+    # Theme
+    - vtex.wish-list@1.x
+    - vtex.location-availability@0.x
+    - vtex.shopper-location@0.x
+    - vtex.wordpress-integration@2.x
+    - vtex.storefront-permissions-ui@0.x
+    - vtex.reviews-and-ratings@2.x
+    - vtex.b2bstore@3.x
+  removeApps:
+    - vtex.bitcot-qa-theme
+  wipe:
+    enabled: true
+    stopOnFail: false
+    specs:
+      - cypress-shared/integration/b2b/wipe.spec.js
+  teardown:
+    enabled: true
+
+strategy:
+  # The strategies must be in order, with dependent tests last
+  organizationA:
+    enabled: true
+    sendDashboard: true
+    hardTries: 1
+    stopOnFail: false
+    parallel: true
+    specs:
+      - cypress-shared/integration/b2b/2.1.1*
+      - cypress-shared/integration/b2b/2.1.2*
+      - cypress-shared/integration/b2b/2.1.3*
+  multiOrg:
+    enabled: true
+    sendDashboard: true
+    hardTries: 1
+    stopOnFail: false
+    parallel: true
+    specs:
+      - cypress-shared/integration/b2b/2.1.4*
+    dependency:
+      - cypress-shared/integration/b2b/2.1.1*
+      - cypress-shared/integration/b2b/2.1.2*
+      - cypress-shared/integration/b2b/2.1.3*
+  multiOrgAndOrgAUsers:
+    enabled: true
+    sendDashboard: true
+    hardTries: 1
+    stopOnFail: false
+    parallel: true
+    specs:
+      - cypress-shared/integration/b2b/2.2*
+      - cypress-shared/integration/b2b/2.3*
+    dependency:
+      - cypress-shared/integration/b2b/2.1.1*
+      - cypress-shared/integration/b2b/2.1.2*
+      - cypress-shared/integration/b2b/2.1.3*
+  addSalesUsers:
+    enabled: true
+    sendDashboard: true
+    hardTries: 1
+    stopOnFail: false
+    parallel: false
+    specs:
+      - cypress-shared/integration/b2b/2.4*
+    dependency:
+      - cypress-shared/integration/b2b/2.2*
+      - cypress-shared/integration/b2b/2.3*
+  organizationABBuyersTestCases:
+    enabled: true
+    sendDashboard: true
+    hardTries: 1
+    stopOnFail: false
+    parallel: true
+    specs:
+      - cypress-shared/integration/b2b/2.5*
+      - cypress-shared/integration/b2b/2.6*
+      - cypress-shared/integration/b2b/2.7*
+    dependency:
+      - cypress-shared/integration/b2b/2.2*
+      - cypress-shared/integration/b2b/2.4*
+      - cypress-shared/integration/b2b/2.3*
+  organizationABApproversTestCases:
+    enabled: true
+    sendDashboard: true
+    hardTries: 2
+    stopOnFail: false
+    parallel: true
+    specs:
+      - cypress-shared/integration/b2b/2.9*
+      - cypress-shared/integration/b2b/2.10*
+      - cypress-shared/integration/b2b/2.12*
+      - cypress-shared/integration/b2b/2.11*
+    dependency:
+      - cypress-shared/integration/b2b/2.5*
+      - cypress-shared/integration/b2b/2.6*
+      - cypress-shared/integration/b2b/2.7*
+  organizationASalesUsersTestCases:
+    enabled: true
+    sendDashboard: true
+    hardTries: 2
+    stopOnFail: false
+    parallel: true
+    specs:
+      - cypress-shared/integration/b2b/2.8*
+      - cypress-shared/integration/b2b/2.13*
+      - cypress-shared/integration/b2b/2.14*
+    dependency:
+      - cypress-shared/integration/b2b/2.9*
+      - cypress-shared/integration/b2b/2.10*
+      - cypress-shared/integration/b2b/2.12*
+      - cypress-shared/integration/b2b/2.11*
