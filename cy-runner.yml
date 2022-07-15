@@ -21,7 +21,7 @@ base:
   jira:
     enabled: true
     account: vtex-dev
-    board: B2BQUOTES
+    board: PERMISSION
     issueType: Bug
     priority: High
     testing: true
@@ -34,7 +34,7 @@ base:
     getCookies: true
     maxJobs: 3
     quiet: true
-    projectId: w81mpx
+    projectId: ujsuhs
     video: false
     videoCompression: false
     videoUploadOnPasses: false
