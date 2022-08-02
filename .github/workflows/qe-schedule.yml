@@ -2,7 +2,7 @@ name: '[SCH] Quality Engineering'
 
 on:
   schedule:
-    - cron: '30 5 * * MON-FRI'
+    - cron: '30 3 * * MON-FRI'
 jobs:
   quality-engineering:
     name: QE
