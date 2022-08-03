@@ -1,6 +1,7 @@
-import { syncRoles } from '../Mutations/Roles'
 import schemas from '../../mdSchema'
 import { toHash } from '../../utils'
+import { syncRoles } from '../Mutations/Roles'
+import type { ErrorResponse } from '../Routes/utils'
 
 export const getAppId = (): string => {
   const app = process.env.VTEX_APP_ID
@@ -16,9 +17,14 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
 
   const app: string = getAppId()
 
-  const settings: any = await vbase.getJSON('b2b_settings', app).catch(() => {
+  const settings = (await vbase.getJSON('b2b_settings', app).catch(() => {
     return {}
-  })
+  })) as {
+    adminSetup: {
+      schemaHash?: string | null
+      roles?: string[] | boolean | null
+    }
+  }
 
   if (!settings.adminSetup) {
     settings.adminSetup = {}
@@ -30,20 +36,20 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
     !settings.adminSetup?.schemaHash ||
     settings.adminSetup?.schemaHash !== currHash
   ) {
-    const updates: any = []
+    const updates: Array<Promise<boolean>> = []
 
     schemas.forEach((schema) => {
       updates.push(
         masterdata
           .createOrUpdateSchema({
             dataEntity: schema.name,
-            schemaName: schema.version,
             schemaBody: schema.body,
+            schemaName: schema.version,
           })
           .then(() => true)
-          .catch((e: any) => {
-            if (e.response.status !== 304) {
-              throw e
+          .catch((error: ErrorResponse) => {
+            if (error.response.status !== 304) {
+              throw error
             }
 
             return true
@@ -55,9 +61,9 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
       .then(() => {
         settings.adminSetup.schemaHash = currHash
       })
-      .catch((e) => {
-        if (e.response.status !== 304) {
-          throw new Error(e)
+      .catch((error) => {
+        if (error.response.status !== 304) {
+          throw new Error(error)
         }
       })
 
@@ -74,6 +80,7 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
 export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
   const {
     clients: { vbase },
+    vtex: { logger },
   } = ctx
 
   const app: string = getAppId()
@@ -84,7 +91,12 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
 
   try {
     return settings?.sessionWatcher?.active ?? true
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'getSessionWatcher.getSessionWatcherError',
+    })
+
+    return { status: 'error', message: error }
   }
 }

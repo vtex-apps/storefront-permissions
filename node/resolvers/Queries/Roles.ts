@@ -1,25 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { syncRoles } from '../Mutations/Roles'
 import { currentRoleNames, currentSchema } from '../../utils'
-import { getUserByRole } from './Users'
 import { ROLES_VBASE_ID } from '../../utils/constants'
+import { syncRoles } from '../Mutations/Roles'
+import { getUserByRole } from './Users'
 
 const sorting = (a: any, b: any) => (a.name > b.name ? 1 : -1)
 const config: any = currentSchema('b2b_roles')
 
 const getDefaultRoles = (locale: string) => {
   const roleNames = currentRoleNames(locale)
-  const values = []
+  const values = [] as Array<{
+    features: string[]
+    id: string
+    locked: boolean
+    name: string
+    slug: string
+  }>
 
-  for (const slug in roleNames) {
+  Object.keys(roleNames).forEach((slug) => {
     values.push({
-      id: slug,
-      name: roleNames[slug],
-      locked: true,
-      slug,
       features: [],
+      id: slug,
+      locked: true,
+      name: roleNames[slug],
+      slug,
     })
-  }
+  })
 
   return values.sort(sorting)
 }
@@ -30,18 +36,18 @@ export const searchRoles = async (_: any, ctx: Context) => {
   } = ctx
 
   try {
-    const roles = (await vbase.getJSON('b2b_roles', ROLES_VBASE_ID)) as any[]
+    const roles: any[] = await vbase.getJSON('b2b_roles', ROLES_VBASE_ID)
 
     roles.sort(sorting)
 
     return roles
-  } catch (e) {
-    if (e?.response?.status === 404) {
+  } catch (error) {
+    if (error?.response?.status === 404) {
       const options: any = {
         dataEntity: config.name,
         fields: ['id', 'name', 'features', 'locked', 'slug'],
-        schema: config.version,
         pagination: { page: 1, pageSize: 50 },
+        schema: config.version,
       }
 
       const roles = await masterdata.searchDocuments(options)
@@ -51,7 +57,7 @@ export const searchRoles = async (_: any, ctx: Context) => {
         : roles
     }
 
-    throw new Error(e)
+    throw new Error(error)
   }
 }
 
@@ -68,13 +74,13 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
       : (await searchRoles(null, ctx)).find((item: any) => item.slug === slug)
 
     return role
-  } catch (e) {
+  } catch (error) {
     logger.error({
+      error,
       message: 'Roles.getRole',
-      error: e,
     })
 
-    return { status: 'error', message: e }
+    return { status: 'error', message: error }
   }
 }
 
@@ -95,11 +101,20 @@ export const hasUsers = async (_: any, params: any, ctx: Context) => {
 }
 
 export const listRoles = async (_: any, __: any, ctx: Context) => {
+  const {
+    vtex: { logger },
+  } = ctx
+
   try {
     await syncRoles(ctx)
 
     return await searchRoles(null, ctx)
   } catch (e) {
+    logger.error({
+      error: e,
+      message: 'Roles.listRoles',
+    })
+
     return { status: 'error', message: e }
   }
 }

@@ -17,17 +17,15 @@ export const sessionWatcher = async (_: any, params: any, ctx: Context) => {
 
   settings.sessionWatcher = { active }
 
-  const save = await vbase
+  return vbase
     .saveJSON('b2b_settings', app, settings)
     .then(() => true)
     .catch((error) => {
       logger.error({
-        message: 'sessionWatcher.saveSessionWatcherError',
         error,
+        message: 'sessionWatcher.saveSessionWatcherError',
       })
 
       return false
     })
-
-  return save
 }

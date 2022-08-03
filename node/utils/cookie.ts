@@ -11,19 +11,19 @@ const isUserLoggedIn = (ctx: Context) => {
 
 const parseCookie = (cookie: string) => {
   const parsed = parse(cookie)
-  const cookieName = keys(parsed)[0] as string
+  const [cookieName] = keys(parsed)
   const cookieValue = parsed[cookieName]
 
   const extraOptions = {
-    path: parsed.path,
     domain: parsed.domain,
     expires: parsed.expires ? new Date(parsed.expires) : undefined,
+    path: parsed.path,
   }
 
   return {
     name: cookieName,
-    value: cookieValue,
     options: extraOptions,
+    value: cookieValue,
   }
 }
 

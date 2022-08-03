@@ -24,6 +24,7 @@ const sleep = (ms: number) => {
 export const getUserById = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   try {
@@ -31,7 +32,6 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
 
     const cl: any = await masterdata.getDocument({
       dataEntity: CUSTOMER_SCHEMA_NAME,
-      id,
       fields: [
         'email',
         'firstName',
@@ -46,11 +46,17 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
         'corporatePhone',
         'isCorporate',
       ],
+      id,
     })
 
     return cl ?? null
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getUserById-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
@@ -79,6 +85,7 @@ export const checkCustomerSchema = async (_: any, __: any, ctx: Context) => {
 export const getUser = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   try {
@@ -86,8 +93,8 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
 
     const cl: any = await masterdata.getDocument({
       dataEntity: CUSTOMER_SCHEMA_NAME,
-      id,
       fields: ['firstName', 'lastName', 'email', 'userId'],
+      id,
     })
 
     if (!cl) {
@@ -105,33 +112,39 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
         'userId',
         'canImpersonate',
       ],
-      schema: config.version,
       pagination: { page: 1, pageSize: 90 },
+      schema: config.version,
       where: `clId=${id}`,
     })
 
     return user.length
       ? {
           ...user[0],
-          name: `${cl.firstName} ${cl.lastName}`,
           email: cl.email,
+          name: `${cl.firstName} ${cl.lastName}`,
         }
       : {
+          canImpersonate: false,
+          clId: id,
+          email: cl.email,
+          name: `${cl.firstName} ${cl.lastName}`,
           roleId: null,
           userId: cl.userId,
-          clId: id,
-          canImpersonate: false,
-          name: `${cl.firstName} ${cl.lastName}`,
-          email: cl.email,
         }
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getUser-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
 export const getUserByRole = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   const { id } = params
@@ -149,18 +162,24 @@ export const getUserByRole = async (_: any, params: any, ctx: Context) => {
         'email',
         'canImpersonate',
       ],
-      schema: config.version,
       pagination: { page: 1, pageSize: 90 },
+      schema: config.version,
       where: `roleId=${id}`,
     })
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getUserByRole-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
 export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata, vbase },
+    vtex: { logger },
   } = ctx
 
   const { email } = params
@@ -186,19 +205,25 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
           'email',
           'canImpersonate',
         ],
-        schema: config.version,
         pagination: { page: 1, pageSize: 50 },
+        schema: config.version,
         where: `email=${email}`,
       })
       .catch(() => [])
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getUserByEmail-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
 export const listAllUsers = async (_: any, __: any, ctx: Context) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   try {
@@ -251,6 +276,11 @@ export const listAllUsers = async (_: any, __: any, ctx: Context) => {
 
     return users
   } catch (e) {
+    logger.error({
+      error: e,
+      message: 'Profiles.listAllUsers-error',
+    })
+
     return { status: 'error', message: e }
   }
 }
@@ -266,6 +296,7 @@ export const listUsers = async (
 ) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   let res: any = []
@@ -300,14 +331,19 @@ export const listUsers = async (
         'email',
         'canImpersonate',
       ],
-      schema: config.version,
       pagination: { page: 1, pageSize: 50 },
+      schema: config.version,
       ...(where && { where }),
     })
 
     return res
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.listUsers-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
@@ -336,9 +372,8 @@ export const listUsersPaginated = async (
 ) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
-
-  let res: any = []
 
   const whereArray: string[] = []
 
@@ -373,7 +408,7 @@ export const listUsersPaginated = async (
   }
 
   try {
-    res = await masterdata.searchDocumentsWithPaginationInfo({
+    return await masterdata.searchDocumentsWithPaginationInfo({
       dataEntity: config.name,
       fields: [
         'id',
@@ -391,10 +426,13 @@ export const listUsersPaginated = async (
       sort: `${sortedBy} ${sortOrder}`,
       ...(where && { where }),
     })
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.listUsersPaginated-error',
+    })
 
-    return res
-  } catch (e) {
-    return { status: 'error', message: e }
+    return { status: 'error', message: error }
   }
 }
 
@@ -413,28 +451,32 @@ const getRoleAndPermissionsByEmail = async ({
     vtex: { logger },
   } = ctx
 
-  let ret = {
+  const defaultResponse = {
+    permissions: [],
     role: {
       id: '',
       name: '',
       slug: '',
     },
-    permissions: [],
   }
 
-  if (!email) return ret
+  if (!email) {
+    return defaultResponse
+  }
 
   const userData: any = await getUserByEmail(null, { email }, ctx)
 
   if (!userData.length && !skipError) {
     logger.warn({
-      message: `getRoleAndPermissionsByEmail-userNotFound`,
       email,
+      message: `getRoleAndPermissionsByEmail-userNotFound`,
     })
     throw new Error('User not found')
   }
 
-  if (!userData.length) return ret
+  if (!userData.length) {
+    return defaultResponse
+  }
 
   const userRole: any = await getRole(null, { id: userData[0].roleId }, ctx)
 
@@ -443,25 +485,26 @@ const getRoleAndPermissionsByEmail = async ({
       message: `getRoleAndPermissionsByEmail-roleNotFound`,
       roleId: userData[0].roleId,
     })
+
     throw new Error('Role not found')
   }
 
-  if (!userRole) return ret
+  if (!userRole) {
+    return defaultResponse
+  }
 
   const currentModule = userRole.features?.find((feature: any) => {
     return feature.module === module
   })
 
-  ret = {
+  return {
+    permissions: currentModule?.features || [],
     role: {
       id: userRole.id,
       name: userRole.name,
       slug: userRole.slug,
     },
-    permissions: currentModule?.features || [],
   }
-
-  return ret
 }
 
 export const checkUserPermission = async (
@@ -490,6 +533,7 @@ export const checkUserPermission = async (
     logger.warn({
       message: `checkUserPermission-senderNotFound`,
     })
+
     throw new Error('Sender not available, make sure the query is private')
   }
 
@@ -498,50 +542,49 @@ export const checkUserPermission = async (
 
   const profileEmail = sessionData?.namespaces?.profile?.email?.value
 
-  let ret = {
+  const defaultResponse = {
+    permissions: [],
     role: {
       id: '',
       name: '',
       slug: '',
     },
-    permissions: [],
   }
 
-  if (!sender) return ret
+  if (!sender) {
+    return defaultResponse
+  }
 
   const module = removeVersionFromAppId(sender)
 
   const authPermissions = await getRoleAndPermissionsByEmail({
+    ctx,
     email: authEmail,
     module,
     skipError: true,
-    ctx,
   })
 
-  let profilePermissions = ret
+  const profilePermissions =
+    profileEmail && authEmail !== profileEmail
+      ? await getRoleAndPermissionsByEmail({
+          ctx,
+          email: profileEmail,
+          module,
+          skipError: true,
+        })
+      : defaultResponse
 
-  if (profileEmail && authEmail !== profileEmail) {
-    profilePermissions = await getRoleAndPermissionsByEmail({
-      email: profileEmail,
-      module,
-      skipError: true,
-      ctx,
-    })
-  }
-
-  ret = {
-    role: authPermissions.role.id
-      ? authPermissions.role
-      : profilePermissions.role,
+  return {
     permissions: [
       ...new Set([
         ...authPermissions.permissions,
         ...profilePermissions.permissions,
       ]),
     ],
+    role: authPermissions.role.id
+      ? authPermissions.role
+      : profilePermissions.role,
   }
-
-  return ret
 }
 
 export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
@@ -564,7 +607,7 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
   const authEmail =
     sessionData?.namespaces?.authentication?.storeUserEmail?.value
 
-  let ret = null
+  let response = null
 
   if (
     authEmail &&
@@ -578,16 +621,16 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
       .catch(() => null)
 
     if (!userData) {
-      ret = { error: 'User not found' }
+      response = { error: 'User not found' }
     } else {
-      ret = {
+      response = {
+        email: userData.email,
         firstName: userData.firstName,
         lastName: userData.lastName,
-        email: userData.email,
         userId: userData.userId,
       }
     }
   }
 
-  return ret
+  return response
 }

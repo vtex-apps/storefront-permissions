@@ -5,7 +5,7 @@ import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
 const config: any = currentSchema('b2b_users')
 
 const addUserToMasterdata = async ({ masterdata, params }: any) => {
-  const newUser = await masterdata
+  const { DocumentId } = await masterdata
     .createDocument({
       dataEntity: CUSTOMER_SCHEMA_NAME,
       fields: {
@@ -13,11 +13,11 @@ const addUserToMasterdata = async ({ masterdata, params }: any) => {
         firstName: params.name,
       },
     })
-    .then((r: any) => {
-      return r
+    .then((response: { DocumentId: string }) => {
+      return response
     })
-    .catch((err: any) => {
-      if (err.response?.data?.Message === 'duplicated entry') {
+    .catch((error: any) => {
+      if (error.response?.data?.Message === 'duplicated entry') {
         return masterdata
           .searchDocuments({
             dataEntity: CUSTOMER_SCHEMA_NAME,
@@ -28,15 +28,15 @@ const addUserToMasterdata = async ({ masterdata, params }: any) => {
             },
             where: `email=${params.email}`,
           })
-          .then((res: any) => {
+          .then((res: [{ id: string }]) => {
             return { DocumentId: res[0].id }
           })
       }
 
-      throw err
+      throw error
     })
 
-  return newUser.DocumentId
+  return DocumentId
 }
 
 const getUser = async ({ masterdata, params }: any) => {
@@ -44,11 +44,11 @@ const getUser = async ({ masterdata, params }: any) => {
     .searchDocuments({
       dataEntity: config.name,
       fields: ['id', 'email', 'orgId'],
-      schema: config.version,
       pagination: {
         page: 1,
         pageSize: 1,
       },
+      schema: config.version,
       where: `email=${params.email}`,
     })
     .then((res: any) => {
@@ -82,7 +82,7 @@ const createPermission = async ({ masterdata, vbase, params }: any) => {
     }
   }
 
-  const ret = await masterdata
+  const { DocumentId } = await masterdata
     .createOrUpdateEntireDocument({
       dataEntity: config.name,
       fields: {
@@ -98,26 +98,26 @@ const createPermission = async ({ masterdata, vbase, params }: any) => {
       id: mdId,
       schema: config.version,
     })
-    .then((r: any) => {
-      return r
+    .then((response: { DocumentId: string }) => {
+      return response
     })
-    .catch((err: any) => {
-      if (err.response.status < 400) {
+    .catch((error: any) => {
+      if (error.response.status < 400) {
         return {
           DocumentId: id,
         }
       }
 
-      throw err
+      throw error
     })
 
-  if (ret.DocumentId) {
+  if (DocumentId) {
     await vbase.saveJSON('b2b_users', email, {
       canImpersonate,
       clId,
       costId,
       email,
-      id: ret.DocumentId,
+      id: DocumentId,
       name,
       orgId,
       roleId,
@@ -132,17 +132,21 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
     vtex: { logger },
   } = ctx
 
+  const throwError = (error: string) => {
+    throw new Error(error)
+  }
+
   try {
     const userExists = await getUser({ masterdata, params })
 
     if (userExists) {
       if (userExists.orgId === params.orgId) {
-        throw new Error(
+        throwError(
           `User with email ${params.email} already exists in the organization, id="${userExists.id}"`
         )
       }
 
-      throw new Error(
+      throwError(
         `User with email ${params.email} already exists in another organization, id="${userExists.id}"`
       )
     }
@@ -160,10 +164,13 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
     })
 
     return { status: 'success', message: '', id: cId }
-  } catch (err) {
-    logger.error(err)
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'addUser.error',
+    })
 
-    return { status: 'error', message: err }
+    return { status: 'error', message: error }
   }
 }
 
@@ -187,25 +194,29 @@ export const updateUser = async (_: any, params: any, ctx: Context) => {
     })
 
     return { status: 'success', message: '', id: params.clId }
-  } catch (e) {
-    logger.error({ message: 'Error saving user', error: e })
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'updateUser.error',
+    })
 
-    return { status: 'error', message: e }
+    return { status: 'error', message: error }
   }
 }
 
 export const deleteUserProfile = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   const { ids } = params
 
   try {
-    const ret: any = []
+    const users: any = []
 
     ids.forEach((id: string) => {
-      ret.push(
+      users.push(
         masterdata.createOrUpdatePartialDocument({
           dataEntity: config.name,
           fields: { roleId: '' },
@@ -215,25 +226,44 @@ export const deleteUserProfile = async (_: any, params: any, ctx: Context) => {
       )
     })
 
-    Promise.all(ret)
-      .then((r: any) => {
-        return r
+    const result = await Promise.all(users)
+      .then((response: any) => {
+        return response
       })
-      .catch((err: any) => {
-        if (err.response.status >= 400) {
-          throw err
+      .catch((error: any) => {
+        if (error.response.status >= 400) {
+          throw error
         }
+
+        logger.error({
+          error,
+          message: 'deleteUserProfile.error',
+        })
+
+        return []
       })
 
-    return { status: 'success', message: '', id: ret.DocumentId }
-  } catch (e) {
-    return { status: 'error', message: e }
+    return {
+      id: result
+        .map((item: { DocumentId: string }) => item.DocumentId)
+        .join(','),
+      message: '',
+      status: result.length > 0 ? 'success' : 'error',
+    }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'deleteUserProfile.error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
 export const deleteUser = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata, vbase },
+    vtex: { logger },
   } = ctx
 
   const { id, email } = params
@@ -247,8 +277,13 @@ export const deleteUser = async (_: any, params: any, ctx: Context) => {
     })
 
     return { status: 'success', message: '' }
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'deleteUser.error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
@@ -257,6 +292,7 @@ export const impersonateUser = async (_: any, params: any, ctx: Context) => {
     clients: { session },
     cookies,
     request,
+    vtex: { logger },
   } = ctx
 
   const { userId } = params
@@ -268,8 +304,13 @@ export const impersonateUser = async (_: any, params: any, ctx: Context) => {
     await session.updateSession('impersonate', userId, [], sessionCookie)
 
     return { status: 'success', message: '' }
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'impersonateUser.error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 

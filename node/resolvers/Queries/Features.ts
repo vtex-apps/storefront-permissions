@@ -9,9 +9,9 @@ const sanitizeFeatures = (settings: any) => {
       const { name, features } = app[module]
 
       ret.push({
+        features,
         module,
         name,
-        features,
       })
     }
   })
@@ -40,19 +40,21 @@ export const getFeaturesByModule = async (
 }
 
 export const listFeatures = async (_: any, __: any, ctx: Context) => {
+  let result = []
+
   if (ctx.vtex?.settings?.dependenciesSettings) {
     const settingsFiles: any = sanitizeFeatures(
       ctx.vtex.settings.dependenciesSettings
     )
 
-    return settingsFiles?.length
-      ? settingsFiles
-      : Object.getOwnPropertyNames(settingsFiles).length
-      ? [settingsFiles]
-      : []
+    if (settingsFiles?.length) {
+      result = settingsFiles
+    } else if (Object.getOwnPropertyNames(settingsFiles).length) {
+      result = [settingsFiles]
+    }
   }
 
-  return []
+  return result
 }
 
 const extractRoles = (settings: any) => {
@@ -85,8 +87,8 @@ const featuresByRole = (settings: any, role: string) => {
 
           if (moduleIndex === -1) {
             features.push({
-              module: app.module,
               features: [feature.value],
+              module: app.module,
             })
           } else {
             features[moduleIndex].features.push(feature.value)

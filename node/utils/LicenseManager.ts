@@ -9,23 +9,21 @@ export class LMClient extends ExternalClient {
     super(`http://${ctx.account}.vtexcommercestable.com.br/`, ctx, {
       ...options,
       headers: {
-        VtexIdclientAutCookie: ctx.authToken,
-        'Content-Type': 'application/json',
         Accept: 'application/json',
+        'Content-Type': 'application/json',
+        VtexIdclientAutCookie: ctx.authToken,
       },
     })
   }
 
   public getUserIdByEmail = async (email: string) => {
-    const user: any = await this.get(this.routes.userByEmail(email))
+    return this.get(this.routes.userByEmail(email))
       .then((res: any) => {
         return res?.UserId ? toUUID(res.UserId) : null
       })
       .catch(() => {
         return null
       })
-
-    return user
   }
 
   public saveUser = async (name: string, email: string) => {
@@ -50,34 +48,20 @@ export class LMClient extends ExternalClient {
 
     if (!checkUser?.UserId) {
       // Create with role
-      const role = await this.post(this.routes.createUser(), data)
+      return this.post(this.routes.createUser(), data)
         .then(() => true)
         .catch(() => false)
-
-      return role
     }
 
     // Update with role
-    const update = await this.put(this.routes.updateUser(checkUser.UserId), [
-      957,
-    ]).then(() => {
-      return { userId: checkUser.UserId }
-    })
-
-    return update
+    return this.put(this.routes.updateUser(checkUser.UserId), [957]).then(
+      () => {
+        return { userId: checkUser.UserId }
+      }
+    )
   }
 
   public deleteUser = async (userId: string) => {
-    // List all roles
-    // const roles: any = await this.get(this.routes.getRoles())
-    // let b2brole: any = null
-
-    // // Get only the role "B2B impersonate"
-    // b2brole = roles?.items?.find((role: any) => {
-    //   return role.name === 'B2B impersonate'
-    // })
-    // // Create this role if it doesn't exists
-    // if (b2brole?.id) {
     const user = await this.get(this.routes.userById(userId))
       .then(() => {
         return true
@@ -87,7 +71,6 @@ export class LMClient extends ExternalClient {
       })
 
     return user ? this.delete(this.routes.deleteUser(userId, '957'), {}) : {}
-    // }
   }
 
   protected get = <T>(url: string) => {
@@ -108,18 +91,18 @@ export class LMClient extends ExternalClient {
 
   private get routes() {
     return {
-      userById: (id: string) => `api/license-manager/pvt/users/${id}`,
-      userByEmail: (email: string) =>
-        `api/license-manager/pvt/users/${encodeURIComponent(email)}`,
       addCallcenter: (userId: string) =>
         `api/license-manager/users/${userId}/roles`,
-      createUser: () => `api/license-manager/site/pvt/logins`,
-      updateUser: (userId: string) =>
-        `api/license-manager/users/${userId}/roles`,
-      getRoles: () => `api/license-manager/site/pvt/roles/list/paged`,
       createRole: () => `api/license-manager/site/pvt/roles`,
+      createUser: () => `api/license-manager/site/pvt/logins`,
       deleteUser: (userId: string, roleId: string) =>
         `api/license-manager/users/${userId}/roles/${roleId}`,
+      getRoles: () => `api/license-manager/site/pvt/roles/list/paged`,
+      updateUser: (userId: string) =>
+        `api/license-manager/users/${userId}/roles`,
+      userByEmail: (email: string) =>
+        `api/license-manager/pvt/users/${encodeURIComponent(email)}`,
+      userById: (id: string) => `api/license-manager/pvt/users/${id}`,
     }
   }
 }

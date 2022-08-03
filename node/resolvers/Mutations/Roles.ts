@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Slugify, currentRoleNames, toHash } from '../../utils'
+import { currentRoleNames, Slugify, toHash } from '../../utils'
 import { ROLES_VBASE_ID } from '../../utils/constants'
 import { groupByRole } from '../Queries/Features'
 import { searchRoles } from '../Queries/Roles'
@@ -7,6 +7,7 @@ import { searchRoles } from '../Queries/Roles'
 export const saveRole = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { vbase },
+    vtex: { logger },
   } = ctx
 
   try {
@@ -26,17 +27,22 @@ export const saveRole = async (_: any, params: any, ctx: Context) => {
     await vbase.saveJSON('b2b_roles', ROLES_VBASE_ID, [
       ...roles.filter((item) => item.slug !== data.slug),
       {
-        id: role?.id ? role.id : data.id ?? data.slug,
-        name,
-        locked,
-        slug: data.slug,
         features,
+        id: role?.id ? role.id : data.id ?? data.slug,
+        locked,
+        name,
+        slug: data.slug,
       },
     ])
 
     return { status: 'success', message: '', id: data.slug }
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Roles.saveRole-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
@@ -64,10 +70,10 @@ export const syncRoles = async (ctx: Context) => {
 
     if (roleIndex === -1) {
       currRole = {
-        name: roleNames[slug],
         features: role[slug],
-        slug,
         locked: true,
+        name: roleNames[slug],
+        slug,
       }
     } else if (
       toHash(onlyModules(role[slug])) !==
@@ -117,6 +123,7 @@ export const syncRoles = async (ctx: Context) => {
 export const deleteRole = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { vbase },
+    vtex: { logger },
   } = ctx
 
   try {
@@ -129,7 +136,12 @@ export const deleteRole = async (_: any, params: any, ctx: Context) => {
     )
 
     return { status: 'success', message: '', id: params.id }
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Roles.deleteRole-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
