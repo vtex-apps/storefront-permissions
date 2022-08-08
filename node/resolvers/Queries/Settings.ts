@@ -13,6 +13,7 @@ export const getAppId = (): string => {
 export const getAppSettings = async (_: any, __: any, ctx: Context) => {
   const {
     clients: { masterdata, vbase },
+    vtex: { logger },
   } = ctx
 
   const app: string = getAppId()
@@ -63,6 +64,11 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
       })
       .catch((error) => {
         if (error.response.status !== 304) {
+          logger.error({
+            error,
+            message: 'getAppSettings-error',
+          })
+
           throw new Error(error)
         }
       })
