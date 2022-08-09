@@ -1,5 +1,13 @@
 import { getUserById } from '../../Queries/Users'
 
+export class ErrorResponse extends Error {
+  public response: {
+    status: number
+  } = {
+    status: 500,
+  }
+}
+
 export const QUERIES = {
   getCostCenterById: `query Costcenter($id: ID!) {
       getCostCenterById(id: $id) {
@@ -59,13 +67,17 @@ export const generateClUser = async ({
     vtex: { logger },
   } = ctx
 
-  if (!clId) return null
+  if (!clId) {
+    return null
+  }
 
   const clUser = await getUserById(null, { id: clId }, ctx).catch((error) => {
     logger.error({ message: 'setProfile.getUserByIdError', error })
   })
 
-  if (!clUser) return null
+  if (!clUser) {
+    return null
+  }
 
   if (clUser.isCorporate === null) {
     clUser.isCorporate = false

@@ -2,9 +2,11 @@ import { IOClients } from '@vtex/api'
 
 import { LMClient } from '../utils/LicenseManager'
 import { ProfileSystemClient } from '../utils/ProfileSystem'
-import { GraphQLServer } from './GraphQLServer'
 import { Checkout } from './checkout'
+import { GraphQLServer } from './GraphQLServer'
+import IdentityClient from './IdentityClient'
 import { Schema } from './schema'
+import VtexId from './vtexId'
 
 // Extend the default IOClients implementation with our own custom clients.
 export class Clients extends IOClients {
@@ -26,5 +28,13 @@ export class Clients extends IOClients {
 
   public get schema() {
     return this.getOrSet('schema', Schema)
+  }
+
+  public get vtexId() {
+    return this.getOrSet('vtexId', VtexId)
+  }
+
+  public get identity() {
+    return this.getOrSet('identity', IdentityClient)
   }
 }

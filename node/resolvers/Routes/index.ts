@@ -4,7 +4,7 @@ import { json } from 'co-body'
 import { getRole } from '../Queries/Roles'
 import { getAppSettings, getSessionWatcher } from '../Queries/Settings'
 import { getUserByEmail } from '../Queries/Users'
-import { QUERIES, generateClUser } from './utils'
+import { generateClUser, QUERIES } from './utils'
 
 export const Routes = {
   checkPermissions: async (ctx: Context) => {
@@ -17,13 +17,14 @@ export const Routes = {
 
     const params: any = await json(ctx.req)
 
-    let ret
+    let response
 
     if (!params?.app) {
       logger.warn({
         message: `checkPermissions-appNotDefined`,
         params,
       })
+
       throw new Error('App not defined')
     }
 
@@ -32,6 +33,7 @@ export const Routes = {
         message: `checkPermissions-emailNotDefined`,
         params,
       })
+
       throw new Error('Email not defined')
     }
 
@@ -46,6 +48,7 @@ export const Routes = {
         email: params.email,
         message: `checkPermissions-userNotFound`,
       })
+
       throw new Error('User not found')
     }
 
@@ -65,16 +68,17 @@ export const Routes = {
           return feature.module === params.app
         })
 
-        ret = {
+        response = {
           permissions: currentModule?.features ?? [],
           role: userRole,
         }
       }
     }
 
-    ctx.response.body = ret
+    ctx.response.body = response
     ctx.response.status = 200
   },
+
   setProfile: async (ctx: Context) => {
     const {
       clients: { graphqlServer, checkout, profileSystem },
@@ -82,7 +86,7 @@ export const Routes = {
       vtex: { logger },
     } = ctx
 
-    const res = {
+    const response = {
       public: {
         facets: {
           value: '',
@@ -113,7 +117,7 @@ export const Routes = {
     const isWatchActive = await getSessionWatcher(null, null, ctx)
 
     if (!isWatchActive) {
-      ctx.response.body = res
+      ctx.response.body = response
       ctx.response.status = 200
 
       return
@@ -137,8 +141,9 @@ export const Routes = {
       await profileSystem
         .getProfileInfo(b2bImpersonate)
         .then((profile: any) => {
-          res['storefront-permissions'].storeUserId.value = profile.userId
-          res['storefront-permissions'].storeUserEmail.value = profile.email
+          response['storefront-permissions'].storeUserId.value = profile.userId
+          response['storefront-permissions'].storeUserEmail.value =
+            profile.email
           email = profile.email
         })
         .catch((error) => {
@@ -147,13 +152,15 @@ export const Routes = {
     } else if (telemarketingImpersonate) {
       const telemarketingEmail = body?.impersonate?.storeUserEmail?.value
 
-      res['storefront-permissions'].storeUserId.value = telemarketingImpersonate
-      res['storefront-permissions'].storeUserEmail.value = telemarketingEmail
+      response['storefront-permissions'].storeUserId.value =
+        telemarketingImpersonate
+      response['storefront-permissions'].storeUserEmail.value =
+        telemarketingEmail
       email = telemarketingEmail
     }
 
     if (!email) {
-      ctx.response.body = res
+      ctx.response.body = response
       ctx.response.status = 200
 
       return
@@ -166,13 +173,13 @@ export const Routes = {
     )
 
     if (!user?.orgId || !user?.costId) {
-      ctx.response.body = res
+      ctx.response.body = response
       ctx.response.status = 200
 
       return
     }
 
-    res['storefront-permissions'].organization.value = user.orgId
+    response['storefront-permissions'].organization.value = user.orgId
 
     const organizationResponse: any = await graphqlServer
       .query(
@@ -208,7 +215,7 @@ export const Routes = {
     tradeName = organizationResponse?.data?.getOrganizationById?.tradeName
 
     if (organizationResponse?.data?.getOrganizationById?.priceTables?.length) {
-      res[
+      response[
         'storefront-permissions'
       ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
         ';'
@@ -221,10 +228,10 @@ export const Routes = {
           (collection: any) => `productClusterIds=${collection.id}`
         )
 
-      res.public.facets.value = `${collections.join(';')}`
+      response.public.facets.value = `${collections.join(';')}`
     }
 
-    res['storefront-permissions'].costcenter.value = user.costId
+    response['storefront-permissions'].costcenter.value = user.costId
     const costCenterResponse: any = await graphqlServer
       .query(
         QUERIES.getCostCenterById,
@@ -285,12 +292,12 @@ export const Routes = {
     }
 
     const clUser = await generateClUser({
-      clId: user?.clId,
-      phoneNumber,
       businessDocument,
       businessName,
-      tradeName,
+      clId: user?.clId,
       ctx,
+      phoneNumber,
+      tradeName,
     })
 
     if (clUser && orderFormId) {
@@ -307,7 +314,7 @@ export const Routes = {
     // Don't await promises, to avoid session timeout
     Promise.all(promises)
 
-    ctx.response.body = res
+    ctx.response.body = response
     ctx.response.status = 200
   },
 }

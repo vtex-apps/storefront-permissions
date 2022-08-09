@@ -7,6 +7,7 @@ const config: any = currentSchema('b2b_profiles')
 export const saveProfile = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   try {
@@ -25,24 +26,35 @@ export const saveProfile = async (_: any, params: any, ctx: Context) => {
     }
 
     return {
-      status: 'error',
       message: `There's a profile already associated to this Role`,
+      status: 'error',
     }
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.saveProfile-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
 export const deleteProfile = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   try {
     await masterdata.deleteDocument({ dataEntity: config.name, id: params.id })
 
     return { status: 'success', message: '' }
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.deleteProfile-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }

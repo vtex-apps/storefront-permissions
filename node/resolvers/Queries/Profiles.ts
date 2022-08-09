@@ -7,6 +7,7 @@ const config: any = currentSchema('b2b_profiles')
 export const getProfile = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   try {
@@ -14,39 +15,51 @@ export const getProfile = async (_: any, params: any, ctx: Context) => {
 
     return await masterdata.getDocument({
       dataEntity: config.name,
-      id,
       fields: ['id', 'roleId', 'features'],
+      id,
     })
-  } catch (e) {
-    return { status: 'error', message: e }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getProfile-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
 export const getProfileByRole = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   const { roleId } = params
 
   try {
-    const [ret] = await masterdata.searchDocuments({
+    const [profile] = await masterdata.searchDocuments({
       dataEntity: config.name,
       fields: ['id', 'roleId', 'features'],
-      schema: config.version,
       pagination: { page: 1, pageSize: 50 },
+      schema: config.version,
       where: `roleId=${roleId}`,
     })
 
-    return ret
-  } catch (e) {
-    return { status: 'error', message: e }
+    return profile
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getProfileByRole-error',
+    })
+
+    return { status: 'error', message: error }
   }
 }
 
 export const listProfiles = async (_: any, __: any, ctx: Context) => {
   const {
     clients: { masterdata },
+    vtex: { logger },
   } = ctx
 
   try {
@@ -55,11 +68,11 @@ export const listProfiles = async (_: any, __: any, ctx: Context) => {
     const profiles: any = await masterdata.searchDocuments({
       dataEntity: config.name,
       fields: ['id', 'roleId', 'features', 'scoped'],
-      schema: config.version,
       pagination: { page: 1, pageSize: 50 },
+      schema: config.version,
     })
 
-    const ret = profiles.map((profile: any) => {
+    return profiles.map((profile: any) => {
       return {
         ...profile,
         name: roles.find((role: any) => {
@@ -67,9 +80,12 @@ export const listProfiles = async (_: any, __: any, ctx: Context) => {
         })?.name,
       }
     })
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.listProfiles-error',
+    })
 
-    return ret
-  } catch (e) {
-    return { status: 'error', message: e }
+    return { status: 'error', message: error }
   }
 }

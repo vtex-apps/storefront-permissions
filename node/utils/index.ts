@@ -2,11 +2,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as crypto from 'crypto'
 
-import slugify from 'slugify'
-import type { AxiosError } from 'axios'
 import { AuthenticationError, ForbiddenError, UserInputError } from '@vtex/api'
+import type { AxiosError } from 'axios'
+import slugify from 'slugify'
 
 import schemas from '../mdSchema'
+import type { ErrorResponse } from '../resolvers/Routes/utils'
 import roleNames from '../roleNames'
 
 export * from './cookie'
@@ -38,25 +39,25 @@ export const currentRoleNames = (locale: any) => {
   return roleNames[locale] ?? roleNames['en-US']
 }
 
-export function statusToError(e: any) {
-  if (!e.response) {
-    throw e
+export function statusToError(error: ErrorResponse) {
+  if (!error.response) {
+    throw error
   }
 
-  const { response } = e as AxiosError
+  const { response } = error as AxiosError
   const { status } = response!
 
   if (status === 401) {
-    throw new AuthenticationError(e)
+    throw new AuthenticationError(error)
   }
 
   if (status === 403) {
-    throw new ForbiddenError(e)
+    throw new ForbiddenError(error)
   }
 
   if (status === 400) {
-    throw new UserInputError(e)
+    throw new UserInputError(error)
   }
 
-  throw e
+  throw error
 }
