@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.23.0] - 2022-08-09
+
 ### Changed
 
 - App Review: Added logging, fixed security issues and code cleanup
