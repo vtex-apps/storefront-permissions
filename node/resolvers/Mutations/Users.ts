@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
+import { getOrganizationsByEmail, getUsersByEmail } from '../Queries/Users'
 
 const config: any = currentSchema('b2b_users')
 
@@ -39,22 +40,58 @@ const addUserToMasterdata = async ({ masterdata, params }: any) => {
   return DocumentId
 }
 
-const getUser = async ({ masterdata, params }: any) => {
+const getUser = async ({ masterdata, params: { email, id, userId } }: any) => {
+  const where = id || userId ? `id=${id || userId}` : `email=${email}`
+
   return masterdata
     .searchDocuments({
       dataEntity: config.name,
-      fields: ['id', 'email', 'orgId'],
+      fields: [
+        'id',
+        'email',
+        'name',
+        'orgId',
+        'costId',
+        'canImpersonate',
+        'roleId',
+        'userId',
+        'active',
+      ],
       pagination: {
         page: 1,
         pageSize: 1,
       },
       schema: config.version,
-      where: `email=${params.email}`,
+      where,
     })
     .then((res: any) => {
       return res.length > 0 ? res[0] : null
     })
     .catch(() => null)
+}
+
+const updateUserFields = async ({ masterdata, fields, id }: any) => {
+  const { DocumentId } = await masterdata
+    .createOrUpdateEntireDocument({
+      dataEntity: config.name,
+      fields,
+      id,
+      schema: config.version,
+    })
+    .then((response: { DocumentId: string }) => {
+      return response
+    })
+    .catch((error: any) => {
+      if (error.response.status < 400) {
+        return {
+          DocumentId: id,
+        }
+      }
+
+      throw error
+    })
+
+  return DocumentId
 }
 
 const createPermission = async ({ masterdata, vbase, params }: any) => {
@@ -70,18 +107,6 @@ const createPermission = async ({ masterdata, vbase, params }: any) => {
     id,
   } = params
 
-  const UserId = userId
-  let mdId = id
-
-  // check if new user's email already exists in storefront-permissions MD
-  if (!mdId) {
-    const userExists = await getUser({ masterdata, params: { email } })
-
-    if (userExists) {
-      mdId = userExists.id
-    }
-  }
-
   const { DocumentId } = await masterdata
     .createOrUpdateEntireDocument({
       dataEntity: config.name,
@@ -93,9 +118,9 @@ const createPermission = async ({ masterdata, vbase, params }: any) => {
         name,
         orgId,
         roleId,
-        userId: UserId,
+        userId,
       },
-      id: mdId,
+      id,
       schema: config.version,
     })
     .then((response: { DocumentId: string }) => {
@@ -132,26 +157,26 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
     vtex: { logger },
   } = ctx
 
-  const throwError = (error: string) => {
-    throw new Error(error)
-  }
-
   try {
-    const userExists = await getUser({ masterdata, params })
+    const cId = await addUserToMasterdata({ masterdata, params })
 
-    if (userExists) {
-      if (userExists.orgId === params.orgId) {
-        throwError(
-          `User with email ${params.email} already exists in the organization, id="${userExists.id}"`
-        )
-      }
+    const organizations = await getOrganizationsByEmail(
+      _,
+      { email: params.email },
+      ctx
+    )
 
-      throwError(
-        `User with email ${params.email} already exists in another organization, id="${userExists.id}"`
+    if (
+      organizations &&
+      Array.isArray(organizations) &&
+      organizations?.find(
+        (org: any) => org.orgId === params.orgId && org.costId === params.costId
+      )
+    ) {
+      throw new Error(
+        `User with email ${params.email} already exists in the organization and cost center`
       )
     }
-
-    const cId = await addUserToMasterdata({ masterdata, params })
 
     await createPermission({
       lm,
@@ -326,4 +351,162 @@ export const impersonateUser = async (_: any, params: any, ctx: Context) => {
  */
 export const saveUser = async (_: any, params: any, ctx: Context) => {
   return updateUser(_, params, ctx)
+}
+
+export const addOrganizationToUser = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { userId, orgId, roleId, costId } = params
+
+  const user = await getUser({ masterdata, params: { userId } })
+
+  if (!user) {
+    throw new Error('User not found')
+  }
+
+  try {
+    const {
+      canImpersonate,
+      clId,
+      email,
+      name,
+      roleId: roleIdUser,
+      userId: id,
+    } = user
+
+    return await addUser(
+      _,
+      {
+        active: false,
+        canImpersonate,
+        clId,
+        costId,
+        email,
+        name,
+        orgId,
+        roleId: roleId || roleIdUser,
+        userId: id,
+      },
+      ctx
+    )
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'addOrganizationToUser.error',
+    })
+
+    return { status: 'error', message: error }
+  }
+}
+
+export const addCostCenterToUser = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { userId, costId } = params
+
+  const user = await getUser({ masterdata, params: { userId } })
+
+  if (!user) {
+    throw new Error('User not found')
+  }
+
+  try {
+    const {
+      roleId,
+      canImpersonate,
+      name,
+      email,
+      userId: id,
+      clId,
+      orgId,
+    } = user
+
+    return await addUser(
+      _,
+      {
+        active: false,
+        canImpersonate,
+        clId,
+        costId,
+        email,
+        name,
+        orgId,
+        roleId,
+        userId: id,
+      },
+      ctx
+    )
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'addCostCenterToUser.error',
+    })
+
+    return { status: 'error', message: error }
+  }
+}
+
+export const setActiveUserByOrganization = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { orgId, userId } = params
+
+  const user = await getUser({ masterdata, params: { userId } })
+
+  if (!user) {
+    throw new Error('User not found')
+  }
+
+  await updateUserFields({
+    fields: { ...user, active: true },
+    id: userId,
+    masterdata,
+  })
+
+  const users = (await getUsersByEmail(_, { email: user.email }, ctx)).filter(
+    (userItem: any) => userItem.orgId === orgId
+  )
+
+  try {
+    const promises = users.map(async (userSecondary: any) => {
+      if (userSecondary.id !== user.id) {
+        await updateUserFields({
+          fields: {
+            ...userSecondary,
+            active: false,
+          },
+          id: userSecondary.id,
+          masterdata,
+        })
+      }
+    })
+
+    await Promise.all(promises)
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'setActiveUserById.error',
+    })
+  }
 }

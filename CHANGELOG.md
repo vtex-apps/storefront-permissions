@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+ - Changed the validation of the add user
+
+### Added
+
+- Added a feature to allow adding users to many organizations
+
 ## [1.23.0] - 2022-08-09
 
 ### Changed
