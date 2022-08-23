@@ -466,11 +466,32 @@ export const setActiveUserByOrganization = async (
   ctx: Context
 ) => {
   const {
-    clients: { masterdata },
-    vtex: { logger },
+    clients: { masterdata, session },
+    vtex: { logger, adminUserAuthToken, sessionToken },
   } = ctx
 
-  const { orgId, userId } = params
+  const { orgId } = params
+  let userId = null
+
+  if (adminUserAuthToken) {
+    userId = params.userId
+  } else {
+    const sessionData = await session
+      .getSession(sessionToken as string, ['*'])
+      .then((currentSession: any) => {
+        return currentSession.sessionData
+      })
+      .catch((error: any) => {
+        logger.error({
+          error,
+          message: 'orders-getSession-error',
+        })
+
+        return null
+      })
+
+    userId = sessionData?.namespaces?.['storefront-permissions']?.userId?.value
+  }
 
   const user = await getUser({ masterdata, params: { userId } })
 

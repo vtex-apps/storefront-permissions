@@ -14,7 +14,8 @@
         "organization",
         "costcenter",
         "priceTables",
-        "collections"
+        "collections",
+        "userId"
       ]
     }
   }

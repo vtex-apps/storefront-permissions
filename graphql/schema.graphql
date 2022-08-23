@@ -125,7 +125,7 @@ type Mutation {
     roleId: ID
   ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
 
-  setActiveUserByOrganization(userId: ID!, orgId: ID!): MutationResponse
+  setActiveUserByOrganization(userId: ID, orgId: ID!): MutationResponse
     @checkUserAccess
     @cacheControl(scope: PRIVATE)
 
