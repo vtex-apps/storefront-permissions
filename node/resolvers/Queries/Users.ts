@@ -722,6 +722,7 @@ export const getOrganizationsByEmail = async (
     return (await getUsersByEmail(null, { email }, ctx)).map((user: any) => ({
       costId: user.costId,
       orgId: user.orgId,
+      roleId: user.roleId,
     }))
   } catch (error) {
     logger.error({

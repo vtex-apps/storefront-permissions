@@ -178,6 +178,7 @@ type User {
 type Organization {
   costId: ID
   orgId: ID
+  roleId: ID
 }
 
 type Profile {
