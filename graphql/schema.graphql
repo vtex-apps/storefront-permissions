@@ -176,6 +176,8 @@ type User {
 }
 
 type Organization {
+  id: ID
+  clId: ID
   costId: ID
   orgId: ID
   roleId: ID

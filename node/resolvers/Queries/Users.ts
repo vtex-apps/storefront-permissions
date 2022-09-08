@@ -720,7 +720,9 @@ export const getOrganizationsByEmail = async (
 
   try {
     return (await getUsersByEmail(null, { email }, ctx)).map((user: any) => ({
+      clId: user.clId,
       costId: user.costId,
+      id: user.id,
       orgId: user.orgId,
       roleId: user.roleId,
     }))
