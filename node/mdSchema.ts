@@ -52,7 +52,7 @@ export default [
   },
   {
     name: 'b2b_users',
-    version: 'v0.1.1',
+    version: 'v0.1.2',
     body: {
       properties: {
         roleId: {
@@ -92,6 +92,7 @@ export default [
           title: 'Current Profile active',
         },
       },
+      'v-immediate-indexing': true,
       'v-indexed': [
         'userId',
         'clId',
