@@ -175,7 +175,7 @@ export const Routes = {
       }
     )
 
-    response['storefront-permissions'].userId.value = user.id
+    response['storefront-permissions'].userId.value = user?.id
 
     if (!user?.orgId || !user?.costId) {
       ctx.response.body = response
