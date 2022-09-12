@@ -69,17 +69,17 @@ export default new Service<Clients, RecorderState, ParamsContext>({
   clients,
   graphql: {
     resolvers: {
-      Query: resolvers.Query,
       Mutation: resolvers.Mutation,
+      Query: resolvers.Query,
     },
     schemaDirectives,
   },
   routes: {
-    setProfile: method({
-      POST: resolvers.Routes.setProfile,
-    }),
     checkPermissions: method({
       GET: resolvers.Routes.checkPermissions,
+    }),
+    setProfile: method({
+      POST: resolvers.Routes.setProfile,
     }),
   },
 })

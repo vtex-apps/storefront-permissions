@@ -4,10 +4,13 @@
 import { deleteRole, saveRole } from './Mutations/Roles'
 import { sessionWatcher } from './Mutations/Settings'
 import {
+  addCostCenterToUser,
+  addOrganizationToUser,
   addUser,
   deleteUser,
   impersonateUser,
   saveUser,
+  setActiveUserByOrganization,
   updateUser,
 } from './Mutations/Users'
 import { getFeaturesByModule, listFeatures } from './Queries/Features'
@@ -17,8 +20,11 @@ import {
   checkCustomerSchema,
   checkImpersonation,
   checkUserPermission,
+  getActiveUserByEmail,
+  getOrganizationsByEmail,
   getUser,
   getUserByEmail,
+  getUsersByEmail,
   listAllUsers,
   listUsers,
   listUsersPaginated,
@@ -27,6 +33,8 @@ import { Routes } from './Routes'
 
 export const resolvers = {
   Mutation: {
+    addCostCenterToUser,
+    addOrganizationToUser,
     addUser,
     deleteRole,
     deleteUser,
@@ -34,18 +42,22 @@ export const resolvers = {
     saveRole,
     saveUser,
     sessionWatcher,
+    setActiveUserByOrganization,
     updateUser,
   },
   Query: {
     checkCustomerSchema,
     checkImpersonation,
     checkUserPermission,
+    getActiveUserByEmail,
     getAppSettings,
     getFeaturesByModule,
+    getOrganizationsByEmail,
     getRole,
     getSessionWatcher,
     getUser,
     getUserByEmail,
+    getUsersByEmail,
     hasUsers,
     listAllUsers,
     listFeatures,

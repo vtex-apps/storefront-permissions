@@ -634,3 +634,104 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
 
   return response
 }
+
+export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { email } = params
+
+  try {
+    return await masterdata.searchDocuments({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'clId',
+        'email',
+        'name',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+        'active',
+      ],
+      pagination: { page: 1, pageSize: 50 },
+      schema: config.version,
+      where: `email = "${email}"`,
+    })
+  } catch (error) {
+    logger.error({
+      error,
+      message: `getUsersByEmail-error`,
+    })
+    throw new Error(error)
+  }
+}
+
+export const getActiveUserByEmail = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
+  const {
+    vtex: { logger },
+  } = ctx
+
+  try {
+    const users = await getUsersByEmail(null, params, ctx)
+    const activeUser = users.find(
+      (user: any) => user.active && params.orgId === user.orgId
+    )
+
+    const userFound =
+      activeUser || users.find((user: any) => user.orgId === params.orgId)
+
+    if (!userFound) {
+      logger.warn({
+        email: params.email,
+        message: `getActiveUserByEmail-userNotFound`,
+      })
+    }
+
+    return userFound
+  } catch (error) {
+    logger.error({
+      error,
+      message: `getActiveUserByEmail-error`,
+    })
+
+    return { message: error, status: 'error' }
+  }
+}
+
+export const getOrganizationsByEmail = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
+  const {
+    vtex: { logger },
+  } = ctx
+
+  const { email } = params
+
+  try {
+    return (await getUsersByEmail(null, { email }, ctx)).map((user: any) => ({
+      clId: user.clId,
+      costId: user.costId,
+      id: user.id,
+      orgId: user.orgId,
+      roleId: user.roleId,
+    }))
+  } catch (error) {
+    logger.error({
+      error,
+      message: `getOrganizationsByEmail-error`,
+    })
+
+    return { status: 'error', message: error }
+  }
+}

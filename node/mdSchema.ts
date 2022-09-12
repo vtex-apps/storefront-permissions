@@ -52,7 +52,7 @@ export default [
   },
   {
     name: 'b2b_users',
-    version: 'v0.1.0',
+    version: 'v0.1.2',
     body: {
       properties: {
         roleId: {
@@ -87,7 +87,12 @@ export default [
           type: 'boolean',
           title: 'Can impersonate',
         },
+        active: {
+          type: 'boolean',
+          title: 'Current Profile active',
+        },
       },
+      'v-immediate-indexing': true,
       'v-indexed': [
         'userId',
         'clId',
@@ -96,6 +101,7 @@ export default [
         'costId',
         'email',
         'canImpersonate',
+        'active',
       ],
       'v-cache': false,
     },

@@ -23,9 +23,9 @@ type Query {
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
 
   checkCustomerSchema: Boolean @cacheControl(scope: PRIVATE)
-  
+
   getUserByEmail(email: String!): [User] @cacheControl(scope: PRIVATE)
-  
+
   listAllUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
 
   listUsers(organizationId: ID, costCenterId: ID, roleId: ID): [User]
@@ -57,6 +57,14 @@ type Query {
     @cacheControl(scope: PRIVATE)
 
   getSessionWatcher: Boolean @cacheControl(scope: PRIVATE)
+
+  getUsersByEmail(email: String!): [User] @cacheControl(scope: PRIVATE)
+
+  getActiveUserByEmail(email: String!, orgId: ID!): User
+    @cacheControl(scope: PRIVATE)
+
+  getOrganizationsByEmail(email: String!): [Organization]
+    @cacheControl(scope: PRIVATE)
 }
 
 type Mutation {
@@ -81,7 +89,7 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @checkUserAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
 
   updateUser(
     id: ID
@@ -93,7 +101,7 @@ type Mutation {
     canImpersonate: Boolean = false
     email: String
     name: String
-  ): MutationResponse @checkUserAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
 
   addUser(
     id: ID
@@ -104,14 +112,29 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @checkUserAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+
+  addCostCenterToUser(costId: ID!, userId: ID!): MutationResponse
+    @checkUserAccess
+    @cacheControl(scope: PRIVATE)
+
+  addOrganizationToUser(
+    orgId: ID!
+    userId: ID!
+    costId: ID!
+    roleId: ID
+  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+
+  setActiveUserByOrganization(userId: ID, orgId: ID!): MutationResponse
+    @checkUserAccess
+    @cacheControl(scope: PRIVATE)
 
   impersonateUser(userId: ID): MutationResponse
     @checkUserAccess
     @cacheControl(scope: PRIVATE)
 
   deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
-    @checkUserAccess
+    @checkAdminAccess
     @cacheControl(scope: PRIVATE)
 }
 
@@ -149,6 +172,15 @@ type User {
   name: String!
   email: String!
   canImpersonate: Boolean
+  active: Boolean
+}
+
+type Organization {
+  id: ID
+  clId: ID
+  costId: ID
+  orgId: ID
+  roleId: ID
 }
 
 type Profile {

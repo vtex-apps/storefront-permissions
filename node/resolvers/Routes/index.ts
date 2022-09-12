@@ -108,6 +108,9 @@ export const Routes = {
         storeUserId: {
           value: '',
         },
+        userId: {
+          value: '',
+        },
       },
     }
 
@@ -171,6 +174,8 @@ export const Routes = {
         logger.warn({ message: 'setProfile.getUserByEmailError', error })
       }
     )
+
+    response['storefront-permissions'].userId.value = user?.id
 
     if (!user?.orgId || !user?.costId) {
       ctx.response.body = response
