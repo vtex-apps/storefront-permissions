@@ -3,7 +3,7 @@ import { json } from 'co-body'
 
 import { getRole } from '../Queries/Roles'
 import { getAppSettings, getSessionWatcher } from '../Queries/Settings'
-import { getUserByEmail } from '../Queries/Users'
+import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
 import { generateClUser, QUERIES } from './utils'
 
 export const Routes = {
@@ -169,11 +169,16 @@ export const Routes = {
       return
     }
 
-    const [user]: any = await getUserByEmail(null, { email }, ctx).catch(
+    const user = (await getActiveUserByEmail(null, { email }, ctx).catch(
       (error) => {
         logger.warn({ message: 'setProfile.getUserByEmailError', error })
       }
-    )
+    )) as {
+      orgId: string
+      costId: string
+      clId: string
+      id: string
+    }
 
     response['storefront-permissions'].userId.value = user?.id
 

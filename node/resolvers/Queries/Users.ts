@@ -682,12 +682,9 @@ export const getActiveUserByEmail = async (
 
   try {
     const users = await getUsersByEmail(null, params, ctx)
-    const activeUser = users.find(
-      (user: any) => user.active && params.orgId === user.orgId
-    )
+    const activeUser = users.find((user: any) => user.active)
 
-    const userFound =
-      activeUser || users.find((user: any) => user.orgId === params.orgId)
+    const userFound = activeUser || users[0]
 
     if (!userFound) {
       logger.warn({
