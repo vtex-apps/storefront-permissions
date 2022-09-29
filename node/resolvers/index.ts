@@ -11,6 +11,7 @@ import {
   impersonateUser,
   saveUser,
   setActiveUserByOrganization,
+  setCurrentOrganization,
   updateUser,
 } from './Mutations/Users'
 import { getFeaturesByModule, listFeatures } from './Queries/Features'
@@ -43,6 +44,7 @@ export const resolvers = {
     saveUser,
     sessionWatcher,
     setActiveUserByOrganization,
+    setCurrentOrganization,
     updateUser,
   },
   Query: {

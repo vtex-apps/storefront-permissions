@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- As part of one-to-many feature, was added a mutation to set the current organization to the user
+
 ## [1.24.0] - 2022-09-12
 
 ### Changed

@@ -470,7 +470,6 @@ export const setActiveUserByOrganization = async (
     vtex: { logger, adminUserAuthToken, sessionToken },
   } = ctx
 
-  const { orgId } = params
   let userId = null
 
   if (adminUserAuthToken) {
@@ -505,9 +504,7 @@ export const setActiveUserByOrganization = async (
     masterdata,
   })
 
-  const users = (await getUsersByEmail(_, { email: user.email }, ctx)).filter(
-    (userItem: any) => userItem.orgId === orgId
-  )
+  const users = await getUsersByEmail(_, { email: user.email }, ctx)
 
   try {
     const promises = users.map(async (userSecondary: any) => {
@@ -529,5 +526,72 @@ export const setActiveUserByOrganization = async (
       error,
       message: 'setActiveUserById.error',
     })
+  }
+}
+
+export const setCurrentOrganization = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
+  const {
+    cookies,
+    request,
+    vtex: { logger },
+    clients: { session },
+  } = ctx
+
+  const { sessionData } = ctx.vtex as any
+
+  const { orgId, costId } = params
+
+  const {
+    email: { value: email },
+  } = sessionData.namespaces.profile
+
+  const organizationList = (await getOrganizationsByEmail(
+    _,
+    { email },
+    ctx
+  )) as any[]
+
+  const user = organizationList.find((orgUser: any) => {
+    return orgUser.orgId === orgId && orgUser.costId === costId
+  })
+
+  if (!user) {
+    const error =
+      'This organization/cost center is not allowed to this current user'
+
+    logger.error({
+      error,
+      message: 'updateCurrentOrganization.error',
+    })
+
+    return { status: 'error', message: error }
+  }
+
+  const sessionCookie =
+    cookies.get('vtex_session') ?? request.header?.sessiontoken
+
+  try {
+    await session.updateSession('', null, [], sessionCookie)
+    await setActiveUserByOrganization(
+      _,
+      {
+        orgId: user.orgId,
+        userId: user.id,
+      },
+      ctx
+    )
+
+    return { status: 'success', message: '' }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'updateCurrentOrganization.error',
+    })
+
+    return { status: 'error', message: error }
   }
 }

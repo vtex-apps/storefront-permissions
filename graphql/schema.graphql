@@ -60,8 +60,7 @@ type Query {
 
   getUsersByEmail(email: String!): [User] @cacheControl(scope: PRIVATE)
 
-  getActiveUserByEmail(email: String!, orgId: ID!): User
-    @cacheControl(scope: PRIVATE)
+  getActiveUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
 
   getOrganizationsByEmail(email: String!): [Organization]
     @cacheControl(scope: PRIVATE)
@@ -125,7 +124,7 @@ type Mutation {
     roleId: ID
   ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
 
-  setActiveUserByOrganization(userId: ID, orgId: ID!): MutationResponse
+  setActiveUserByOrganization(userId: ID): MutationResponse
     @checkUserAccess
     @cacheControl(scope: PRIVATE)
 
@@ -135,6 +134,10 @@ type Mutation {
 
   deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
     @checkAdminAccess
+    @cacheControl(scope: PRIVATE)
+
+  setCurrentOrganization(orgId: ID!, costId: ID!): MutationResponse
+    @withSession
     @cacheControl(scope: PRIVATE)
 }
 
