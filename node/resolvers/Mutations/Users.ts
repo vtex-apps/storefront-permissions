@@ -51,6 +51,7 @@ const getUser = async ({ masterdata, params: { email, id, userId } }: any) => {
         'email',
         'name',
         'orgId',
+        'clId',
         'costId',
         'canImpersonate',
         'roleId',
