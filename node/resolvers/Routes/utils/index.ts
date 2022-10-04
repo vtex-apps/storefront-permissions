@@ -35,6 +35,13 @@ export const QUERIES = {
         businessDocument
       }
     }`,
+  getMarketingTags: `
+    query {
+      getMarketingTags {
+        tags
+      }
+    }
+  `,
   getOrganizationById: `query Organization($id: ID!){
       getOrganizationById(id: $id) @context(provider: "vtex.b2b-organizations-graphql"){
         name

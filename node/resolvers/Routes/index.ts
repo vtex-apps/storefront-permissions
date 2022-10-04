@@ -271,10 +271,32 @@ export const Routes = {
     ) {
       const [address] = costCenterResponse.data.getCostCenterById.addresses
 
+      const marketingTagsResponse: any = await graphqlServer
+        .query(
+          QUERIES.getMarketingTags,
+          {},
+          {
+            persistedQuery: {
+              provider: 'vtex.b2b-organizations-graphql@0.x',
+              sender: 'vtex.storefront-permissions@1.x',
+            },
+          }
+        )
+        .catch((error) => {
+          logger.error({
+            error,
+            message: 'setProfile.getMarketingTags',
+          })
+        })
+
+      const marketingTags: any =
+        marketingTagsResponse?.data?.getMarketingTags?.tags
+
       promises.push(
         checkout
           .updateOrderFormMarketingData(orderFormId, {
             attachmentId: 'marketingData',
+            marketingTags: marketingTags || [],
             utmCampaign: user.orgId,
             utmMedium: user.costId,
           })
