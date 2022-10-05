@@ -36,8 +36,8 @@ export const QUERIES = {
       }
     }`,
   getMarketingTags: `
-    query {
-      getMarketingTags {
+    query ($costId: ID!) {
+      getMarketingTags(costId: $costId) @context(provider: "vtex.b2b-organizations-graphql") {
         tags
       }
     }

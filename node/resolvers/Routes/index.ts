@@ -274,7 +274,9 @@ export const Routes = {
       const marketingTagsResponse: any = await graphqlServer
         .query(
           QUERIES.getMarketingTags,
-          {},
+          {
+            costId: user.costId,
+          },
           {
             persistedQuery: {
               provider: 'vtex.b2b-organizations-graphql@0.x',
