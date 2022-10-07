@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Marketing Tags to setProfile and attaching to the orderForm
+
 ### Changed
 
 - GitHub reusable workflow and Cy-Runner updated to version 2
