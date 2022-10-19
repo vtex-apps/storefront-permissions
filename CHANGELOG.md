@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.27.0] - 2022-10-19
+
 ### Fixed
 
 - Added lastName field to CL masterdata add request
