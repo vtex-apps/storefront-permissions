@@ -79,12 +79,12 @@ workspace:
   removeApps:
     - vtex.bitcot-qa-theme
   wipe:
-    enabled: true
+    enabled: false
     stopOnFail: false
     specs:
       - cypress-shared/integration/b2b/wipe.spec.js
   teardown:
-    enabled: true
+    enabled: false
 
 strategy:
   # The strategies must be in order, with dependent tests last
