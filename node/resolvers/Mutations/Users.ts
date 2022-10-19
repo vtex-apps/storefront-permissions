@@ -5,13 +5,25 @@ import { getOrganizationsByEmail, getUsersByEmail } from '../Queries/Users'
 
 const config: any = currentSchema('b2b_users')
 
-const addUserToMasterdata = async ({ masterdata, params }: any) => {
+const addUserToMasterdata = async ({
+  masterdata,
+  params: { name, email },
+}: {
+  masterdata: any
+  params: { name: string; email: string }
+}) => {
+  const names = name.split(' ')
+  const [firstName] = names
+
+  names.shift()
+  const lastName = names.length > 0 ? names.join(' ') : firstName // if it gets the lastName empty, it'll repeat the firstName to avoid errors on the checkout
   const { DocumentId } = await masterdata
     .createDocument({
       dataEntity: CUSTOMER_SCHEMA_NAME,
       fields: {
-        email: params.email,
-        firstName: params.name,
+        email,
+        firstName,
+        lastName,
       },
     })
     .then((response: { DocumentId: string }) => {
@@ -27,7 +39,7 @@ const addUserToMasterdata = async ({ masterdata, params }: any) => {
               page: 1,
               pageSize: 1,
             },
-            where: `email=${params.email}`,
+            where: `email=${email}`,
           })
           .then((res: [{ id: string }]) => {
             return { DocumentId: res[0].id }
