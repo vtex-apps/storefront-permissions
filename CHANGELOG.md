@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.27.0] - 2022-10-19
 
+### Changed
+
+- Split bindings testcase into two files
+
 ### Fixed
 
 - Added lastName field to CL masterdata add request
