@@ -139,6 +139,7 @@ export const Routes = {
     let businessDocument = null
     let phoneNumber = null
     let tradeName = null
+    let stateRegistration = null
 
     if (b2bImpersonate) {
       await profileSystem
@@ -265,6 +266,9 @@ export const Routes = {
     businessDocument =
       costCenterResponse.data.getCostCenterById.businessDocument
 
+    stateRegistration =
+      costCenterResponse.data.getCostCenterById.stateRegistration
+
     if (
       costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
       orderFormId
@@ -331,17 +335,24 @@ export const Routes = {
       clId: user?.clId,
       ctx,
       phoneNumber,
+      stateRegistration,
       tradeName,
     })
 
     if (clUser && orderFormId) {
       promises.push(
-        checkout.updateOrderFormProfile(orderFormId, clUser).catch((error) => {
-          logger.error({
-            error,
-            message: 'setProfile.updateOrderFormProfileError',
+        checkout
+          .updateOrderFormProfile(orderFormId, {
+            ...clUser,
+            businessDocument: businessDocument || clUser.businessDocument,
+            stateInscription: stateRegistration || clUser.stateInscription,
           })
-        })
+          .catch((error) => {
+            logger.error({
+              error,
+              message: 'setProfile.updateOrderFormProfileError',
+            })
+          })
       )
     }
 

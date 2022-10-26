@@ -33,6 +33,7 @@ export const QUERIES = {
         }
         phoneNumber
         businessDocument
+        stateRegistration
       }
     }`,
   getMarketingTags: `
@@ -61,6 +62,7 @@ export const generateClUser = async ({
   businessName,
   businessDocument,
   tradeName,
+  stateRegistration,
   ctx,
 }: {
   clId: string
@@ -68,6 +70,7 @@ export const generateClUser = async ({
   businessName: string | null
   businessDocument: string | null
   tradeName: string | null
+  stateRegistration: string | null
   ctx: Context
 }) => {
   const {
@@ -98,6 +101,7 @@ export const generateClUser = async ({
     clUser.isCorporate = true
     clUser.corporateName = businessName
     clUser.corporateDocument = businessDocument
+    clUser.stateInscription = stateRegistration
     if (phoneNumber) {
       clUser.corporatePhone = phoneNumber
     }
