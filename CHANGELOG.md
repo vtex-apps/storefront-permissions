@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.28.0] - 2022-10-26
+
 ### Added
 
 - Force the business document and state registration on setProfile method
