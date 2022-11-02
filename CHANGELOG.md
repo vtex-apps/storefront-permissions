@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- Join multiple priceTables with `,` instead of `;`
+
 ## [1.28.0] - 2022-10-26
 
 ### Added
