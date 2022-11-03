@@ -229,7 +229,7 @@ export const Routes = {
       response[
         'storefront-permissions'
       ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
-        ';'
+        ','
       )}`
     }
 
