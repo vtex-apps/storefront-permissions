@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+
+### Added
+
+- Added the functionality to the storefront permissions to change the sales channel according to the Organization
+
 ## [1.28.1] - 2022-11-03
 
 ### Changed
