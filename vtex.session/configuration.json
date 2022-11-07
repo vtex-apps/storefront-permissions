@@ -7,7 +7,7 @@
       "public": ["impersonate"]
     },
     "output": {
-      "public": ["facets"],
+      "public": ["facets", "sc"],
       "storefront-permissions": [
         "storeUserId",
         "storeUserEmail",

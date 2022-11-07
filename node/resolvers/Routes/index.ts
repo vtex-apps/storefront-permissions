@@ -86,7 +86,7 @@ export const Routes = {
       vtex: { logger },
     } = ctx
 
-    const response = {
+    const response: any = {
       public: {
         facets: {
           value: '',
@@ -268,6 +268,23 @@ export const Routes = {
 
     stateRegistration =
       costCenterResponse.data.getCostCenterById.stateRegistration
+
+    const salesChannel =
+      organizationResponse?.data?.getOrganizationById?.salesChannel
+
+    if (salesChannel?.length) {
+      promises.push(
+        checkout
+          .updateSalesChannel(orderFormId, salesChannel)
+          .catch((error) => {
+            logger.error({
+              error,
+              message: 'setProfile.updateSalesChannel',
+            })
+          })
+      )
+      response.public.sc.value = salesChannel
+    }
 
     if (
       costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
