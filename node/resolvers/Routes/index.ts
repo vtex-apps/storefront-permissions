@@ -91,6 +91,9 @@ export const Routes = {
         facets: {
           value: '',
         },
+        sc: {
+          value: '',
+        },
       },
       'storefront-permissions': {
         costcenter: {
