@@ -7,6 +7,7 @@ import { GraphQLServer } from './GraphQLServer'
 import IdentityClient from './IdentityClient'
 import { Schema } from './schema'
 import VtexId from './vtexId'
+import { SalesChannel } from './salesChannel'
 
 // Extend the default IOClients implementation with our own custom clients.
 export class Clients extends IOClients {
@@ -36,5 +37,9 @@ export class Clients extends IOClients {
 
   public get identity() {
     return this.getOrSet('identity', IdentityClient)
+  }
+
+  public get salesChannel() {
+    return this.getOrSet('salesChannel', SalesChannel)
   }
 }

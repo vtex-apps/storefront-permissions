@@ -124,6 +124,35 @@ export class Checkout extends JanusClient {
       { metric: 'checkout-updateOrderFormMarketingData' }
     )
 
+  public updateSalesChannel = async (
+    orderFormId: string,
+    salesChannel: any
+  ) => {
+    const { items } = await this.get(this.routes.orderForm(orderFormId))
+
+    if (items?.length) {
+      await this.post(
+        `${this.routes.orderForm(orderFormId)}/items/removeAll`,
+        {}
+      )
+
+      return this.post(
+        `${this.routes.orderForm(orderFormId)}/items?sc=${salesChannel}`,
+        {
+          orderItems: items.map((item: any) => ({
+            id: item.id,
+            index: item.index,
+            price: item.price,
+            quantity: item.quantity,
+            seller: item.seller,
+          })),
+        }
+      )
+    }
+
+    return true
+  }
+
   public updateOrderFormClientPreferencesData = (
     orderFormId: string,
     clientPreferencesData: OrderFormClientPreferencesData

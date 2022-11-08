@@ -49,6 +49,7 @@ export const QUERIES = {
         tradeName
         status
         priceTables
+        salesChannel
         collections {
           id
         }
