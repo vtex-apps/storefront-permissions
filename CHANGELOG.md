@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.29.1] - 2022-11-15
 
+### Changed
+
+- Enable video for cypress tests
+
 ### Fixed
 
 - minimist package updated from 1.2.5 to 1.2.7 due a critical security vulnerability
