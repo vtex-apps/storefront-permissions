@@ -732,3 +732,41 @@ export const getOrganizationsByEmail = async (
     return { status: 'error', message: error }
   }
 }
+
+export const getUserByEmailOrgIdAndCostId = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { email, costId, orgId } = params
+
+  try {
+    const user = await masterdata.searchDocuments({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'clId',
+        'email',
+        'name',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+        'active',
+      ],
+      pagination: { page: 1, pageSize: 50 },
+      schema: config.version,
+      where: `email = "${email}" AND costId = "${costId}" AND orgId = "${orgId}"`,
+    })
+
+    return user[0] || null
+  } catch (error) {
+    logger.error({
+      error,
+      message: `getUsersByEmail-error`,
+    })
+    throw new Error(error)
+  }
+}

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
-import { getOrganizationsByEmail, getUsersByEmail } from '../Queries/Users'
+import { getOrganizationsByEmail, getUsersByEmail, getUserByEmailOrgIdAndCostId } from '../Queries/Users'
 
 const config: any = currentSchema('b2b_users')
 
@@ -502,7 +502,15 @@ export const setActiveUserByOrganization = async (
         return null
       })
 
-    userId = sessionData?.namespaces?.['storefront-permissions']?.userId?.value
+    const currentUserEmail = sessionData?.namespaces?.profile?.email?.value
+
+    const userByEmail = await getUserByEmailOrgIdAndCostId(masterdata, {
+      email: currentUserEmail,
+      costId: params.costId,
+      orgId: params.orgId
+    }, ctx) as any
+
+    userId = userByEmail ? userByEmail.id : sessionData?.namespaces?.['storefront-permissions']?.userId?.value
   }
 
   const user = await getUser({ masterdata, params: { userId } })
@@ -593,6 +601,7 @@ export const setCurrentOrganization = async (
       _,
       {
         orgId: user.orgId,
+        costId: user.costId,
         userId: user.id,
       },
       ctx
