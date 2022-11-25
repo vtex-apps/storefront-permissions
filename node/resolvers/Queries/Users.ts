@@ -733,7 +733,11 @@ export const getOrganizationsByEmail = async (
   }
 }
 
-export const getUserByEmailOrgIdAndCostId = async (_: any, params: any, ctx: Context) => {
+export const getUserByEmailOrgIdAndCostId = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
   const {
     clients: { masterdata },
     vtex: { logger },
