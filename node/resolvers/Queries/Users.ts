@@ -671,6 +671,74 @@ export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
   }
 }
 
+export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { email } = params
+
+  try {
+    let token: string | undefined
+    let hasMore = true
+    const users = [] as any[]
+
+    const scrollMasterData = async () => {
+      await sleep(SCROLL_AWAIT_TIME)
+      const {
+        mdToken,
+        data,
+      }: {
+        mdToken: string
+        data: any
+      } = await masterdata.scrollDocuments({
+        dataEntity: config.name,
+        fields: [
+          'id',
+          'roleId',
+          'clId',
+          'email',
+          'name',
+          'orgId',
+          'costId',
+          'userId',
+          'canImpersonate',
+          'active',
+        ],
+        mdToken: token,
+        schema: config.version,
+        size: SCROLL_SIZE,
+        where: `email = "${email}"`,
+      })
+
+      if (!data.length && token) {
+        hasMore = false
+      }
+
+      if (!token && mdToken) {
+        token = mdToken
+      }
+
+      users.push(...data)
+
+      if (hasMore) {
+        await scrollMasterData()
+      }
+    }
+
+    await scrollMasterData()
+
+    return users
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getAllUsersByEmail-error',
+    })
+    throw new Error(error)
+  }
+}
+
 export const getActiveUserByEmail = async (
   _: any,
   params: any,
@@ -716,13 +784,15 @@ export const getOrganizationsByEmail = async (
   const { email } = params
 
   try {
-    return (await getUsersByEmail(null, { email }, ctx)).map((user: any) => ({
-      clId: user.clId,
-      costId: user.costId,
-      id: user.id,
-      orgId: user.orgId,
-      roleId: user.roleId,
-    }))
+    return (await getAllUsersByEmail(null, { email }, ctx)).map(
+      (user: any) => ({
+        clId: user.clId,
+        costId: user.costId,
+        id: user.id,
+        orgId: user.orgId,
+        roleId: user.roleId,
+      })
+    )
   } catch (error) {
     logger.error({
       error,

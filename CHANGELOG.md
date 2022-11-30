@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- getOrganizationsByEmail is returning all users instead of only first 50 records
+
+
 ## [1.29.2] - 2022-11-28
 
 ### Fixed
