@@ -464,9 +464,11 @@ const getRoleAndPermissionsByEmail = async ({
     return defaultResponse
   }
 
-  const userData: any = await getUserByEmail(null, { email }, ctx)
+  const userData: any = await getActiveUserByEmail(null, { email }, ctx)
 
-  if (!userData.length && !skipError) {
+  const isEmptyObject = Object.keys(userData).length === 0;
+
+  if ( isEmptyObject && !skipError) {
     logger.warn({
       email,
       message: `getRoleAndPermissionsByEmail-userNotFound`,
@@ -474,16 +476,16 @@ const getRoleAndPermissionsByEmail = async ({
     throw new Error('User not found')
   }
 
-  if (!userData.length) {
+  if (isEmptyObject) {
     return defaultResponse
   }
 
-  const userRole: any = await getRole(null, { id: userData[0].roleId }, ctx)
+  const userRole: any = await getRole(null, { id: userData.roleId }, ctx)
 
   if (!userRole && !skipError) {
     logger.warn({
       message: `getRoleAndPermissionsByEmail-roleNotFound`,
-      roleId: userData[0].roleId,
+      roleId: userData.roleId,
     })
 
     throw new Error('Role not found')
