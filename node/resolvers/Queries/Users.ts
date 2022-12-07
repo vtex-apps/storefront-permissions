@@ -436,6 +436,75 @@ export const listUsersPaginated = async (
   }
 }
 
+export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { email } = params
+
+  try {
+    return await masterdata.searchDocuments({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'clId',
+        'email',
+        'name',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+        'active',
+      ],
+      pagination: { page: 1, pageSize: 50 },
+      schema: config.version,
+      where: `email = "${email}"`,
+    })
+  } catch (error) {
+    logger.error({
+      error,
+      message: `getUsersByEmail-error`,
+    })
+    throw new Error(error)
+  }
+}
+
+export const getActiveUserByEmail = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
+  const {
+    vtex: { logger },
+  } = ctx
+
+  try {
+    const users = await getUsersByEmail(null, params, ctx)
+    const activeUser = users.find((user: any) => user.active)
+
+    const userFound = activeUser || users[0]
+
+    if (!userFound) {
+      logger.warn({
+        email: params.email,
+        message: `getActiveUserByEmail-userNotFound`,
+      })
+    }
+
+    return userFound
+  } catch (error) {
+    logger.error({
+      error,
+      message: `getActiveUserByEmail-error`,
+    })
+
+    return { message: error, status: 'error' }
+  }
+}
+
 const getRoleAndPermissionsByEmail = async ({
   email,
   module,
@@ -466,9 +535,9 @@ const getRoleAndPermissionsByEmail = async ({
 
   const userData: any = await getActiveUserByEmail(null, { email }, ctx)
 
-  const isEmptyObject = Object.keys(userData).length === 0;
+  const isEmptyObject = Object.keys(userData).length === 0
 
-  if ( isEmptyObject && !skipError) {
+  if (isEmptyObject && !skipError) {
     logger.warn({
       email,
       message: `getRoleAndPermissionsByEmail-userNotFound`,
@@ -637,42 +706,6 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
   return response
 }
 
-export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
-  const {
-    clients: { masterdata },
-    vtex: { logger },
-  } = ctx
-
-  const { email } = params
-
-  try {
-    return await masterdata.searchDocuments({
-      dataEntity: config.name,
-      fields: [
-        'id',
-        'roleId',
-        'clId',
-        'email',
-        'name',
-        'orgId',
-        'costId',
-        'userId',
-        'canImpersonate',
-        'active',
-      ],
-      pagination: { page: 1, pageSize: 50 },
-      schema: config.version,
-      where: `email = "${email}"`,
-    })
-  } catch (error) {
-    logger.error({
-      error,
-      message: `getUsersByEmail-error`,
-    })
-    throw new Error(error)
-  }
-}
-
 export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
@@ -738,39 +771,6 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
       message: 'Profiles.getAllUsersByEmail-error',
     })
     throw new Error(error)
-  }
-}
-
-export const getActiveUserByEmail = async (
-  _: any,
-  params: any,
-  ctx: Context
-) => {
-  const {
-    vtex: { logger },
-  } = ctx
-
-  try {
-    const users = await getUsersByEmail(null, params, ctx)
-    const activeUser = users.find((user: any) => user.active)
-
-    const userFound = activeUser || users[0]
-
-    if (!userFound) {
-      logger.warn({
-        email: params.email,
-        message: `getActiveUserByEmail-userNotFound`,
-      })
-    }
-
-    return userFound
-  } catch (error) {
-    logger.error({
-      error,
-      message: `getActiveUserByEmail-error`,
-    })
-
-    return { message: error, status: 'error' }
   }
 }
 
