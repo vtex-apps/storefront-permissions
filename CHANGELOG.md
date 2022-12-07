@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- getRoleAndPermissionsByEmail is returning correct Role of the active user
+
 ## [1.29.3] - 2022-11-30
 
 ### Fixed
