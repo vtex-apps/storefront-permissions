@@ -635,6 +635,19 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
   return response
 }
 
+export type MasterDataTypesGetUsersByEmail = {
+  id: string
+  roleId: string
+  clId: string
+  email: string
+  name: string
+  orgId: string
+  costId: string
+  userId: null
+  canImpersonate: boolean
+  active: boolean
+}
+
 export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
@@ -644,7 +657,7 @@ export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const { email } = params
 
   try {
-    return await masterdata.searchDocuments({
+    return await masterdata.searchDocuments<MasterDataTypesGetUsersByEmail>({
       dataEntity: config.name,
       fields: [
         'id',
@@ -658,7 +671,7 @@ export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
         'canImpersonate',
         'active',
       ],
-      pagination: { page: 1, pageSize: 50 },
+      pagination: { page: 1, pageSize: 1000 },
       schema: config.version,
       where: `email = "${email}"`,
     })
@@ -739,6 +752,11 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
   }
 }
 
+export type UserErrorFound = {
+  message: unknown
+  status: "error"
+}
+
 export const getActiveUserByEmail = async (
   _: any,
   params: any,
@@ -750,7 +768,7 @@ export const getActiveUserByEmail = async (
 
   try {
     const users = await getUsersByEmail(null, params, ctx)
-    const activeUser = users.find((user: any) => user.active)
+    const activeUser = users.find((user) => user.active)
 
     const userFound = activeUser || users[0]
 
@@ -768,7 +786,7 @@ export const getActiveUserByEmail = async (
       message: `getActiveUserByEmail-error`,
     })
 
-    return { message: error, status: 'error' }
+    return { message: error, status: 'error' } as UserErrorFound
   }
 }
 
