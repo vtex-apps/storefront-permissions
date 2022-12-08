@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- getUsersByEmail is returning up to 1000 users instead of just the first 50 records
+
 ## [1.29.3] - 2022-11-30
 
 ### Fixed
