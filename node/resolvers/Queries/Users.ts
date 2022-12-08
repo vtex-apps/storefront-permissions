@@ -754,7 +754,7 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
 
 export type UserErrorFound = {
   message: unknown
-  status: "error"
+  status: 'error'
 }
 
 export const getActiveUserByEmail = async (
