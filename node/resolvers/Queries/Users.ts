@@ -635,6 +635,12 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
   return response
 }
 
+/**
+ * @deprecated
+ * @param _
+ * @param params
+ * @param ctx
+ */
 export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
@@ -749,7 +755,7 @@ export const getActiveUserByEmail = async (
   } = ctx
 
   try {
-    const users = await getUsersByEmail(null, params, ctx)
+    const users = await getAllUsersByEmail(null, params, ctx)
     const activeUser = users.find((user: any) => user.active)
 
     const userFound = activeUser || users[0]
