@@ -436,7 +436,7 @@ export const listUsersPaginated = async (
   }
 }
 
-export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
+export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
     vtex: { logger },
@@ -445,28 +445,60 @@ export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const { email } = params
 
   try {
-    return await masterdata.searchDocuments({
-      dataEntity: config.name,
-      fields: [
-        'id',
-        'roleId',
-        'clId',
-        'email',
-        'name',
-        'orgId',
-        'costId',
-        'userId',
-        'canImpersonate',
-        'active',
-      ],
-      pagination: { page: 1, pageSize: 50 },
-      schema: config.version,
-      where: `email = "${email}"`,
-    })
+    let token: string | undefined
+    let hasMore = true
+    const users = [] as any[]
+
+    const scrollMasterData = async () => {
+      await sleep(SCROLL_AWAIT_TIME)
+      const {
+        mdToken,
+        data,
+      }: {
+        mdToken: string
+        data: any
+      } = await masterdata.scrollDocuments({
+        dataEntity: config.name,
+        fields: [
+          'id',
+          'roleId',
+          'clId',
+          'email',
+          'name',
+          'orgId',
+          'costId',
+          'userId',
+          'canImpersonate',
+          'active',
+        ],
+        mdToken: token,
+        schema: config.version,
+        size: SCROLL_SIZE,
+        where: `email = "${email}"`,
+      })
+
+      if (!data.length && token) {
+        hasMore = false
+      }
+
+      if (!token && mdToken) {
+        token = mdToken
+      }
+
+      users.push(...data)
+
+      if (hasMore) {
+        await scrollMasterData()
+      }
+    }
+
+    await scrollMasterData()
+
+    return users
   } catch (error) {
     logger.error({
       error,
-      message: `getUsersByEmail-error`,
+      message: 'Profiles.getAllUsersByEmail-error',
     })
     throw new Error(error)
   }
@@ -482,7 +514,7 @@ export const getActiveUserByEmail = async (
   } = ctx
 
   try {
-    const users = await getUsersByEmail(null, params, ctx)
+    const users = await getAllUsersByEmail(null, params, ctx)
     const activeUser = users.find((user: any) => user.active)
 
     const userFound = activeUser || users[0]
@@ -706,7 +738,13 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
   return response
 }
 
-export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
+/**
+ * @deprecated
+ * @param _
+ * @param params
+ * @param ctx
+ */
+export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
     vtex: { logger },
@@ -715,60 +753,28 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const { email } = params
 
   try {
-    let token: string | undefined
-    let hasMore = true
-    const users = [] as any[]
-
-    const scrollMasterData = async () => {
-      await sleep(SCROLL_AWAIT_TIME)
-      const {
-        mdToken,
-        data,
-      }: {
-        mdToken: string
-        data: any
-      } = await masterdata.scrollDocuments({
-        dataEntity: config.name,
-        fields: [
-          'id',
-          'roleId',
-          'clId',
-          'email',
-          'name',
-          'orgId',
-          'costId',
-          'userId',
-          'canImpersonate',
-          'active',
-        ],
-        mdToken: token,
-        schema: config.version,
-        size: SCROLL_SIZE,
-        where: `email = "${email}"`,
-      })
-
-      if (!data.length && token) {
-        hasMore = false
-      }
-
-      if (!token && mdToken) {
-        token = mdToken
-      }
-
-      users.push(...data)
-
-      if (hasMore) {
-        await scrollMasterData()
-      }
-    }
-
-    await scrollMasterData()
-
-    return users
+    return await masterdata.searchDocuments({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'clId',
+        'email',
+        'name',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+        'active',
+      ],
+      pagination: { page: 1, pageSize: 50 },
+      schema: config.version,
+      where: `email = "${email}"`,
+    })
   } catch (error) {
     logger.error({
       error,
-      message: 'Profiles.getAllUsersByEmail-error',
+      message: `getUsersByEmail-error`,
     })
     throw new Error(error)
   }
