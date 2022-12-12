@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - getRoleAndPermissionsByEmail is returning correct Role of the active user
 
+## [1.29.4] - 2022-12-09
+
+### Fixed
+
+- Fix on getting all users into getActiveUserByEmail by getAllUsersByEmail
+
 ## [1.29.3] - 2022-11-30
 
 ### Fixed
@@ -25,6 +31,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Fix setCurrentOrganization mutation
 
 ## [1.29.1] - 2022-11-15
+
+### Changed
+
+- Enable video for cypress tests
 
 ### Fixed
 

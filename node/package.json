@@ -1,6 +1,6 @@
 {
   "name": "vtex.checkout-ui-custom",
-  "version": "1.29.3",
+  "version": "1.29.4",
   "dependencies": {
     "@vtex/api": "6.45.12",
     "co-body": "^6.0.0",
