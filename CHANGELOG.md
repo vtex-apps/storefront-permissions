@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Fix setActiveUserByOrganization mutation
+
 ## [1.29.4] - 2022-12-09
 
 ### Fixed
