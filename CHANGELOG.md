@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- Replacing the getUsersByEmail to getAllUsersByEmail in the setActiveOrganization mutation
+- Bug fixed when the active user is linked to an inactive user but has active organizations, so, setProfile find the first active organization and set it as the active for the user and proceed with the login anization mutation
 
 ## [1.29.4] - 2022-12-09
 
