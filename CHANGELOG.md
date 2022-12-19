@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- The bug is fixed when the active user is linked to an inactive user but has active organizations, so, setProfile finds the first active organization and sets it as active for the user, and proceeds with the login.
+
 ## [1.29.4] - 2022-12-09
 
 ### Changed
