@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.29.4] - 2022-12-09
 
+### Changed
+
+- Disable video for cypress tests
+
 ### Fixed
 
 - Fix on getting all users into getActiveUserByEmail by getAllUsersByEmail
