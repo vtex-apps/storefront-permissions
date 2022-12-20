@@ -1,9 +1,9 @@
 /* eslint-disable max-params */
 import type {
   InstanceOptions,
-  RequestConfig,
-  IOResponse,
   IOContext,
+  IOResponse,
+  RequestConfig,
 } from '@vtex/api'
 import { JanusClient } from '@vtex/api'
 import type { AxiosError } from 'axios'
@@ -11,6 +11,43 @@ import type { AxiosError } from 'axios'
 import { checkoutCookieFormat, statusToError } from '../utils'
 
 export class Checkout extends JanusClient {
+  private get routes() {
+    const base = '/api/checkout/pub'
+
+    return {
+      addItem: (orderFormId: string, queryString: string) =>
+        `${base}/orderForm/${orderFormId}/items${queryString}`,
+      cancelOrder: (orderFormId: string) =>
+        `${base}/orders/${orderFormId}/user-cancel-request`,
+      orderFormCustomData: (
+        orderFormId: string,
+        appId: string,
+        field: string
+      ) => `${base}/orderForm/${orderFormId}/customData/${appId}/${field}`,
+      updateItems: (orderFormId: string) =>
+        `${base}/orderForm/${orderFormId}/items/update`,
+      profile: (orderFormId: string) =>
+        `${base}/orderForm/${orderFormId}/profile`,
+      attachmentsData: (orderFormId: string, field: string) =>
+        `${base}/orderForm/${orderFormId}/attachments/${field}`,
+      assemblyOptions: (
+        orderFormId: string,
+        itemId: string | number,
+        assemblyOptionsId: string
+      ) =>
+        `${base}/orderForm/${orderFormId}/items/${itemId}/assemblyOptions/${assemblyOptionsId}`,
+      checkin: (orderFormId: string) =>
+        `${base}/orderForm/${orderFormId}/checkIn`,
+      orderForm: (orderFormId?: string) =>
+        `${base}/orderForm/${orderFormId ?? ''}`,
+      orders: `${base}/orders`,
+      simulation: (queryString: string) =>
+        `${base}/orderForms/simulation${queryString}`,
+      changeToAnonymousUser: (orderFormId: string) =>
+        `/checkout/changeToAnonymousUser/${orderFormId}`,
+    }
+  }
+
   constructor(ctx: IOContext, options?: InstanceOptions) {
     super(ctx, {
       ...options,
@@ -22,32 +59,6 @@ export class Checkout extends JanusClient {
         'x-vtex-user-agent': ctx.userAgent,
       },
     })
-  }
-
-  private getCommonHeaders = () => {
-    const { orderFormId, segmentToken, sessionToken } = this
-      .context as CustomIOContext
-
-    const checkoutCookie = orderFormId ? checkoutCookieFormat(orderFormId) : ''
-    const segmentTokenCookie = segmentToken
-      ? `vtex_segment=${segmentToken};`
-      : ''
-
-    const sessionTokenCookie = sessionToken
-      ? `vtex_session=${sessionToken};`
-      : ''
-
-    return {
-      Cookie: `${checkoutCookie}${segmentTokenCookie}${sessionTokenCookie}`,
-    }
-  }
-
-  private getChannelQueryString = () => {
-    const { segment } = this.context as CustomIOContext
-    const channel = segment?.channel
-    const queryString = channel ? `?sc=${channel}` : ''
-
-    return queryString
   }
 
   public addItem = (orderFormId: string, items: any) =>
@@ -150,7 +161,20 @@ export class Checkout extends JanusClient {
       )
     }
 
-    return true
+    return this.post(
+      `${this.routes.orderForm(orderFormId)}/items?sc=${salesChannel}`,
+      {
+        orderItems: [
+          {
+            id: '1',
+            index: 0,
+            price: 1,
+            quantity: 1,
+            seller: '1',
+          },
+        ],
+      }
+    )
   }
 
   public updateOrderFormClientPreferencesData = (
@@ -316,40 +340,29 @@ export class Checkout extends JanusClient {
       .catch(statusToError) as Promise<T>
   }
 
-  private get routes() {
-    const base = '/api/checkout/pub'
+  private getCommonHeaders = () => {
+    const { orderFormId, segmentToken, sessionToken } = this
+      .context as CustomIOContext
+
+    const checkoutCookie = orderFormId ? checkoutCookieFormat(orderFormId) : ''
+    const segmentTokenCookie = segmentToken
+      ? `vtex_segment=${segmentToken};`
+      : ''
+
+    const sessionTokenCookie = sessionToken
+      ? `vtex_session=${sessionToken};`
+      : ''
 
     return {
-      addItem: (orderFormId: string, queryString: string) =>
-        `${base}/orderForm/${orderFormId}/items${queryString}`,
-      cancelOrder: (orderFormId: string) =>
-        `${base}/orders/${orderFormId}/user-cancel-request`,
-      orderFormCustomData: (
-        orderFormId: string,
-        appId: string,
-        field: string
-      ) => `${base}/orderForm/${orderFormId}/customData/${appId}/${field}`,
-      updateItems: (orderFormId: string) =>
-        `${base}/orderForm/${orderFormId}/items/update`,
-      profile: (orderFormId: string) =>
-        `${base}/orderForm/${orderFormId}/profile`,
-      attachmentsData: (orderFormId: string, field: string) =>
-        `${base}/orderForm/${orderFormId}/attachments/${field}`,
-      assemblyOptions: (
-        orderFormId: string,
-        itemId: string | number,
-        assemblyOptionsId: string
-      ) =>
-        `${base}/orderForm/${orderFormId}/items/${itemId}/assemblyOptions/${assemblyOptionsId}`,
-      checkin: (orderFormId: string) =>
-        `${base}/orderForm/${orderFormId}/checkIn`,
-      orderForm: (orderFormId?: string) =>
-        `${base}/orderForm/${orderFormId ?? ''}`,
-      orders: `${base}/orders`,
-      simulation: (queryString: string) =>
-        `${base}/orderForms/simulation${queryString}`,
-      changeToAnonymousUser: (orderFormId: string) =>
-        `/checkout/changeToAnonymousUser/${orderFormId}`,
+      Cookie: `${checkoutCookie}${segmentTokenCookie}${sessionTokenCookie}`,
     }
+  }
+
+  private getChannelQueryString = () => {
+    const { segment } = this.context as CustomIOContext
+    const channel = segment?.channel
+    const queryString = channel ? `?sc=${channel}` : ''
+
+    return queryString
   }
 }

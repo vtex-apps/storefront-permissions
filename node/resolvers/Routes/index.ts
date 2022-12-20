@@ -329,29 +329,42 @@ export const Routes = {
 
     let { salesChannel } = organization
 
-    if (!salesChannel?.length) {
-      const salesChannels = (await salesChannelClient.getSalesChannel()) as any
-      const validChannels = salesChannels.filter(
-        (channel: any) => channel.IsActive
-      )
+    const salesChannels = (await salesChannelClient.getSalesChannel()) as any
+    const validChannels = salesChannels.filter(
+      (channel: any) => channel.IsActive
+    )
 
+    if (
+      !salesChannel?.length ||
+      !validChannels?.find(
+        (validSalesChannel: any) =>
+          String(validSalesChannel.Id) === salesChannel.toString()
+      )
+    ) {
       if (validChannels.length) {
         salesChannel = validChannels[0].Id
       }
     }
 
     if (salesChannel) {
-      await checkout
-        .updateSalesChannel(orderFormId, salesChannel)
-        .catch((error) => {
-          console.error(error)
-          logger.error({
-            error,
-            message: 'setProfile.updateSalesChannel',
+      try {
+        await checkout
+          .updateSalesChannel(orderFormId, salesChannel)
+          .catch((error) => {
+            console.error(error)
+            logger.error({
+              error,
+              message: 'setProfile.updateSalesChannel',
+            })
           })
-        })
 
-      response.public.sc.value = salesChannel
+        response.public.sc.value = Number(salesChannel)
+      } catch (error) {
+        logger.error({
+          error,
+          message: 'setProfile.updateSalesChannel',
+        })
+      }
     }
 
     if (
