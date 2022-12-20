@@ -8,8 +8,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Fixed
 
-- Fix setActiveUserByOrganization mutation
-
 ## [1.29.5] - 2022-12-19
 
 ### Fixed
