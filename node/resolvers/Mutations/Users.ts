@@ -506,7 +506,8 @@ export const setActiveUserByOrganization = async (
         return null
       })
 
-    const currentUserEmail = sessionData?.namespaces?.profile?.email?.value
+    const currentUserEmail =
+      sessionData?.namespaces?.profile?.email?.value ?? params.email
 
     const userByEmail = (await getUserByEmailOrgIdAndCostId(
       masterdata,

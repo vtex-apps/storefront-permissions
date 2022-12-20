@@ -5,6 +5,7 @@ import { getRole } from '../Queries/Roles'
 import { getAppSettings, getSessionWatcher } from '../Queries/Settings'
 import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
 import { generateClUser, QUERIES } from './utils'
+import { setActiveUserByOrganization } from '../Mutations/Users'
 
 export const Routes = {
   checkPermissions: async (ctx: Context) => {
@@ -200,52 +201,101 @@ export const Routes = {
 
     response['storefront-permissions'].organization.value = user.orgId
 
-    const organizationResponse: any = await graphqlServer
-      .query(
-        QUERIES.getOrganizationById,
-        { id: user.orgId },
-        {
-          persistedQuery: {
-            provider: 'vtex.b2b-organizations-graphql@0.x',
-            sender: 'vtex.storefront-permissions@1.x',
-          },
-        }
-      )
-      .catch((error) => {
-        logger.error({
-          error,
-          message: 'setProfile.graphqlGetOrganizationById',
+    const getOrganization = async (orgId: any): Promise<any> => {
+      return graphqlServer
+        .query(
+          QUERIES.getOrganizationById,
+          { id: orgId },
+          {
+            persistedQuery: {
+              provider: 'vtex.b2b-organizations-graphql@0.x',
+              sender: 'vtex.storefront-permissions@1.x',
+            },
+          }
+        )
+        .catch((error) => {
+          logger.error({
+            error,
+            message: 'setProfile.graphqlGetOrganizationById',
+          })
         })
-      })
+    }
+
+    let organization = (await getOrganization(user.orgId))?.data
+      ?.getOrganizationById
 
     // prevent login if org is inactive
-    if (
-      organizationResponse?.data?.getOrganizationById?.status === 'inactive'
-    ) {
-      logger.warn({
-        message: `setProfile-organizationInactive`,
-        organizationData: organizationResponse?.data?.getOrganizationById,
-        organizationId: user.orgId,
-      })
-      throw new ForbiddenError('Organization is inactive')
+    if (organization.status === 'inactive') {
+      // try to find a valid organization
+      const organizationsByUserResponse: any = await graphqlServer
+        .query(
+          QUERIES.getOrganizationsByEmail,
+          { email },
+          {
+            provider: 'vtex.b2b-organizations-graphql@0.x',
+            sender: 'vtex.storefront-permissions@1.x',
+          }
+        )
+        .catch((error) => {
+          logger.error({
+            error,
+            message: 'setProfile.graphqlGetOrganizationById',
+          })
+        })
+
+      const organizationsByUser =
+        organizationsByUserResponse?.data?.getOrganizationsByEmail
+
+      if (organizationsByUser?.length) {
+        const organizationList = organizationsByUser.find(
+          (org: any) => org.organizationStatus !== 'inactive'
+        )
+
+        if (organizationList) {
+          organization = (await getOrganization(organizationList.id))?.data
+            ?.getOrganizationById
+
+          try {
+            await setActiveUserByOrganization(
+              null,
+              {
+                costId: organizationList.costId,
+                email,
+                orgId: organizationList.orgId,
+                userId: organizationList.id,
+              },
+              ctx
+            )
+          } catch (error) {
+            logger.warn({
+              error,
+              message: 'setProfile.setActiveUserByOrganizationError',
+            })
+          }
+        }
+      } else {
+        logger.warn({
+          message: `setProfile-organizationInactive`,
+          organizationData: organization,
+          organizationId: user.orgId,
+        })
+        throw new ForbiddenError('Organization is inactive')
+      }
     }
 
-    businessName = organizationResponse?.data?.getOrganizationById?.name
-    tradeName = organizationResponse?.data?.getOrganizationById?.tradeName
+    businessName = organization.name
+    tradeName = organization.tradeName
 
-    if (organizationResponse?.data?.getOrganizationById?.priceTables?.length) {
+    if (organization.priceTables?.length) {
       response[
         'storefront-permissions'
-      ].priceTables.value = `${organizationResponse.data.getOrganizationById.priceTables.join(
-        ','
-      )}`
+      ].priceTables.value = `${organization.priceTables.join(',')}`
     }
 
-    if (organizationResponse?.data?.getOrganizationById?.collections?.length) {
-      const collections =
-        organizationResponse.data.getOrganizationById.collections.map(
-          (collection: any) => `productClusterIds=${collection.id}`
-        )
+    if (organization.collections?.length) {
+      const collections = organization.collections.map(
+        (collection: any) => `productClusterIds=${collection.id}`
+      )
 
       response.public.facets.value = `${collections.join(';')}`
     }
@@ -277,8 +327,7 @@ export const Routes = {
     stateRegistration =
       costCenterResponse.data.getCostCenterById.stateRegistration
 
-    let salesChannel =
-      organizationResponse?.data?.getOrganizationById?.salesChannel
+    let { salesChannel } = organization
 
     if (!salesChannel?.length) {
       const salesChannels = (await salesChannelClient.getSalesChannel()) as any
