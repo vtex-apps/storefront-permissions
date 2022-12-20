@@ -2,9 +2,9 @@
 import { currentSchema } from '../../utils'
 import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
 import {
+  getAllUsersByEmail,
   getOrganizationsByEmail,
   getUserByEmailOrgIdAndCostId,
-  getUsersByEmail,
 } from '../Queries/Users'
 
 const config: any = currentSchema('b2b_users')
@@ -506,7 +506,8 @@ export const setActiveUserByOrganization = async (
         return null
       })
 
-    const currentUserEmail = sessionData?.namespaces?.profile?.email?.value
+    const currentUserEmail =
+      sessionData?.namespaces?.profile?.email?.value ?? params.email
 
     const userByEmail = (await getUserByEmailOrgIdAndCostId(
       masterdata,
@@ -535,7 +536,7 @@ export const setActiveUserByOrganization = async (
     masterdata,
   })
 
-  const users = await getUsersByEmail(_, { email: user.email }, ctx)
+  const users = await getAllUsersByEmail(_, { email: user.email }, ctx)
 
   try {
     const promises = users.map(async (userSecondary: any) => {
