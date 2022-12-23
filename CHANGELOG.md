@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.29.6] - 2022-12-23
+
 ### Fixed
 
 - bugfix when Sales Channel is inactive or unlinked to account.
