@@ -21,6 +21,59 @@ const sleep = (ms: number) => {
   return new Promise((resolve) => setTimeout(resolve, time))
 }
 
+const getUserList = async (masterdata: any, email?: string) => {
+  let token: string | undefined
+  let hasMore = true
+  const users = [] as any[]
+
+  const scrollMasterData = async () => {
+    await sleep(SCROLL_AWAIT_TIME)
+    const {
+      mdToken,
+      data,
+    }: {
+      mdToken: string
+      data: any
+    } = await masterdata.scrollDocuments({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'clId',
+        'email',
+        'name',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+        'active',
+      ],
+      mdToken: token,
+      schema: config.version,
+      size: SCROLL_SIZE,
+      where: email ? `email = "${email}"` : '',
+    })
+
+    if (!data.length && token) {
+      hasMore = false
+    }
+
+    if (!token && mdToken) {
+      token = mdToken
+    }
+
+    users.push(...data)
+
+    if (hasMore) {
+      await scrollMasterData()
+    }
+  }
+
+  await scrollMasterData()
+
+  return users
+}
+
 export const getUserById = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
@@ -227,54 +280,9 @@ export const listAllUsers = async (_: any, __: any, ctx: Context) => {
   } = ctx
 
   try {
-    let token: string | undefined
-    let hasMore = true
-    const users = [] as any[]
+    const userList = await getUserList(masterdata)
 
-    const scrollMasterData = async () => {
-      await sleep(SCROLL_AWAIT_TIME)
-      const {
-        mdToken,
-        data,
-      }: {
-        mdToken: string
-        data: any
-      } = await masterdata.scrollDocuments({
-        dataEntity: config.name,
-        fields: [
-          'id',
-          'roleId',
-          'userId',
-          'clId',
-          'orgId',
-          'costId',
-          'name',
-          'email',
-          'canImpersonate',
-        ],
-        mdToken: token,
-        schema: config.version,
-        size: SCROLL_SIZE,
-      })
-
-      if (!data.length && token) {
-        hasMore = false
-      }
-
-      if (!token && mdToken) {
-        token = mdToken
-      }
-
-      users.push(...data)
-
-      if (hasMore) {
-        await scrollMasterData()
-      }
-    }
-
-    await scrollMasterData()
-
-    return users
+    return userList
   } catch (e) {
     logger.error({
       error: e,
@@ -445,56 +453,9 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const { email } = params
 
   try {
-    let token: string | undefined
-    let hasMore = true
-    const users = [] as any[]
+    const userList = await getUserList(masterdata, email)
 
-    const scrollMasterData = async () => {
-      await sleep(SCROLL_AWAIT_TIME)
-      const {
-        mdToken,
-        data,
-      }: {
-        mdToken: string
-        data: any
-      } = await masterdata.scrollDocuments({
-        dataEntity: config.name,
-        fields: [
-          'id',
-          'roleId',
-          'clId',
-          'email',
-          'name',
-          'orgId',
-          'costId',
-          'userId',
-          'canImpersonate',
-          'active',
-        ],
-        mdToken: token,
-        schema: config.version,
-        size: SCROLL_SIZE,
-        where: `email = "${email}"`,
-      })
-
-      if (!data.length && token) {
-        hasMore = false
-      }
-
-      if (!token && mdToken) {
-        token = mdToken
-      }
-
-      users.push(...data)
-
-      if (hasMore) {
-        await scrollMasterData()
-      }
-    }
-
-    await scrollMasterData()
-
-    return users
+    return userList
   } catch (error) {
     logger.error({
       error,
