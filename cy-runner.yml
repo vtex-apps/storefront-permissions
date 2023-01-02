@@ -76,57 +76,52 @@ workspace:
   teardown:
     enabled: true
 
-
 strategy:
   # The strategies must be in order, with dependent tests last
-  organizationA:
+  organizationAB:
     enabled: true
     sendDashboard: true
-    hardTries: 1
+    hardTries: 2
     stopOnFail: false
     parallel: true
     specs:
       - cypress-shared/integration/b2b/2.1.1-create_&_approve_organizationA.spec.js
-      - cypress-shared/integration/b2b/2.1.2-create_&_decline_organizationB.spec.js
+      - cypress-shared/integration/b2b/2.1.2-multi_organizations_requests_from_organizationB.spec.js
       - cypress-shared/integration/b2b/2.1.3-organization_negative_testcases.spec.js
-  multiOrgRequests:
+  addCostCentersForOrganizationAandaddUsersForOrganizationB:
     enabled: true
     sendDashboard: true
-    hardTries: 1
+    hardTries: 2
     stopOnFail: false
     parallel: true
     specs:
-      - cypress-shared/integration/b2b/2.1.4-multi_organizations_requests.spec.js
-    dependency:
-      - cypress-shared/integration/b2b/2.1.1-create_&_approve_organizationA.spec.js
-      - cypress-shared/integration/b2b/2.1.2-create_&_decline_organizationB.spec.js
-      - cypress-shared/integration/b2b/2.1.3-organization_negative_testcases.spec.js
-  addUsersInOrganizationAB:
-    enabled: true
-    sendDashboard: true
-    hardTries: 1
-    stopOnFail: false
-    parallel: true
-    specs:
-      - cypress-shared/integration/b2b/2.2-add_buyer_approver_organizationA.spec.js
+      - cypress-shared/integration/b2b/2.2.1-add_buyer_approver_organizationA.spec.js
       - cypress-shared/integration/b2b/2.3-add_buyer_approver_organizationB.spec.js
     dependency:
       - cypress-shared/integration/b2b/2.1.1-create_&_approve_organizationA.spec.js
-      - cypress-shared/integration/b2b/2.1.2-create_&_decline_organizationB.spec.js
+      - cypress-shared/integration/b2b/2.1.2-multi_organizations_requests_from_organizationB.spec.js
       - cypress-shared/integration/b2b/2.1.3-organization_negative_testcases.spec.js
-      - cypress-shared/integration/b2b/2.1.4-multi_organizations_requests.spec.js
+  addUsersForOrganizationA:
+    enabled: true
+    sendDashboard: true
+    hardTries: 2
+    stopOnFail: false
+    parallel: true
+    specs:
+      - cypress-shared/integration/b2b/2.2.2-add_buyer_approver_organizationA.spec.js
+    dependency:
+      - cypress-shared/integration/b2b/2.2.1-add_buyer_approver_organizationA.spec.js
   addSalesUserAndHideOrganizationByDolarSalesChannel:
     enabled: true
     sendDashboard: true
-    hardTries: 1
+    hardTries: 2
     stopOnFail: false
     parallel: false
     specs:
-      - cypress-shared/integration/b2b/2.4-add-remaining-users.spec.js
-      - cypress-shared/integration/b2b/2.15.1-hide_organization_by_adding_dolar_sales_channel.spec.js
+      - cypress-shared/integration/b2b/2.4.1-add-remaining-users.spec.js
+      - cypress-shared/integration/b2b/2.4.2-hide_organization_by_adding_dolar_sales_channel.spec.js
     dependency:
-      - cypress-shared/integration/b2b/2.2-add_buyer_approver_organizationA.spec.js
-      - cypress-shared/integration/b2b/2.3-add_buyer_approver_organizationB.spec.js
+      - cypress-shared/integration/b2b/2.2.1-add_buyer_approver_organizationA.spec.js
   organizationABBuyersTestCasesAndShowOrganizationByBindingTestcase:
     enabled: true
     sendDashboard: true
@@ -134,40 +129,65 @@ strategy:
     stopOnFail: false
     parallel: true
     specs:
-      - cypress-shared/integration/b2b/2.5-buyer_scenarios_orgA_costA1.spec.js
-      - cypress-shared/integration/b2b/2.6-buyer_scenarios_orgA_costA2.spec.js
+      - cypress-shared/integration/b2b/2.5.1-buyer_scenarios_orgA_costA1.spec.js
+      - cypress-shared/integration/b2b/2.6.1-buyer_scenarios_orgA_costA2.spec.js
       - cypress-shared/integration/b2b/2.7-buyer_scenarios_orgB_costB1.spec.js
-      - cypress-shared/integration/b2b/2.15.2-show_organization_by_adding_principal_sales_channel.spec.js
+      - cypress-shared/integration/b2b/2.4.3-show_organization_by_adding_principal_sales_channel.spec.js
     dependency:
-      - cypress-shared/integration/b2b/2.4-add-remaining-users.spec.js
-      - cypress-shared/integration/b2b/2.15.1-hide_organization_by_adding_dolar_sales_channel.spec.js
-  organizationABApproversTestCases:
+      - cypress-shared/integration/b2b/2.4.1-add-remaining-users.spec.js
+      - cypress-shared/integration/b2b/2.4.2-hide_organization_by_adding_dolar_sales_channel.spec.js
+  organizationABBuyersRemainingTestCases:
     enabled: true
     sendDashboard: true
     hardTries: 2
     stopOnFail: false
     parallel: true
     specs:
-      - cypress-shared/integration/b2b/2.9-approver_scenarios_orgA.spec.js
-      - cypress-shared/integration/b2b/2.10-approver_scenarios_orgA_costcenter2.spec.js
-      - cypress-shared/integration/b2b/2.12-organization_admin_scenarios-orgA.spec.js
-      - cypress-shared/integration/b2b/2.11-approver_scenarios_orgB.spec.js
+      - cypress-shared/integration/b2b/2.5.2-buyer_scenarios_orgA_costA1.spec.js
+      - cypress-shared/integration/b2b/2.6.2-buyer_scenarios_orgA_costA2.spec.js
     dependency:
-      - cypress-shared/integration/b2b/2.5-buyer_scenarios_orgA_costA1.spec.js
-      - cypress-shared/integration/b2b/2.6-buyer_scenarios_orgA_costA2.spec.js
-      - cypress-shared/integration/b2b/2.7-buyer_scenarios_orgB_costB1.spec.js
-  organizationASalesUsersTestCases:
+      - cypress-shared/integration/b2b/2.5.1-buyer_scenarios_orgA_costA1.spec.js
+      - cypress-shared/integration/b2b/2.6.1-buyer_scenarios_orgA_costA2.spec.js
+  organizationABUsersTestCases:
     enabled: true
     sendDashboard: true
     hardTries: 2
     stopOnFail: false
     parallel: true
     specs:
-      - cypress-shared/integration/b2b/2.8-sales_admin_scenarios.spec.js
-      - cypress-shared/integration/b2b/2.13-sales_manager_scenarios.spec.js
-      - cypress-shared/integration/b2b/2.14-sales_rep_scenarios.spec.js
-    dependency:
+      - cypress-shared/integration/b2b/2.8.1-organization_admin_scenarios-orgA.spec.js
       - cypress-shared/integration/b2b/2.9-approver_scenarios_orgA.spec.js
       - cypress-shared/integration/b2b/2.10-approver_scenarios_orgA_costcenter2.spec.js
-      - cypress-shared/integration/b2b/2.12-organization_admin_scenarios-orgA.spec.js
       - cypress-shared/integration/b2b/2.11-approver_scenarios_orgB.spec.js
+    dependency:
+      - cypress-shared/integration/b2b/2.5.2-buyer_scenarios_orgA_costA1.spec.js
+      - cypress-shared/integration/b2b/2.6.2-buyer_scenarios_orgA_costA2.spec.js
+      - cypress-shared/integration/b2b/2.7-buyer_scenarios_orgB_costB1.spec.js
+      - cypress-shared/integration/b2b/2.4.3-show_organization_by_adding_principal_sales_channel.spec.js
+  organizationAUsersBasicTests2:
+    enabled: true
+    sendDashboard: true
+    hardTries: 2
+    stopOnFail: false
+    parallel: true
+    specs:
+      - cypress-shared/integration/b2b/2.8.2-organization_admin_scenarios-orgA.spec.js
+      - cypress-shared/integration/b2b/2.12.1-sales_admin_scenarios.spec.js
+      - cypress-shared/integration/b2b/2.13.1-sales_manager_scenarios.spec.js
+      - cypress-shared/integration/b2b/2.14.1-sales_rep_scenarios.spec.js
+    dependency:
+      - cypress-shared/integration/b2b/2.8.1-organization_admin_scenarios-orgA.spec.js
+  organizationASalesUsersImpersonationTestCases:
+    enabled: true
+    sendDashboard: true
+    hardTries: 2
+    stopOnFail: false
+    parallel: true
+    specs:
+      - cypress-shared/integration/b2b/2.12.2-sales_admin_scenarios.spec.js
+      - cypress-shared/integration/b2b/2.13.2-sales_manager_scenarios.spec.js
+      - cypress-shared/integration/b2b/2.14.2-sales_rep_scenarios.spec.js
+    dependency:
+      - cypress-shared/integration/b2b/2.12.1-sales_admin_scenarios.spec.js
+      - cypress-shared/integration/b2b/2.13.1-sales_manager_scenarios.spec.js
+      - cypress-shared/integration/b2b/2.14.1-sales_rep_scenarios.spec.js
