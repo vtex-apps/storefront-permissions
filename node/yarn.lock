@@ -1714,9 +1714,9 @@ vary@^1.1.2:
   version "0.0.0"
   resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.search-session@0.2.10/public/_types/react#fa7a0347e046eab3dd768998fc9252b2c0dd5aef"
 
-"vtex.storefront-permissions@https://b2borg2--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.storefront-permissions@1.29.5+build1671824410/public/@types/vtex.storefront-permissions":
-  version "1.29.5"
-  resolved "https://b2borg2--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.storefront-permissions@1.29.5+build1671824410/public/@types/vtex.storefront-permissions#d6a2bfd0b691853eae0bb68c070d7e92b32ad99d"
+"vtex.storefront-permissions@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.storefront-permissions@1.29.6/public/@types/vtex.storefront-permissions":
+  version "1.29.6"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.storefront-permissions@1.29.6/public/@types/vtex.storefront-permissions#1e675b5a29ec0dae00d41a8bc97d5b24f296614d"
 
 "vtex.styleguide@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.146.3/public/@types/vtex.styleguide":
   version "9.146.3"
