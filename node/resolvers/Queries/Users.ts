@@ -21,6 +21,119 @@ const sleep = (ms: number) => {
   return new Promise((resolve) => setTimeout(resolve, time))
 }
 
+export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { email } = params
+
+  try {
+    let token: string | undefined
+    let hasMore = true
+    const users = [] as any[]
+
+    const scrollMasterData = async () => {
+      await sleep(SCROLL_AWAIT_TIME)
+      const {
+        mdToken,
+        data,
+      }: {
+        mdToken: string
+        data: any
+      } = await masterdata.scrollDocuments({
+        dataEntity: config.name,
+        fields: [
+          'id',
+          'roleId',
+          'clId',
+          'email',
+          'name',
+          'orgId',
+          'costId',
+          'userId',
+          'canImpersonate',
+          'active',
+        ],
+        mdToken: token,
+        schema: config.version,
+        size: SCROLL_SIZE,
+        where: `email = "${email}"`,
+      })
+
+      if (!data.length && token) {
+        hasMore = false
+      }
+
+      if (!token && mdToken) {
+        token = mdToken
+      }
+
+      users.push(...data)
+
+      if (hasMore) {
+        await scrollMasterData()
+      }
+    }
+
+    await scrollMasterData()
+
+    return users
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getAllUsersByEmail-error',
+    })
+    throw new Error(error)
+  }
+}
+
+export const getActiveUserByEmail = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
+  const {
+    vtex: { logger },
+  } = ctx
+
+  try {
+    const users = await getAllUsersByEmail(null, params, ctx)
+    const activeUser = users.find((user: any) => user.active)
+
+    const userFound = activeUser || users[0]
+
+    if (!userFound) {
+      logger.warn({
+        email: params.email,
+        message: `getActiveUserByEmail-userNotFound`,
+      })
+    }
+
+    return userFound
+  } catch (error) {
+    logger.error({
+      error,
+      message: `getActiveUserByEmail-error`,
+    })
+
+    return { message: error, status: 'error' }
+  }
+}
+
+/**
+ * @deprecated
+ * @param _
+ * @param params
+ * @param ctx
+ */
+export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
+  const user = await getActiveUserByEmail(_, params, ctx)
+
+  return [user]
+}
+
 export const getUserById = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
@@ -170,50 +283,6 @@ export const getUserByRole = async (_: any, params: any, ctx: Context) => {
     logger.error({
       error,
       message: 'Profiles.getUserByRole-error',
-    })
-
-    return { status: 'error', message: error }
-  }
-}
-
-export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
-  const {
-    clients: { masterdata, vbase },
-    vtex: { logger },
-  } = ctx
-
-  const { email } = params
-
-  try {
-    const cachedUser = await vbase.getJSON('b2b_users', email).catch(() => null)
-
-    if (cachedUser) {
-      return [cachedUser]
-    }
-
-    return await masterdata
-      .searchDocuments({
-        dataEntity: config.name,
-        fields: [
-          'id',
-          'roleId',
-          'userId',
-          'clId',
-          'orgId',
-          'costId',
-          'name',
-          'email',
-          'canImpersonate',
-        ],
-        pagination: { page: 1, pageSize: 50 },
-        schema: config.version,
-        where: `email=${email}`,
-      })
-      .catch(() => [])
-  } catch (error) {
-    logger.error({
-      error,
-      message: 'Profiles.getUserByEmail-error',
     })
 
     return { status: 'error', message: error }
@@ -674,107 +743,6 @@ export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
       message: `getUsersByEmail-error`,
     })
     throw new Error(error)
-  }
-}
-
-export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
-  const {
-    clients: { masterdata },
-    vtex: { logger },
-  } = ctx
-
-  const { email } = params
-
-  try {
-    let token: string | undefined
-    let hasMore = true
-    const users = [] as any[]
-
-    const scrollMasterData = async () => {
-      await sleep(SCROLL_AWAIT_TIME)
-      const {
-        mdToken,
-        data,
-      }: {
-        mdToken: string
-        data: any
-      } = await masterdata.scrollDocuments({
-        dataEntity: config.name,
-        fields: [
-          'id',
-          'roleId',
-          'clId',
-          'email',
-          'name',
-          'orgId',
-          'costId',
-          'userId',
-          'canImpersonate',
-          'active',
-        ],
-        mdToken: token,
-        schema: config.version,
-        size: SCROLL_SIZE,
-        where: `email = "${email}"`,
-      })
-
-      if (!data.length && token) {
-        hasMore = false
-      }
-
-      if (!token && mdToken) {
-        token = mdToken
-      }
-
-      users.push(...data)
-
-      if (hasMore) {
-        await scrollMasterData()
-      }
-    }
-
-    await scrollMasterData()
-
-    return users
-  } catch (error) {
-    logger.error({
-      error,
-      message: 'Profiles.getAllUsersByEmail-error',
-    })
-    throw new Error(error)
-  }
-}
-
-export const getActiveUserByEmail = async (
-  _: any,
-  params: any,
-  ctx: Context
-) => {
-  const {
-    vtex: { logger },
-  } = ctx
-
-  try {
-    const users = await getAllUsersByEmail(null, params, ctx)
-    const activeUser = users.find((user: any) => user.active)
-
-    const userFound = activeUser || users[0]
-
-    if (!userFound) {
-      logger.warn({
-        email: params.email,
-        message: `getActiveUserByEmail-userNotFound`,
-      })
-    }
-
-    return userFound
-  } catch (error) {
-    logger.error({
-      error,
-      message: `getActiveUserByEmail-error`,
-    })
-
-    return { message: error, status: 'error' }
   }
 }
 
