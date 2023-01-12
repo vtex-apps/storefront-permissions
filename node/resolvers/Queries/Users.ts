@@ -111,7 +111,11 @@ export const getActiveUserByEmail = async (
       })
     }
 
-    return userFound
+    return {
+      ...userFound,
+      email: userFound?.email || '',
+      name: userFound?.name || '',
+    }
   } catch (error) {
     logger.error({
       error,
