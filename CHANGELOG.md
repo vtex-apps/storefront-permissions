@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Fixed on updating the sales channel by converting to string rather than number
+- Fixed on updating the sales channel and was adding a element automatically
 
 ## [1.29.7] - 2023-01-06
 
