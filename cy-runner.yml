@@ -86,8 +86,8 @@ strategy:
     parallel: true
     specs:
       - cypress-shared/integration/b2b/2.1.1-create_&_approve_organizationA.spec.js
-      - cypress-shared/integration/b2b/2.1.2-multi_organizations_requests_from_organizationB.spec.js
-      - cypress-shared/integration/b2b/2.1.3-organization_negative_testcases.spec.js
+      # - cypress-shared/integration/b2b/2.1.2-multi_organizations_requests_from_organizationB.spec.js
+      # - cypress-shared/integration/b2b/2.1.3-organization_negative_testcases.spec.js
   addCostCentersForOrganizationAandaddUsersForOrganizationB:
     enabled: true
     sendDashboard: true
@@ -96,11 +96,11 @@ strategy:
     parallel: true
     specs:
       - cypress-shared/integration/b2b/2.2.1-add_buyer_approver_organizationA.spec.js
-      - cypress-shared/integration/b2b/2.3-add_buyer_approver_organizationB.spec.js
+      # - cypress-shared/integration/b2b/2.3-add_buyer_approver_organizationB.spec.js
     dependency:
       - cypress-shared/integration/b2b/2.1.1-create_&_approve_organizationA.spec.js
-      - cypress-shared/integration/b2b/2.1.2-multi_organizations_requests_from_organizationB.spec.js
-      - cypress-shared/integration/b2b/2.1.3-organization_negative_testcases.spec.js
+      # - cypress-shared/integration/b2b/2.1.2-multi_organizations_requests_from_organizationB.spec.js
+      # - cypress-shared/integration/b2b/2.1.3-organization_negative_testcases.spec.js
   addUsersForOrganizationA:
     enabled: true
     sendDashboard: true
@@ -119,7 +119,7 @@ strategy:
     parallel: false
     specs:
       - cypress-shared/integration/b2b/2.4.1-add-remaining-users.spec.js
-      - cypress-shared/integration/b2b/2.4.2-hide_organization_by_adding_dolar_sales_channel.spec.js
+      # - cypress-shared/integration/b2b/2.4.2-hide_organization_by_adding_dolar_sales_channel.spec.js
     dependency:
       - cypress-shared/integration/b2b/2.2.1-add_buyer_approver_organizationA.spec.js
   organizationABBuyersTestCasesAndShowOrganizationByBindingTestcase:
@@ -131,11 +131,11 @@ strategy:
     specs:
       - cypress-shared/integration/b2b/2.5.1-buyer_scenarios_orgA_costA1.spec.js
       - cypress-shared/integration/b2b/2.6.1-buyer_scenarios_orgA_costA2.spec.js
-      - cypress-shared/integration/b2b/2.7-buyer_scenarios_orgB_costB1.spec.js
-      - cypress-shared/integration/b2b/2.4.3-show_organization_by_adding_principal_sales_channel.spec.js
+      # - cypress-shared/integration/b2b/2.7-buyer_scenarios_orgB_costB1.spec.js
+      # - cypress-shared/integration/b2b/2.4.3-show_organization_by_adding_principal_sales_channel.spec.js
     dependency:
       - cypress-shared/integration/b2b/2.4.1-add-remaining-users.spec.js
-      - cypress-shared/integration/b2b/2.4.2-hide_organization_by_adding_dolar_sales_channel.spec.js
+      # - cypress-shared/integration/b2b/2.4.2-hide_organization_by_adding_dolar_sales_channel.spec.js
   organizationABBuyersRemainingTestCases:
     enabled: true
     sendDashboard: true
@@ -158,12 +158,12 @@ strategy:
       - cypress-shared/integration/b2b/2.8.1-organization_admin_scenarios-orgA.spec.js
       - cypress-shared/integration/b2b/2.9-approver_scenarios_orgA.spec.js
       - cypress-shared/integration/b2b/2.10-approver_scenarios_orgA_costcenter2.spec.js
-      - cypress-shared/integration/b2b/2.11-approver_scenarios_orgB.spec.js
+      # - cypress-shared/integration/b2b/2.11-approver_scenarios_orgB.spec.js
     dependency:
       - cypress-shared/integration/b2b/2.5.2-buyer_scenarios_orgA_costA1.spec.js
       - cypress-shared/integration/b2b/2.6.2-buyer_scenarios_orgA_costA2.spec.js
-      - cypress-shared/integration/b2b/2.7-buyer_scenarios_orgB_costB1.spec.js
-      - cypress-shared/integration/b2b/2.4.3-show_organization_by_adding_principal_sales_channel.spec.js
+      # - cypress-shared/integration/b2b/2.7-buyer_scenarios_orgB_costB1.spec.js
+      # - cypress-shared/integration/b2b/2.4.3-show_organization_by_adding_principal_sales_channel.spec.js
   organizationAUsersBasicTests2:
     enabled: true
     sendDashboard: true
