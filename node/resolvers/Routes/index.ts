@@ -358,7 +358,7 @@ export const Routes = {
             })
           })
 
-        response.public.sc.value = Number(salesChannel)
+        response.public.sc.value = salesChannel.toString()
       } catch (error) {
         logger.error({
           error,

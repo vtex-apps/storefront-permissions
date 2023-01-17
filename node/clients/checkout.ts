@@ -140,12 +140,11 @@ export class Checkout extends JanusClient {
     salesChannel: any
   ) => {
     const { items } = await this.get(this.routes.orderForm(orderFormId))
+    const removeAll = async () =>
+      this.post(`${this.routes.orderForm(orderFormId)}/items/removeAll`, {})
 
     if (items?.length) {
-      await this.post(
-        `${this.routes.orderForm(orderFormId)}/items/removeAll`,
-        {}
-      )
+      await removeAll()
 
       return this.post(
         `${this.routes.orderForm(orderFormId)}/items?sc=${salesChannel}`,
@@ -161,7 +160,7 @@ export class Checkout extends JanusClient {
       )
     }
 
-    return this.post(
+    const response = await this.post(
       `${this.routes.orderForm(orderFormId)}/items?sc=${salesChannel}`,
       {
         orderItems: [
@@ -175,6 +174,10 @@ export class Checkout extends JanusClient {
         ],
       }
     )
+
+    await removeAll()
+
+    return response
   }
 
   public updateOrderFormClientPreferencesData = (
