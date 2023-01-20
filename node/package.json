@@ -8,7 +8,6 @@
     "cookie": "^0.3.1",
     "graphql": "^14.5.0",
     "graphql-tools": "^4.0.6",
-    "jsonwebtoken": "9.0.0",
     "qs": "^6.9.4",
     "ramda": "^0.25.0",
     "slugify": "^1.2.6"
