@@ -3,14 +3,14 @@
   "version": "1.29.8",
   "dependencies": {
     "@vtex/api": "6.45.13",
+    "atob": "^2.1.2",
     "co-body": "^6.0.0",
-    "jsonwebtoken": "^8.5.0",
+    "cookie": "^0.3.1",
+    "graphql": "^14.5.0",
+    "graphql-tools": "^4.0.6",
+    "jsonwebtoken": "9.0.0",
     "qs": "^6.9.4",
     "ramda": "^0.25.0",
-    "graphql": "^14.5.0",
-    "atob": "^2.1.2",
-    "cookie": "^0.3.1",
-    "graphql-tools": "^4.0.6",
     "slugify": "^1.2.6"
   },
   "devDependencies": {
@@ -28,10 +28,10 @@
     "tslint-config-prettier": "^1.18.0",
     "tslint-config-vtex": "^2.1.0",
     "typescript": "3.9.7",
-    "vtex.graphql-server": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.67.5/public/_types/react",
+    "vtex.graphql-server": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.67.6/public/_types/react",
     "vtex.profile-session": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.profile-session@0.8.5/public/_types/react",
     "vtex.search-session": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.search-session@0.2.10/public/_types/react",
-    "vtex.storefront-permissions": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.storefront-permissions@1.29.6/public/@types/vtex.storefront-permissions",
+    "vtex.storefront-permissions": "https://b2borg2--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.storefront-permissions@1.29.7+build1673610219/public/@types/vtex.storefront-permissions",
     "vtex.styleguide": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.146.3/public/@types/vtex.styleguide"
   },
   "scripts": {
