@@ -31,7 +31,7 @@
     "vtex.graphql-server": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.67.6/public/_types/react",
     "vtex.profile-session": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.profile-session@0.8.5/public/_types/react",
     "vtex.search-session": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.search-session@0.2.10/public/_types/react",
-    "vtex.storefront-permissions": "https://b2borg2--sandboxusdev.myvtex.com/_v/private/typings/linked/v1/vtex.storefront-permissions@1.29.7+build1673610219/public/@types/vtex.storefront-permissions",
+    "vtex.storefront-permissions": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.storefront-permissions@1.29.8/public/@types/vtex.storefront-permissions",
     "vtex.styleguide": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.146.3/public/@types/vtex.styleguide"
   },
   "scripts": {
