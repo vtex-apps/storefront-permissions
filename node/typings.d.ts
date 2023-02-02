@@ -41,3 +41,8 @@ declare module '*.json' {
   const value: any
   export default value
 }
+
+interface RegionsResponse {
+  id: string
+  sellers: Sellers[]
+}

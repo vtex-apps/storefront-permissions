@@ -100,6 +100,9 @@ export const Routes = {
         sc: {
           value: '',
         },
+        regionId: {
+          value: '',
+        },
       },
       'storefront-permissions': {
         costcenter: {
@@ -292,13 +295,29 @@ export const Routes = {
       ].priceTables.value = `${organization.priceTables.join(',')}`
     }
 
+    let facets = [] as any
+
     if (organization.collections?.length) {
       const collections = organization.collections.map(
         (collection: any) => `productClusterIds=${collection.id}`
       )
 
-      response.public.facets.value = `${collections.join(';')}`
+      facets = [...facets, ...collections]
     }
+
+    if (organization.sellers?.length) {
+      const sellersName = organization.sellers.map(
+        (seller: any) => `sellername=${seller.name}`
+      )
+
+      const sellersId = organization.sellers.map(
+        (seller: any) => `private-seller=${seller.id}`
+      )
+
+      facets = [...facets, ...sellersName, ...sellersId]
+    }
+
+    response.public.facets.value = facets ? `${facets.join(';')};` : null
 
     response['storefront-permissions'].costcenter.value = user.costId
     const costCenterResponse: any = await graphqlServer
@@ -395,6 +414,25 @@ export const Routes = {
 
       const marketingTags: any =
         marketingTagsResponse?.data?.getMarketingTags?.tags
+
+      try {
+        const [regionId] = await checkout.getRegionId(
+          address.country,
+          address.postalCode,
+          salesChannel.toString()
+        )
+
+        if (regionId?.id) {
+          response.public.regionId = {
+            value: regionId.id,
+          }
+        }
+      } catch (error) {
+        logger.error({
+          error,
+          message: 'setProfile.getRegionId',
+        })
+      }
 
       promises.push(
         checkout
