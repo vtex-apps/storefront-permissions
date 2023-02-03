@@ -480,8 +480,10 @@ export const Routes = {
         checkout
           .updateOrderFormProfile(orderFormId, {
             ...clUser,
+            documentType: 'cpf',
             businessDocument: businessDocument || clUser.businessDocument,
-            stateInscription: stateRegistration || clUser.stateInscription,
+            stateInscription:
+              stateRegistration || clUser.stateInscription || '0'.repeat(9),
           })
           .catch((error) => {
             logger.error({
