@@ -50,6 +50,10 @@ export const QUERIES = {
         status
         priceTables
         salesChannel
+        sellers {
+          id
+          name
+        }
         collections {
           id
         }

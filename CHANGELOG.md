@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Added sellers to set profile filter
+
 ## [1.29.10] - 2023-01-27
 
 ### Fixed

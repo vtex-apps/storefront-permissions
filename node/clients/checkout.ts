@@ -271,6 +271,16 @@ export class Checkout extends JanusClient {
       }
     )
 
+  public getRegionId = (
+    country: string,
+    postalCode: string,
+    salesChannel: string
+  ): Promise<RegionsResponse[]> => {
+    return this.get(
+      `/api/checkout/pub/regions?country=${country}&postalCode=${postalCode}&sc=${salesChannel}`
+    )
+  }
+
   protected get = <T>(url: string, config: RequestConfig = {}) => {
     config.headers = {
       ...config.headers,
