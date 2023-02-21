@@ -135,16 +135,21 @@ export class Checkout extends JanusClient {
       { metric: 'checkout-updateOrderFormMarketingData' }
     )
 
+  public async clearCart(orderFormId: string) {
+    return this.post(
+      `${this.routes.orderForm(orderFormId)}/items/removeAll`,
+      {}
+    )
+  }
+
   public updateSalesChannel = async (
     orderFormId: string,
     salesChannel: any
   ) => {
     const { items } = await this.get(this.routes.orderForm(orderFormId))
-    const removeAll = async () =>
-      this.post(`${this.routes.orderForm(orderFormId)}/items/removeAll`, {})
 
     if (items?.length) {
-      await removeAll()
+      await this.clearCart(orderFormId)
 
       return this.post(
         `${this.routes.orderForm(orderFormId)}/items?sc=${salesChannel}`,
@@ -175,7 +180,7 @@ export class Checkout extends JanusClient {
       }
     )
 
-    await removeAll()
+    await this.clearCart(orderFormId)
 
     return response
   }

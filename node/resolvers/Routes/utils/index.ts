@@ -9,6 +9,13 @@ export class ErrorResponse extends Error {
 }
 
 export const QUERIES = {
+  getB2BSettings: `query Settings {
+      getB2BSettings {
+        uiSettings {
+          clearCart
+        }
+      }
+  }`,
   getCostCenterById: `query Costcenter($id: ID!) {
       getCostCenterById(id: $id) {
         paymentTerms {
