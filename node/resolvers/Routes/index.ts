@@ -433,12 +433,14 @@ export const Routes = {
       const { clearCart } = b2bSettingsResponse?.data?.getB2BSettings
 
       if (clearCart) {
-        await checkout.clearCart(orderFormId).catch((error) => {
+        try {
+          await checkout.clearCart(orderFormId)
+        } catch (error) {
           logger.error({
             error,
             message: 'setProfile.clearCart',
           })
-        })
+        }
       }
 
       const marketingTags: any =
