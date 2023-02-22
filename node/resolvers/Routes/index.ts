@@ -412,35 +412,35 @@ export const Routes = {
           })
         })
 
-      const b2bSettingsResponse: any = await graphqlServer
-        .query(
-          QUERIES.getB2BSettings,
-          {},
-          {
-            persistedQuery: {
-              provider: 'vtex.b2b-organizations-graphql@0.x',
-              sender: 'vtex.storefront-permissions@1.x',
-            },
-          }
-        )
-        .catch((error) => {
-          logger.error({
-            error,
-            message: 'setProfile.getB2BSettings',
+      try {
+        const b2bSettingsResponse: any = await graphqlServer
+          .query(
+            QUERIES.getB2BSettings,
+            {},
+            {
+              persistedQuery: {
+                provider: 'vtex.b2b-organizations-graphql@0.x',
+                sender: 'vtex.storefront-permissions@1.x',
+              },
+            }
+          )
+          .catch((error) => {
+            logger.error({
+              error,
+              message: 'setProfile.getB2BSettings',
+            })
           })
-        })
 
-      const { clearCart } = b2bSettingsResponse?.data?.getB2BSettings
+        const { clearCart } = b2bSettingsResponse?.data?.getB2BSettings
 
-      if (clearCart) {
-        try {
+        if (clearCart) {
           await checkout.clearCart(orderFormId)
-        } catch (error) {
-          logger.error({
-            error,
-            message: 'setProfile.clearCart',
-          })
         }
+      } catch (error) {
+        logger.error({
+          error,
+          message: 'setProfile.clearCart',
+        })
       }
 
       const marketingTags: any =
