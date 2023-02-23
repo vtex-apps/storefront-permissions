@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.31.0] - 2023-02-23
+
 ### Added
 
 - Added a feature when the user logs in or changes the current organization.
