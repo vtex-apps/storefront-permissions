@@ -258,23 +258,21 @@ export const Routes = {
           organization = (await getOrganization(organizationList.id))?.data
             ?.getOrganizationById
 
-          try {
-            await setActiveUserByOrganization(
-              null,
-              {
-                costId: organizationList.costId,
-                email,
-                orgId: organizationList.orgId,
-                userId: organizationList.id,
-              },
-              ctx
-            )
-          } catch (error) {
+          setActiveUserByOrganization(
+            null,
+            {
+              costId: organizationList.costId,
+              email,
+              orgId: organizationList.orgId,
+              userId: organizationList.id,
+            },
+            ctx
+          ).catch((error) => {
             logger.warn({
               error,
               message: 'setProfile.setActiveUserByOrganizationError',
             })
-          }
+          })
         }
       } else {
         logger.warn({
@@ -366,24 +364,14 @@ export const Routes = {
     }
 
     if (salesChannel) {
-      try {
-        await checkout
-          .updateSalesChannel(orderFormId, salesChannel)
-          .catch((error) => {
-            console.error(error)
-            logger.error({
-              error,
-              message: 'setProfile.updateSalesChannel',
-            })
-          })
-
-        response.public.sc.value = salesChannel.toString()
-      } catch (error) {
+      checkout.updateSalesChannel(orderFormId, salesChannel).catch((error) => {
+        console.error(error)
         logger.error({
           error,
           message: 'setProfile.updateSalesChannel',
         })
-      }
+      })
+      response.public.sc.value = salesChannel.toString()
     }
 
     if (
@@ -484,7 +472,10 @@ export const Routes = {
       promises.push(
         checkout
           .updateOrderFormShipping(orderFormId, {
-            address,
+            address: {
+              ...address,
+              geoCoordinates: [],
+            },
             clearAddressIfPostalCodeNotFound: false,
           })
           .catch((error) => {
