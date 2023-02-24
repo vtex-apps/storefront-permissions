@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.31.1] - 2023-02-24
+
 ### Fixed
 
 - Fixed the getCoordinates shipping data and removing unnecessary sync calls
