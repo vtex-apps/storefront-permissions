@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { ForbiddenError } from '@vtex/api'
 import { json } from 'co-body'
 
@@ -519,8 +518,6 @@ export const Routes = {
 
     // Don't await promises, to avoid session timeout
     Promise.all(promises)
-
-    console.log('setProfile.output =>', { body, output: response })
 
     logger.info({
       'setProfile.body': JSON.stringify(body),
