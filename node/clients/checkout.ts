@@ -152,9 +152,9 @@ export class Checkout extends JanusClient {
     orderFormId: string,
     salesChannel: any
   ) => {
-    const of = await this.get(this.routes.orderForm(orderFormId))
+    const orderForm = await this.get(this.routes.orderForm(orderFormId))
 
-    const { items, salesChannel: sc }: any = of
+    const { items, salesChannel: sc }: any = orderForm
 
     if (String(salesChannel) !== String(sc) && items?.length) {
       await this.clearCart(orderFormId)
@@ -200,24 +200,7 @@ export class Checkout extends JanusClient {
       }
     }
 
-    // TODO: Change SC even without items. Suggestion, have a setting to define a "test sku"
-    // const response = await this.post(
-    //   `${this.routes.orderForm(orderFormId)}/items?sc=${salesChannel}`,
-    //   {
-    //     orderItems: [
-    //       {
-    //         id: '1',
-    //         index: 0,
-    //         price: 1,
-    //         quantity: 1,
-    //         seller: '1',
-    //       },
-    //     ],
-    //   }
-    // )
-    // await this.clearCart(orderFormId)
-
-    return of
+    return orderForm
   }
 
   public updateOrderFormClientPreferencesData = (
