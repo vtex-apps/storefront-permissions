@@ -30,6 +30,12 @@ export class Checkout extends JanusClient {
         `${base}/orderForm/${orderFormId}/profile`,
       attachmentsData: (orderFormId: string, field: string) =>
         `${base}/orderForm/${orderFormId}/attachments/${field}`,
+      attachmentItem: (
+        orderFormId: string,
+        field: string,
+        index: string | number
+      ) =>
+        `${base}/orderForm/${orderFormId}/items/${index}/attachments/${field}`,
       assemblyOptions: (
         orderFormId: string,
         itemId: string | number,
@@ -146,12 +152,14 @@ export class Checkout extends JanusClient {
     orderFormId: string,
     salesChannel: any
   ) => {
-    const { items } = await this.get(this.routes.orderForm(orderFormId))
+    const orderForm = await this.get(this.routes.orderForm(orderFormId))
 
-    if (items?.length) {
+    const { items, salesChannel: sc }: any = orderForm
+
+    if (String(salesChannel) !== String(sc) && items?.length) {
       await this.clearCart(orderFormId)
 
-      return this.post(
+      await this.post(
         `${this.routes.orderForm(orderFormId)}/items?sc=${salesChannel}`,
         {
           orderItems: items.map((item: any) => ({
@@ -163,26 +171,36 @@ export class Checkout extends JanusClient {
           })),
         }
       )
+
+      // Check attachments
+      const attachmentPromise: any[] = []
+
+      items.forEach((item: { attachments: any[] }, index: string | number) => {
+        if (item.attachments?.length) {
+          item.attachments.forEach(
+            (attachment: { name: string; content: any }) => {
+              attachmentPromise.push(
+                this.post(
+                  this.routes.attachmentItem(
+                    orderFormId,
+                    attachment.name,
+                    index
+                  ),
+                  {
+                    content: attachment.content,
+                  }
+                )
+              )
+            }
+          )
+        }
+      })
+      if (attachmentPromise.length) {
+        await Promise.all(attachmentPromise)
+      }
     }
 
-    const response = await this.post(
-      `${this.routes.orderForm(orderFormId)}/items?sc=${salesChannel}`,
-      {
-        orderItems: [
-          {
-            id: '1',
-            index: 0,
-            price: 1,
-            quantity: 1,
-            seller: '1',
-          },
-        ],
-      }
-    )
-
-    await this.clearCart(orderFormId)
-
-    return response
+    return orderForm
   }
 
   public updateOrderFormClientPreferencesData = (
