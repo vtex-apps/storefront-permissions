@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.31.2] - 2023-02-27
+
 ### Fixed
 - `setProfile` adding sku 1 to the cart to set sales channel when the cart is empty
 - `setProfile` losing item attachments after login
