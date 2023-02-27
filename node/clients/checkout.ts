@@ -185,11 +185,11 @@ export class Checkout extends JanusClient {
                     orderFormId,
                     attachment.name,
                     index
-                  )
-                ),
-                {
-                  content: attachment.content,
-                }
+                  ),
+                  {
+                    content: attachment.content,
+                  }
+                )
               )
             }
           )
