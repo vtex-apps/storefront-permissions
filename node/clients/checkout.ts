@@ -7,7 +7,6 @@ import type {
 } from '@vtex/api'
 import { JanusClient } from '@vtex/api'
 import type { AxiosError } from 'axios'
-import { forEach } from 'ramda'
 
 import { checkoutCookieFormat, statusToError } from '../utils'
 
