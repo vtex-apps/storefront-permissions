@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Changed the scroll to search with pagination
+
 ## [1.31.2] - 2023-02-27
 
 ### Fixed

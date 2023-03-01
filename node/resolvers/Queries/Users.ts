@@ -11,38 +11,27 @@ import { getAppSettings } from './Settings'
 
 const config: any = currentSchema('b2b_users')
 
-const SCROLL_AWAIT_TIME = 100
-const SLEEP_ADD_PERCENTAGE = 0.1
-const SCROLL_SIZE = 1000
-
-const sleep = (ms: number) => {
-  const time = ms + SLEEP_ADD_PERCENTAGE * ms
-
-  return new Promise((resolve) => setTimeout(resolve, time))
+const PAGINATION = {
+  page: 1,
+  pageSize: 50,
 }
 
-export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
-  const {
-    clients: { masterdata },
-    vtex: { logger },
-  } = ctx
-
-  const { email } = params
-
+export const getAllUsers = async ({
+  masterdata,
+  logger,
+  where,
+}: {
+  masterdata: any
+  logger: any
+  where?: string
+}) => {
   try {
-    let token: string | undefined
+    let currentPage = PAGINATION.page
     let hasMore = true
     const users = [] as any[]
 
     const scrollMasterData = async () => {
-      await sleep(SCROLL_AWAIT_TIME)
-      const {
-        mdToken,
-        data,
-      }: {
-        mdToken: string
-        data: any
-      } = await masterdata.scrollDocuments({
+      const resp = await masterdata.searchDocumentsWithPaginationInfo({
         dataEntity: config.name,
         fields: [
           'id',
@@ -56,23 +45,31 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
           'canImpersonate',
           'active',
         ],
-        mdToken: token,
+        pagination: {
+          page: currentPage,
+          pageSize: PAGINATION.pageSize,
+        },
         schema: config.version,
-        size: SCROLL_SIZE,
-        where: `email = "${email}"`,
+        ...(where ? { where } : {}),
       })
 
-      if (!data.length && token) {
-        hasMore = false
+      const { data, pagination } = resp as unknown as {
+        pagination: {
+          total: number
+        }
+        data: any
       }
 
-      if (!token && mdToken) {
-        token = mdToken
+      const totalPages = Math.ceil(pagination.total / PAGINATION.pageSize)
+
+      if (currentPage >= totalPages) {
+        hasMore = false
       }
 
       users.push(...data)
 
       if (hasMore) {
+        currentPage += 1
         await scrollMasterData()
       }
     }
@@ -87,6 +84,17 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
     })
     throw new Error(error)
   }
+}
+
+export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { email } = params
+
+  return getAllUsers({ masterdata, logger, where: `email=${email}` })
 }
 
 export const getActiveUserByEmail = async (
@@ -299,63 +307,7 @@ export const listAllUsers = async (_: any, __: any, ctx: Context) => {
     vtex: { logger },
   } = ctx
 
-  try {
-    let token: string | undefined
-    let hasMore = true
-    const users = [] as any[]
-
-    const scrollMasterData = async () => {
-      await sleep(SCROLL_AWAIT_TIME)
-      const {
-        mdToken,
-        data,
-      }: {
-        mdToken: string
-        data: any
-      } = await masterdata.scrollDocuments({
-        dataEntity: config.name,
-        fields: [
-          'id',
-          'roleId',
-          'userId',
-          'clId',
-          'orgId',
-          'costId',
-          'name',
-          'email',
-          'canImpersonate',
-        ],
-        mdToken: token,
-        schema: config.version,
-        size: SCROLL_SIZE,
-      })
-
-      if (!data.length && token) {
-        hasMore = false
-      }
-
-      if (!token && mdToken) {
-        token = mdToken
-      }
-
-      users.push(...data)
-
-      if (hasMore) {
-        await scrollMasterData()
-      }
-    }
-
-    await scrollMasterData()
-
-    return users
-  } catch (e) {
-    logger.error({
-      error: e,
-      message: 'Profiles.listAllUsers-error',
-    })
-
-    return { status: 'error', message: e }
-  }
+  return getAllUsers({ masterdata, logger })
 }
 
 export const listUsers = async (
