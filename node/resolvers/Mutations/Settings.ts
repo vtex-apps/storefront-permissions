@@ -12,10 +12,11 @@ export const sessionWatcher = async (_: any, params: any, ctx: Context) => {
   const settings: any = await vbase.getJSON('b2b_settings', app).catch(() => {
     return {}
   })
+  console.log("params:", params)
 
-  const { active } = params
+  const { active, regionalizationType } = params
 
-  settings.sessionWatcher = { active }
+  settings.sessionWatcher = { active, regionalizationType }
 
   return vbase
     .saveJSON('b2b_settings', app, settings)

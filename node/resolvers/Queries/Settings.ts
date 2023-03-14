@@ -94,9 +94,13 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
   const settings: any = await vbase.getJSON('b2b_settings', app).catch(() => {
     return {}
   })
+  console.log("settings:", settings)
+
+  console.log(settings?.sessionWatcher?.active)
+
 
   try {
-    return settings?.sessionWatcher?.active ?? true
+    return settings?.sessionWatcher ?? true
   } catch (error) {
     logger.error({
       error,

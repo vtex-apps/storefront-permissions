@@ -67,7 +67,10 @@ type Query {
 }
 
 type Mutation {
-  sessionWatcher(active: Boolean!): Boolean @cacheControl(scope: PRIVATE)
+  sessionWatcher(
+    active: Boolean!
+    regionalizationType: regionalizationTypeInput!
+  ): Boolean @cacheControl(scope: PRIVATE)
 
   saveRole(
     id: ID
@@ -192,6 +195,11 @@ type Profile {
   features: [Feature]!
   roleId: ID!
   scoped: Boolean
+}
+enum regionalizationTypeInput {
+  DEFAULTV2
+  PRIVATESELLER
+  DEFAULTV1
 }
 
 input FeatureInput {
