@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Fixed the `setProfile` to clear the cart properly
 - Improved calls on set profile in order to get faster response
 
+### Fixed
+
+- Only apply one regionalization behaviour at a time.
+
+### Added
+
+- Setting to control what regionalization type the store has.
 
 ## [1.31.3] - 2023-03-01
 
@@ -28,6 +35,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.31.2] - 2023-02-27
 
 ### Fixed
+
 - `setProfile` adding sku 1 to the cart to set sales channel when the cart is empty
 - `setProfile` losing item attachments after login
 
@@ -42,7 +50,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - Added a feature when the user logs in or changes the current organization.
-
 
 ## [1.30.0] - 2023-02-09
 
@@ -107,7 +114,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - getOrganizationsByEmail is returning all users instead of only first 50 records
 
-
 ## [1.29.2] - 2022-11-28
 
 ### Fixed
@@ -126,7 +132,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.29.0] - 2022-11-08
 
-
 ### Added
 
 - Added the functionality to the storefront permissions to change the sales channel according to the Organization
@@ -142,7 +147,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - Force the business document and state registration on setProfile method
-
 
 ## [1.27.0] - 2022-10-19
 
@@ -180,7 +184,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
- - Changed the validation of the add user
+- Changed the validation of the add user
 
 ### Added
 
