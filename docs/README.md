@@ -242,13 +242,23 @@ Sample response:
 
 Using Session Watcher, **Storefront Permissions** detects changes to the user authentication to trigger changes to its cart and navigation, based on associated price tables, collections, profile information and shipping options.
 
-This query fetches Session Watcher’s status, that is, whether it is active or not. The response will be a boolean, with `true` meaning that it is enabled or `false` meaning it is disabled.
+This query fetches Session Watcher’s status, that is, whether it is active or not.
+And it will query the Regionalization Type set for the store.
+The response has a a boolean, with `true` meaning that it is enabled or `false` meaning it is disabled.
+And the three values:
+
+- `DEFAULTV2` which is the default v2 regionalization from VTEX and the default for the application.
+- `DEFAULTV1` which uses the VTEX regionalization v1.
+- `PRIVATESELLER` which uses the private-seller facet filter, this should only be used in sellerWhiteLabel sellers.
 
 Sample query:
 
 ```graphql
-query getSessionWatcher {
-  getSessionWatcher
+query {
+  getSessionWatcher {
+    active
+    regionalizationType
+  }
 }
 ```
 
@@ -257,7 +267,10 @@ Sample response:
 ```graphql
 {
   "data": {
-    "getSessionWatcher": false
+    "getSessionWatcher": {
+      "active": true,
+      "regionalizationType": "DEFAULTV2"
+    }
   }
 }
 ```

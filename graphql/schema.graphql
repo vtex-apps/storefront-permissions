@@ -56,7 +56,7 @@ type Query {
     @withSender
     @cacheControl(scope: PRIVATE)
 
-  getSessionWatcher: Boolean @cacheControl(scope: PRIVATE)
+  getSessionWatcher: sessionWatcherData @cacheControl(scope: PRIVATE)
 
   getUsersByEmail(email: String!): [User] @cacheControl(scope: PRIVATE)
 
@@ -142,6 +142,10 @@ type Mutation {
   setCurrentOrganization(orgId: ID!, costId: ID!): MutationResponse
     @withSession
     @cacheControl(scope: PRIVATE)
+}
+type sessionWatcherData {
+  active: Boolean
+  regionalizationType: regionalizationTypeInput
 }
 
 type UserImpersonation {
