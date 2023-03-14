@@ -131,7 +131,6 @@ export const Routes = {
     ctx.set('Cache-Control', 'no-cache, no-store')
 
     const isWatchActive = await getSessionWatcher(null, null, ctx)
-    console.log('is watch active', isWatchActive)
 
     if (!isWatchActive.active) {
       ctx.response.body = response
@@ -273,8 +272,6 @@ export const Routes = {
     ])
 
     let organization = organizationResponse?.data?.getOrganizationById
-
-    console.log('organization:', organization)
 
     // prevent login if org is inactive
     if (organization.status === 'inactive') {
@@ -435,7 +432,10 @@ export const Routes = {
         marketingTagsResponse?.data?.getMarketingTags?.tags
 
       try {
-        if (isWatchActive.regionalizationType === 'DEFAULTV2') {
+        if (
+          isWatchActive.regionalizationType === 'DEFAULTV2' ||
+          !isWatchActive.regionalizationType
+        ) {
           const [regionId] = await checkout.getRegionId(
             address.country,
             address.postalCode,
