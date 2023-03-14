@@ -90,17 +90,17 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
   } = ctx
 
   const app: string = getAppId()
+  const defaultSettings = {
+    active: true,
+    regionalizationType: 'DEFAULTV2',
+  }
 
   const settings: any = await vbase.getJSON('b2b_settings', app).catch(() => {
     return {}
   })
-  console.log("settings:", settings)
-
-  console.log(settings?.sessionWatcher?.active)
-
 
   try {
-    return settings?.sessionWatcher ?? true
+    return settings?.sessionWatcher ?? defaultSettings
   } catch (error) {
     logger.error({
       error,
