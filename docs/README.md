@@ -285,7 +285,7 @@ Sample mutation:
 
 ```graphql
 mutation impersonateUser($userId: ID)
-  @context(provider: "vtex.storefront-permissions") {
+@context(provider: "vtex.storefront-permissions") {
   impersonateUser(userId: $userId) {
     status
     message
