@@ -131,7 +131,7 @@ export const Routes = {
 
     const isWatchActive = await getSessionWatcher(null, null, ctx)
 
-    if (!isWatchActive.active) {
+    if (!isWatchActive?.active) {
       ctx.response.body = response
       ctx.response.status = 200
 

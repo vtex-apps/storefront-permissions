@@ -69,7 +69,7 @@ type Query {
 type Mutation {
   sessionWatcher(
     active: Boolean!
-    regionalizationType: regionalizationTypeInput!
+    regionalizationType: regionalizationTypeInput
   ): Boolean @cacheControl(scope: PRIVATE)
 
   saveRole(
