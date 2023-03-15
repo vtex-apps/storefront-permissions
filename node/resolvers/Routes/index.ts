@@ -353,15 +353,11 @@ export const Routes = {
       if (organization.sellers?.length) {
         // DISCLAIMER PRIVATE-SELLER only works for SWL sellers also leaving this commented as there might be a way to use it for traditional sellers later on.
 
-        // const sellersName = organization.sellers.map(
-        //   (seller: any) => `sellername=${seller.name}`
-        // )
-
         const sellersId = organization.sellers.map(
           (seller: any) => `private-seller=${seller.id}`
         )
 
-        facets = [...facets /* ...sellersName */, , ...sellersId]
+        facets = [...facets, ...sellersId]
       }
     }
 
