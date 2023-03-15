@@ -90,7 +90,9 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
   } = ctx
 
   const app: string = getAppId()
-  const defaultSettings = {
+  //applies when settings?.sessionWatcher == undefined for new accounts
+
+  const defaultSettingsSessionWatcher = {
     active: true,
     regionalizationType: 'DEFAULTV2',
   }
@@ -100,7 +102,7 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
   })
 
   try {
-    return settings?.sessionWatcher ?? defaultSettings
+    return settings?.sessionWatcher ?? defaultSettingsSessionWatcher
   } catch (error) {
     logger.error({
       error,
