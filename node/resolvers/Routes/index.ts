@@ -168,12 +168,10 @@ export const Routes = {
     } else if (telemarketingImpersonate) {
       const telemarketingEmail = body?.impersonate?.storeUserEmail?.value
 
-      response[
-        'storefront-permissions'
-      ].storeUserId.value = telemarketingImpersonate
-      response[
-        'storefront-permissions'
-      ].storeUserEmail.value = telemarketingEmail
+      response['storefront-permissions'].storeUserId.value =
+        telemarketingImpersonate
+      response['storefront-permissions'].storeUserEmail.value =
+        telemarketingEmail
       email = telemarketingEmail
     }
 
@@ -447,9 +445,9 @@ export const Routes = {
           const sellerIds = organization.sellers.map((seller: any) => seller.id)
           const sellerString = `SW#${sellerIds.join(',')}`
 
-          const encodedSellerString = Buffer.from(sellerString).toString(
-            'base64'
-          )
+          const encodedSellerString =
+            Buffer.from(sellerString).toString('base64')
+
           if (encodedSellerString) {
             response.public.regionId = {
               value: encodedSellerString,
