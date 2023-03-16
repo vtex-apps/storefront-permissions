@@ -90,7 +90,7 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
   } = ctx
 
   const app: string = getAppId()
-  //applies when settings?.sessionWatcher == undefined for new accounts
+  // applies when settings?.sessionWatcher == undefined for new accounts
 
   const defaultSettingsSessionWatcher = {
     active: true,
