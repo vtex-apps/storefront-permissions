@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed the `setProfile` to clear the cart properly
+- Improved calls on set profile in order to get faster response
+
+
 ## [1.31.3] - 2023-03-01
 
 ### Fixed
