@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.31.4] - 2023-03-17
+
 ### Fixed
 
 - Fixed the `setProfile` to clear the cart properly
