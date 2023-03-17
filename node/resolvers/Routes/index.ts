@@ -8,6 +8,7 @@ import { generateClUser, QUERIES } from './utils'
 import { setActiveUserByOrganization } from '../Mutations/Users'
 
 export const Routes = {
+  PROFILE_DOCUMENT_TYPE: 'cpf',
   checkPermissions: async (ctx: Context) => {
     const {
       vtex: { logger },
@@ -493,6 +494,7 @@ export const Routes = {
           .updateOrderFormProfile(orderFormId, {
             ...clUser,
             businessDocument: businessDocument || clUser.businessDocument,
+            documentType: Routes.PROFILE_DOCUMENT_TYPE,
             stateInscription:
               stateRegistration || clUser.stateInscription || '0'.repeat(9),
           })
