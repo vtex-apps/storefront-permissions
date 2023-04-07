@@ -8,6 +8,7 @@ import { generateClUser, QUERIES } from './utils'
 import { setActiveUserByOrganization } from '../Mutations/Users'
 
 export const Routes = {
+  PROFILE_DOCUMENT_TYPE: 'cpf',
   checkPermissions: async (ctx: Context) => {
     const {
       vtex: { logger },
@@ -142,11 +143,10 @@ export const Routes = {
     const body: any = await json(req)
 
     const b2bImpersonate = body?.public?.impersonate?.value
-
     const telemarketingImpersonate = body?.impersonate?.storeUserId?.value
+    const orderFormId = body?.checkout?.orderFormId?.value
 
     let email = body?.authentication?.storeUserEmail?.value
-    const orderFormId = body?.checkout?.orderFormId?.value
     let businessName = null
     let businessDocument = null
     let phoneNumber = null
@@ -224,8 +224,52 @@ export const Routes = {
         })
     }
 
-    let organization = (await getOrganization(user.orgId))?.data
-      ?.getOrganizationById
+    const [
+      organizationResponse,
+      costCenterResponse,
+      salesChannels,
+      marketingTagsResponse,
+      b2bSettingsResponse,
+    ]: Array<{
+      data: any
+    }> = await Promise.all([
+      getOrganization(user.orgId),
+      graphqlServer.query(
+        QUERIES.getCostCenterById,
+        { id: user.costId },
+        {
+          persistedQuery: {
+            provider: 'vtex.b2b-organizations-graphql@0.x',
+            sender: 'vtex.storefront-permissions@1.x',
+          },
+        }
+      ),
+      salesChannelClient.getSalesChannel(),
+      graphqlServer.query(
+        QUERIES.getMarketingTags,
+        {
+          costId: user.costId,
+        },
+        {
+          persistedQuery: {
+            provider: 'vtex.b2b-organizations-graphql@0.x',
+            sender: 'vtex.storefront-permissions@1.x',
+          },
+        }
+      ),
+      graphqlServer.query(
+        QUERIES.getB2BSettings,
+        {},
+        {
+          persistedQuery: {
+            provider: 'vtex.b2b-organizations-graphql@0.x',
+            sender: 'vtex.storefront-permissions@1.x',
+          },
+        }
+      ),
+    ])
+
+    let organization = organizationResponse?.data?.getOrganizationById
 
     // prevent login if org is inactive
     if (organization.status === 'inactive') {
@@ -318,25 +362,7 @@ export const Routes = {
     response.public.facets.value = facets ? `${facets.join(';')};` : null
 
     response['storefront-permissions'].costcenter.value = user.costId
-    const costCenterResponse: any = await graphqlServer
-      .query(
-        QUERIES.getCostCenterById,
-        { id: user.costId },
-        {
-          persistedQuery: {
-            provider: 'vtex.b2b-organizations-graphql@0.x',
-            sender: 'vtex.storefront-permissions@1.x',
-          },
-        }
-      )
-      .catch((error) => {
-        logger.error({
-          error,
-          message: 'setProfile.graphqlGetCostCenterById',
-        })
-      })
-
-    phoneNumber = costCenterResponse.data.getCostCenterById.phoneNumber
+    phoneNumber = costCenterResponse?.data?.getCostCenterById?.phoneNumber
 
     businessDocument =
       costCenterResponse.data.getCostCenterById.businessDocument
@@ -346,8 +372,7 @@ export const Routes = {
 
     let { salesChannel } = organization
 
-    const salesChannels = (await salesChannelClient.getSalesChannel()) as any
-    const validChannels = salesChannels.filter(
+    const validChannels = salesChannels.data.filter(
       (channel: any) => channel.IsActive
     )
 
@@ -374,52 +399,11 @@ export const Routes = {
       response.public.sc.value = salesChannel.toString()
     }
 
-    if (
-      costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
-      orderFormId
-    ) {
-      const [address] = costCenterResponse.data.getCostCenterById.addresses
-
-      const marketingTagsResponse: any = await graphqlServer
-        .query(
-          QUERIES.getMarketingTags,
-          {
-            costId: user.costId,
-          },
-          {
-            persistedQuery: {
-              provider: 'vtex.b2b-organizations-graphql@0.x',
-              sender: 'vtex.storefront-permissions@1.x',
-            },
-          }
-        )
-        .catch((error) => {
-          logger.error({
-            error,
-            message: 'setProfile.getMarketingTags',
-          })
-        })
-
+    if (orderFormId) {
       try {
-        const b2bSettingsResponse: any = await graphqlServer
-          .query(
-            QUERIES.getB2BSettings,
-            {},
-            {
-              persistedQuery: {
-                provider: 'vtex.b2b-organizations-graphql@0.x',
-                sender: 'vtex.storefront-permissions@1.x',
-              },
-            }
-          )
-          .catch((error) => {
-            logger.error({
-              error,
-              message: 'setProfile.getB2BSettings',
-            })
-          })
-
-        const { clearCart } = b2bSettingsResponse?.data?.getB2BSettings
+        const {
+          uiSettings: { clearCart },
+        } = b2bSettingsResponse?.data?.getB2BSettings
 
         if (clearCart) {
           await checkout.clearCart(orderFormId)
@@ -430,6 +414,13 @@ export const Routes = {
           message: 'setProfile.clearCart',
         })
       }
+    }
+
+    if (
+      costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
+      orderFormId
+    ) {
+      const [address] = costCenterResponse.data.getCostCenterById.addresses
 
       const marketingTags: any =
         marketingTagsResponse?.data?.getMarketingTags?.tags
@@ -519,8 +510,8 @@ export const Routes = {
         checkout
           .updateOrderFormProfile(orderFormId, {
             ...clUser,
-            documentType: 'cpf',
             businessDocument: businessDocument || clUser.businessDocument,
+            documentType: Routes.PROFILE_DOCUMENT_TYPE,
             stateInscription:
               stateRegistration || clUser.stateInscription || '0'.repeat(9),
           })

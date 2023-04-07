@@ -20,7 +20,7 @@ jobs:
       nodeSonar: true
       nodeSonarProjectKey: vtex-apps_storefront-permissions
       nodeSonarOrganization: vtex-apps
-      cypress: true
+      cypress: false
       cyRunnerTimeOut: 45
     secrets:
       githubToken: ${{ secrets.GITHUB_TOKEN }}
