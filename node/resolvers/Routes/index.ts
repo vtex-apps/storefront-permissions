@@ -388,14 +388,19 @@ export const Routes = {
       }
     }
 
+    const salesChannelPromise = []
+
     if (salesChannel) {
-      checkout.updateSalesChannel(orderFormId, salesChannel).catch((error) => {
-        console.error(error)
-        logger.error({
-          error,
-          message: 'setProfile.updateSalesChannel',
-        })
-      })
+      salesChannelPromise.push(
+        checkout
+          .updateSalesChannel(orderFormId, salesChannel)
+          .catch((error) => {
+            logger.error({
+              error,
+              message: 'setProfile.updateSalesChannel',
+            })
+          })
+      )
       response.public.sc.value = salesChannel.toString()
     }
 
@@ -406,6 +411,7 @@ export const Routes = {
         } = b2bSettingsResponse?.data?.getB2BSettings
 
         if (clearCart) {
+          await Promise.all(salesChannelPromise)
           await checkout.clearCart(orderFormId)
         }
       } catch (error) {
