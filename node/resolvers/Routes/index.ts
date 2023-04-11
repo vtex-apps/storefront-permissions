@@ -349,7 +349,10 @@ export const Routes = {
 
     if (organization.sellers?.length) {
       const sellersName = organization.sellers.map(
-        (seller: any) => `sellername=${seller.name}`
+        (seller: any) =>
+          `sellername=${seller.name
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')}`
       )
 
       const sellersId = organization.sellers.map(
