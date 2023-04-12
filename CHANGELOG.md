@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Only apply one regionalization behaviour at a time.
+
+### Added
+
+- Setting to control what regionalization type the store has.
+
+### Removed
+
+- [ENGINEERS-1247] - Disable cypress tests in PR level
+
 ### Changed
 
 - Run schedule job only on saturday
@@ -17,14 +29,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Fixed the `setProfile` to clear the cart properly
 - Improved calls on set profile in order to get faster response
-
-### Fixed
-
-- Only apply one regionalization behaviour at a time.
-
-### Added
-
-- Setting to control what regionalization type the store has.
 
 ## [1.31.3] - 2023-03-01
 
