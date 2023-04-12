@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Setting to control what regionalization type the store has.
 
+## [1.31.5] - 2023-04-11
+
+### Fixed
+
+- Fixed clear call async calls
+
 ### Removed
 
 - [ENGINEERS-1247] - Disable cypress tests in PR level
