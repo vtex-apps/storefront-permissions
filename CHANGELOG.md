@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Added the x-b2b-senderapp header to fix problems with the new B2B API
+
+
 ## [1.31.5] - 2023-04-11
 
 ### Fixed
