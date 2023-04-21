@@ -207,6 +207,42 @@ export const checkCustomerSchema = async (_: any, __: any, ctx: Context) => {
   return diff.length <= 0
 }
 
+export const getB2BUserById = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  try {
+    const { id } = params
+
+    const user = await masterdata.getDocument({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'name',
+        'email',
+        'clId',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+      ],
+      id,
+    })
+
+    return user
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getUserById-error',
+    })
+
+    return { status: 'error', message: error }
+  }
+}
+
 export const getUser = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
