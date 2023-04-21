@@ -87,6 +87,7 @@ export const Routes = {
         graphqlServer,
         masterdata,
         checkout,
+        profileSystem,
         salesChannel: salesChannelClient,
       },
       req,
@@ -166,10 +167,20 @@ export const Routes = {
           id: string
           email: string
           userId: string
+          name: string
         }
 
         email = user.email
-        response['storefront-permissions'].storeUserId.value = user.userId
+        let { userId } = user
+
+        if (!userId) {
+          userId = await profileSystem.createRegisterOnProfileSystem(
+            email,
+            user.name
+          )
+        }
+
+        response['storefront-permissions'].storeUserId.value = userId
         response['storefront-permissions'].storeUserEmail.value = user.email
       } catch (error) {
         logger.error({ message: 'setProfile.getUserError', error })
