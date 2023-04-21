@@ -21,6 +21,7 @@ type Query {
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
 
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
+  getB2BUser(id: ID!): User @cacheControl(scope: PRIVATE)
 
   checkCustomerSchema: Boolean @cacheControl(scope: PRIVATE)
 
