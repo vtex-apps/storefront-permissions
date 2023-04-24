@@ -133,7 +133,7 @@ export const Routes = {
 
     const isWatchActive = await getSessionWatcher(null, null, ctx)
 
-    if (!isWatchActive) {
+    if (!isWatchActive?.active) {
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -196,6 +196,10 @@ export const Routes = {
     }
 
     if (!email) {
+      if (orderFormId) {
+        await checkout.clearCart(orderFormId)
+      }
+
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -369,19 +373,16 @@ export const Routes = {
       facets = [...facets, ...collections]
     }
 
-    if (organization.sellers?.length) {
-      const sellersName = organization.sellers.map(
-        (seller: any) =>
-          `sellername=${seller.name
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')}`
-      )
+    if (isWatchActive.regionalizationType === 'PRIVATESELLER') {
+      if (organization.sellers?.length) {
+        // DISCLAIMER PRIVATE-SELLER only works for SWL sellers also leaving this commented as there might be a way to use it for traditional sellers later on.
 
-      const sellersId = organization.sellers.map(
-        (seller: any) => `private-seller=${seller.id}`
-      )
+        const sellersId = organization.sellers.map(
+          (seller: any) => `private-seller=${seller.id}`
+        )
 
-      facets = [...facets, ...sellersName, ...sellersId]
+        facets = [...facets, ...sellersId]
+      }
     }
 
     response.public.facets.value = facets ? `${facets.join(';')};` : null
@@ -457,15 +458,32 @@ export const Routes = {
         marketingTagsResponse?.data?.getMarketingTags?.tags
 
       try {
-        const [regionId] = await checkout.getRegionId(
-          address.country,
-          address.postalCode,
-          salesChannel.toString()
-        )
+        if (
+          isWatchActive.regionalizationType === 'DEFAULTV2' ||
+          !isWatchActive.regionalizationType
+        ) {
+          const [regionId] = await checkout.getRegionId(
+            address.country,
+            address.postalCode,
+            salesChannel.toString()
+          )
 
-        if (regionId?.id) {
-          response.public.regionId = {
-            value: regionId.id,
+          if (regionId?.id) {
+            response.public.regionId = {
+              value: regionId.id,
+            }
+          }
+        } else if (isWatchActive.regionalizationType === 'DEFAULTV1') {
+          const sellerIds = organization.sellers.map((seller: any) => seller.id)
+          const sellerString = `SW#${sellerIds.join(',')}`
+
+          const encodedSellerString =
+            Buffer.from(sellerString).toString('base64')
+
+          if (encodedSellerString) {
+            response.public.regionId = {
+              value: encodedSellerString,
+            }
           }
         }
       } catch (error) {
