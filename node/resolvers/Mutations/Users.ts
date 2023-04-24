@@ -56,7 +56,10 @@ const addUserToMasterdata = async ({
   return DocumentId
 }
 
-const getUser = async ({ masterdata, params: { email, id, userId } }: any) => {
+export const getUser = async ({
+  masterdata,
+  params: { email, id, userId },
+}: any) => {
   const where = id || userId ? `id=${id || userId}` : `email=${email}`
 
   return masterdata

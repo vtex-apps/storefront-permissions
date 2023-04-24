@@ -15,6 +15,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Setting to control what regionalization type the store has.
 
+## [1.33.1] - 2023-04-21
+
+### Fixed
+
+- Fixed impersonation user
+
+## [1.33.0] - 2023-04-20
+
+### Fixed
+
+- Fix on impersonation user 
+
+
+## [1.32.0] - 2023-04-19
+
+### Added
+
+- Added the x-b2b-senderapp header to fix problems with the new B2B API
+
 ## [1.31.5] - 2023-04-11
 
 ### Fixed

@@ -5,7 +5,7 @@ import { getRole } from '../Queries/Roles'
 import { getAppSettings, getSessionWatcher } from '../Queries/Settings'
 import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
 import { generateClUser, QUERIES } from './utils'
-import { setActiveUserByOrganization } from '../Mutations/Users'
+import { setActiveUserByOrganization, getUser } from '../Mutations/Users'
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
@@ -85,6 +85,7 @@ export const Routes = {
     const {
       clients: {
         graphqlServer,
+        masterdata,
         checkout,
         profileSystem,
         salesChannel: salesChannelClient,
@@ -152,19 +153,38 @@ export const Routes = {
     let phoneNumber = null
     let tradeName = null
     let stateRegistration = null
+    let user = null
 
     if (b2bImpersonate) {
-      await profileSystem
-        .getProfileInfo(b2bImpersonate)
-        .then((profile: any) => {
-          response['storefront-permissions'].storeUserId.value = profile.userId
-          response['storefront-permissions'].storeUserEmail.value =
-            profile.email
-          email = profile.email
-        })
-        .catch((error) => {
-          logger.error({ message: 'setProfile.getProfileInfoError', error })
-        })
+      try {
+        user = (await getUser({
+          masterdata,
+          params: { userId: b2bImpersonate },
+        })) as {
+          orgId: string
+          costId: string
+          clId: string
+          id: string
+          email: string
+          userId: string
+          name: string
+        }
+
+        email = user.email
+        let { userId } = user
+
+        if (!userId) {
+          userId = await profileSystem.createRegisterOnProfileSystem(
+            email,
+            user.name
+          )
+        }
+
+        response['storefront-permissions'].storeUserId.value = userId
+        response['storefront-permissions'].storeUserEmail.value = user.email
+      } catch (error) {
+        logger.error({ message: 'setProfile.getUserError', error })
+      }
     } else if (telemarketingImpersonate) {
       const telemarketingEmail = body?.impersonate?.storeUserEmail?.value
 
@@ -186,15 +206,17 @@ export const Routes = {
       return
     }
 
-    const user = (await getActiveUserByEmail(null, { email }, ctx).catch(
-      (error) => {
-        logger.warn({ message: 'setProfile.getUserByEmailError', error })
+    if (user === null) {
+      user = (await getActiveUserByEmail(null, { email }, ctx).catch(
+        (error) => {
+          logger.warn({ message: 'setProfile.getUserByEmailError', error })
+        }
+      )) as {
+        orgId: string
+        costId: string
+        clId: string
+        id: string
       }
-    )) as {
-      orgId: string
-      costId: string
-      clId: string
-      id: string
     }
 
     response['storefront-permissions'].userId.value = user?.id

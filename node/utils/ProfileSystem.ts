@@ -23,6 +23,17 @@ export class ProfileSystemClient extends JanusClient {
       },
     })
 
+  public async createRegisterOnProfileSystem(email: string, name: string) {
+    const value = await this.http.post<{ profileId: string }>(
+      `${this.baseUrl}/${email}/PersonalData?extraFields=_all`,
+      {
+        firstName: name,
+      }
+    )
+
+    return value.profileId
+  }
+
   protected get = <T>(url: string, config?: RequestConfig) =>
     this.http.get<T>(url, config)
 }
