@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- geoCoordinates empty
+
 ## [1.33.1] - 2023-04-21
 
 ### Fixed
