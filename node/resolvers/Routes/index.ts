@@ -496,7 +496,7 @@ export const Routes = {
           .updateOrderFormShipping(orderFormId, {
             address: {
               ...address,
-              geoCoordinates: [],
+              geoCoordinates: address.geoCoordinates ?? [],
             },
             clearAddressIfPostalCodeNotFound: false,
           })
