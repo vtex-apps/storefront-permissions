@@ -150,6 +150,7 @@ export const Routes = {
     let email = body?.authentication?.storeUserEmail?.value
     let businessName = null
     let businessDocument = null
+    let documentType = null
     let phoneNumber = null
     let tradeName = null
     let stateRegistration = null
@@ -395,6 +396,16 @@ export const Routes = {
     stateRegistration =
       costCenterResponse.data.getCostCenterById.stateRegistration
 
+    // Only require CPF if cost center contains an address in Brazil
+    // This is a workaround to avoid setting CPF as documentType for countries other than Brazil
+    if (
+      costCenterResponse?.data?.getCostCenterById?.addresses.some(
+        (address: { country: string }) => address.country === 'BRA'
+      )
+    ) {
+      documentType = Routes.PROFILE_DOCUMENT_TYPE
+    }
+
     let { salesChannel } = organization
 
     const validChannels = salesChannels.data.filter(
@@ -525,7 +536,7 @@ export const Routes = {
           .updateOrderFormProfile(orderFormId, {
             ...clUser,
             businessDocument: businessDocument || clUser.businessDocument,
-            documentType: Routes.PROFILE_DOCUMENT_TYPE,
+            documentType: documentType ?? undefined,
             stateInscription:
               stateRegistration || clUser.stateInscription || '0'.repeat(9),
           })
