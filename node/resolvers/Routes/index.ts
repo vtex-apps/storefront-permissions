@@ -530,6 +530,12 @@ export const Routes = {
       tradeName,
     })
 
+    const phoneNumberFormatted =
+      phoneNumber ||
+      clUser.phoneNumber ||
+      clUser.homePhone ||
+      `+1${'0'.repeat(10)}`
+
     if (clUser && orderFormId) {
       promises.push(
         checkout
@@ -537,6 +543,7 @@ export const Routes = {
             ...clUser,
             businessDocument: businessDocument || clUser.businessDocument,
             documentType: documentType ?? undefined,
+            phone: phoneNumberFormatted,
             stateInscription:
               stateRegistration || clUser.stateInscription || '0'.repeat(9),
           })

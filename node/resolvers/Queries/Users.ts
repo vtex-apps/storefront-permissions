@@ -164,6 +164,7 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
         'document',
         'documentType',
         'phone',
+        'homePhone',
         'corporateName',
         'tradeName',
         'corporateDocument',
