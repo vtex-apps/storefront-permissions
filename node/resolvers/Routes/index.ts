@@ -532,7 +532,7 @@ export const Routes = {
 
     const phoneNumberFormatted =
       phoneNumber ||
-      clUser.phoneNumber ||
+      clUser.phone ||
       clUser.homePhone ||
       `+1${'0'.repeat(10)}`
 
