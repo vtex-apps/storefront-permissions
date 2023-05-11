@@ -444,7 +444,9 @@ export const Routes = {
       try {
         const {
           uiSettings: { clearCart },
-        } = b2bSettingsResponse?.data?.getB2BSettings
+        } = b2bSettingsResponse?.data?.getB2BSettings ?? {
+          uiSettings: { clearCart: null },
+        }
 
         if (clearCart) {
           await Promise.all(salesChannelPromise)
@@ -530,6 +532,9 @@ export const Routes = {
       tradeName,
     })
 
+    const phoneNumberFormatted =
+      phoneNumber || clUser.phone || clUser.homePhone || `+1${'0'.repeat(10)}`
+
     if (clUser && orderFormId) {
       promises.push(
         checkout
@@ -537,6 +542,7 @@ export const Routes = {
             ...clUser,
             businessDocument: businessDocument || clUser.businessDocument,
             documentType: documentType ?? undefined,
+            phone: phoneNumberFormatted,
             stateInscription:
               stateRegistration || clUser.stateInscription || '0'.repeat(9),
           })
