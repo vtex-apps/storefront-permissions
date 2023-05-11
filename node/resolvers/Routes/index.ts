@@ -444,7 +444,9 @@ export const Routes = {
       try {
         const {
           uiSettings: { clearCart },
-        } = b2bSettingsResponse?.data?.getB2BSettings
+        } = b2bSettingsResponse?.data?.getB2BSettings ?? {
+          uiSettings: { clearCart: null },
+        }
 
         if (clearCart) {
           await Promise.all(salesChannelPromise)
