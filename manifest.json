@@ -116,5 +116,23 @@
       }
     }
   ],
+  "settingsSchema": {
+    "title": "Storefront Permissions Settings",
+    "type": "object",
+    "properties": {
+      "disableSellersNameFacets": {
+        "title": "Disable Sellers Name Facets",
+        "description": "When enabled, the sellers name facets will be disabled",
+        "type": "boolean",
+        "default": false
+      },
+      "disablePrivateSellersFacets": {
+        "title": "Disable Private Sellers Facets",
+        "description": "When enabled, the private sellers facets will be disabled",
+        "type": "boolean",
+        "default": false
+      }
+    }
+  },
   "$schema": "https://raw.githubusercontent.com/vtex/node-vtex-api/master/gen/manifest.schema"
 }

@@ -9,6 +9,13 @@ import { setActiveUserByOrganization, getUser } from '../Mutations/Users'
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
+  appSettings: async (ctx: Context) => {
+    const appId = process.env.VTEX_APP_ID ? process.env.VTEX_APP_ID : ''
+    const { disableSellersNameFacets, disablePrivateSellersFacets } =
+      await ctx.clients.apps.getAppSettings(appId)
+
+    return { disableSellersNameFacets, disablePrivateSellersFacets }
+  },
   checkPermissions: async (ctx: Context) => {
     const {
       vtex: { logger },
@@ -370,6 +377,9 @@ export const Routes = {
       facets = [...facets, ...collections]
     }
 
+    const { disableSellersNameFacets, disablePrivateSellersFacets } =
+      await Routes.appSettings(ctx)
+
     if (organization.sellers?.length) {
       const sellersName = organization.sellers.map(
         (seller: any) =>
@@ -382,7 +392,13 @@ export const Routes = {
         (seller: any) => `private-seller=${seller.id}`
       )
 
-      facets = [...facets, ...sellersName, ...sellersId]
+      if (!disableSellersNameFacets) {
+        facets = [...facets, ...sellersName]
+      }
+
+      if (!disablePrivateSellersFacets) {
+        facets = [...facets, ...sellersId]
+      }
     }
 
     response.public.facets.value = facets ? `${facets.join(';')};` : null
