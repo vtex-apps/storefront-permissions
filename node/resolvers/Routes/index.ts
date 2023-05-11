@@ -377,26 +377,26 @@ export const Routes = {
       facets = [...facets, ...collections]
     }
 
-    const { disableSellersNameFacets, disablePrivateSellersFacets } =
-      await Routes.appSettings(ctx)
-
     if (organization.sellers?.length) {
-      const sellersName = organization.sellers.map(
-        (seller: any) =>
-          `sellername=${seller.name
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')}`
-      )
-
-      const sellersId = organization.sellers.map(
-        (seller: any) => `private-seller=${seller.id}`
-      )
+      const { disableSellersNameFacets, disablePrivateSellersFacets } =
+        await Routes.appSettings(ctx)
 
       if (!disableSellersNameFacets) {
+        const sellersName = organization.sellers.map(
+          (seller: any) =>
+            `sellername=${seller.name
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')}`
+        )
+
         facets = [...facets, ...sellersName]
       }
 
       if (!disablePrivateSellersFacets) {
+        const sellersId = organization.sellers.map(
+          (seller: any) => `private-seller=${seller.id}`
+        )
+
         facets = [...facets, ...sellersId]
       }
     }
