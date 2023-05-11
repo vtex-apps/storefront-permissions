@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Added the settings to allow the admin disable the facets on session
+
 ## [1.33.4] - 2023-05-11
 
 ### Fixed

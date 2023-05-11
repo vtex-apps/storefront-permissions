@@ -9,6 +9,13 @@ import { setActiveUserByOrganization, getUser } from '../Mutations/Users'
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
+  appSettings: async (ctx: Context) => {
+    const appId = process.env.VTEX_APP_ID ? process.env.VTEX_APP_ID : ''
+    const { disableSellersNameFacets, disablePrivateSellersFacets } =
+      await ctx.clients.apps.getAppSettings(appId)
+
+    return { disableSellersNameFacets, disablePrivateSellersFacets }
+  },
   checkPermissions: async (ctx: Context) => {
     const {
       vtex: { logger },
@@ -371,18 +378,27 @@ export const Routes = {
     }
 
     if (organization.sellers?.length) {
-      const sellersName = organization.sellers.map(
-        (seller: any) =>
-          `sellername=${seller.name
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')}`
-      )
+      const { disableSellersNameFacets, disablePrivateSellersFacets } =
+        await Routes.appSettings(ctx)
 
-      const sellersId = organization.sellers.map(
-        (seller: any) => `private-seller=${seller.id}`
-      )
+      if (!disableSellersNameFacets) {
+        const sellersName = organization.sellers.map(
+          (seller: any) =>
+            `sellername=${seller.name
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')}`
+        )
 
-      facets = [...facets, ...sellersName, ...sellersId]
+        facets = [...facets, ...sellersName]
+      }
+
+      if (!disablePrivateSellersFacets) {
+        const sellersId = organization.sellers.map(
+          (seller: any) => `private-seller=${seller.id}`
+        )
+
+        facets = [...facets, ...sellersId]
+      }
     }
 
     response.public.facets.value = facets ? `${facets.join(';')};` : null
