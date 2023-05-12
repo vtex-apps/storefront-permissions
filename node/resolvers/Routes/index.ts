@@ -551,7 +551,7 @@ export const Routes = {
     if (clUser && orderFormId) {
       const phoneNumberFormatted =
         phoneNumber || clUser.phone || clUser.homePhone || `+1${'0'.repeat(10)}`
-        
+
       promises.push(
         checkout
           .updateOrderFormProfile(orderFormId, {
