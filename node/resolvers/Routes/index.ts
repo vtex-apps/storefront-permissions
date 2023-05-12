@@ -548,10 +548,10 @@ export const Routes = {
       tradeName,
     })
 
-    const phoneNumberFormatted =
-      phoneNumber || clUser.phone || clUser.homePhone || `+1${'0'.repeat(10)}`
-
     if (clUser && orderFormId) {
+      const phoneNumberFormatted =
+        phoneNumber || clUser.phone || clUser.homePhone || `+1${'0'.repeat(10)}`
+
       promises.push(
         checkout
           .updateOrderFormProfile(orderFormId, {
