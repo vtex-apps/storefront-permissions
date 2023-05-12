@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix error when accessing undefined "cl" variable
+
 ## [1.34.0] - 2023-05-11
 
 ### Added
