@@ -377,12 +377,19 @@ export const Routes = {
       facets = [...facets, ...collections]
     }
 
-    if (organization.sellers?.length) {
+    if (
+      organization.sellers?.length ||
+      costCenterResponse?.data?.getCostCenterById?.sellers?.length
+    ) {
+      const sellersList =
+        costCenterResponse?.data?.getCostCenterById?.sellers ??
+        organization.sellers
+
       const { disableSellersNameFacets, disablePrivateSellersFacets } =
         await Routes.appSettings(ctx)
 
       if (!disableSellersNameFacets) {
-        const sellersName = organization.sellers.map(
+        const sellersName = sellersList.map(
           (seller: any) =>
             `sellername=${seller.name
               .normalize('NFD')
@@ -393,7 +400,7 @@ export const Routes = {
       }
 
       if (!disablePrivateSellersFacets) {
-        const sellersId = organization.sellers.map(
+        const sellersId = sellersList.map(
           (seller: any) => `private-seller=${seller.id}`
         )
 
