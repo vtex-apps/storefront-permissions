@@ -41,6 +41,10 @@ export const QUERIES = {
         phoneNumber
         businessDocument
         stateRegistration
+        sellers {
+          id
+          name
+        }
       }
     }`,
   getMarketingTags: `
