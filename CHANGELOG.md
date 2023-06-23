@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed 
+
+- Removing the document on orderform in case of business/corporate profile data
+- Removing all the non digits from the business document to prevent checkout errors
+
+
 ## [1.35.0] - 2023-05-31
 
 ### Added
