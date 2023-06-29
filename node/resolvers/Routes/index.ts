@@ -414,7 +414,10 @@ export const Routes = {
     phoneNumber = costCenterResponse?.data?.getCostCenterById?.phoneNumber
 
     businessDocument =
-      costCenterResponse.data.getCostCenterById.businessDocument
+      costCenterResponse.data.getCostCenterById.businessDocument?.replace(
+        /\D/,
+        ''
+      )
 
     stateRegistration =
       costCenterResponse.data.getCostCenterById.stateRegistration

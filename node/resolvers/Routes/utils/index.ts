@@ -123,6 +123,7 @@ export const generateClUser = async ({
 
   if (businessName && businessDocument) {
     clUser.isCorporate = true
+    clUser.document = null
     clUser.corporateName = businessName
     clUser.corporateDocument = businessDocument
     clUser.stateInscription = stateRegistration
