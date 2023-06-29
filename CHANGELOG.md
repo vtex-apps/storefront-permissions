@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.35.1] - 2023-06-29
+
 ### Fixed 
 
 - Removing the document on orderform in case of business/corporate profile data
