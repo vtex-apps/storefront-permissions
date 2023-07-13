@@ -21,7 +21,7 @@ In the following table, you can see the available storefront roles, their key us
 
 | **Role** | **Key** | **Description** |
 |---|---|---|
-| Store Admin | `store-admin` | Store administrator, that is, a user who has access to the VTEX Admin. |
+| Store Admin | `store-admin` | Store administrator, also known as a user who has access to the VTEX Admin, including the permission to impersonate any company/buyer. |
 | Sales Admin | `sales-admin` | Sales administrator user who can manage all sales users. |
 | Sales Manager | `sales-manager` | Sales manager user who can manage sales users in the same organization, as well as assist or impersonate buyers during navigation or purchase. |
 | Sales Representative | `sales-representative` | Sales representative user who can assist or impersonate buyers in the same cost center during navigation or purchase. |
