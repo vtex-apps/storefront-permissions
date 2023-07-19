@@ -8,6 +8,7 @@ import IdentityClient from './IdentityClient'
 import { Schema } from './schema'
 import VtexId from './vtexId'
 import { SalesChannel } from './salesChannel'
+import FullSessions from './FullSessions'
 
 // Extend the default IOClients implementation with our own custom clients.
 export class Clients extends IOClients {
@@ -41,5 +42,9 @@ export class Clients extends IOClients {
 
   public get salesChannel() {
     return this.getOrSet('salesChannel', SalesChannel)
+  }
+
+  public get fullSessions() {
+    return this.getOrSet('fullSessions', FullSessions)
   }
 }
