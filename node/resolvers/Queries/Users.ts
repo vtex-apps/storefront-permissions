@@ -651,11 +651,12 @@ export const checkUserPermission = async (
 
 export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
   const {
-    clients: { profileSystem },
+    clients: { profileSystem, fullSessions },
     vtex: { logger },
   } = ctx
 
   const { sessionData }: any = ctx.vtex
+  const { request }: any = ctx
 
   if (!sessionData?.namespaces) {
     logger.warn({
@@ -666,8 +667,16 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
 
   const profile = sessionData?.namespaces?.profile
   const sfp = sessionData?.namespaces['storefront-permissions']
+
+  const allSessions = await fullSessions.getSessions({
+    headers: {
+      cookie: `VtexIdclientAutCookie=${request.headers.vtexidclientautcookie};vtex_session=${request.headers['x-vtex-session']}`,
+    },
+  })
+
   const authEmail =
-    sessionData?.namespaces?.authentication?.storeUserEmail?.value
+    allSessions?.namespaces?.authentication?.storeUserEmail?.value ??
+    allSessions?.namespaces?.authentication?.adminUserEmail?.value
 
   let response = null
 
