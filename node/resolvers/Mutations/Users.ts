@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
+import type { ChangeTeamParams } from '../../utils/metrics/changeTeam'
+import { sendChangeTeamMetric } from '../../utils/metrics/changeTeam'
 import {
   getAllUsersByEmail,
   getOrganizationsByEmail,
@@ -620,6 +622,17 @@ export const setCurrentOrganization = async (
       },
       ctx
     )
+
+    const metricParams: ChangeTeamParams = {
+      account: sessionData?.namespaces?.account?.accountName.value,
+      userId: user.id,
+      userEmail: email,
+      orgId,
+      costCenterId: costId,
+      userRole: user.roleId,
+    }
+
+    sendChangeTeamMetric(metricParams)
 
     return { status: 'success', message: '' }
   } catch (error) {
