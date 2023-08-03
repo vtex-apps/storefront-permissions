@@ -6,8 +6,8 @@ type ChangeTeamFieldsMetric = {
   user_id: string
   user_role: string
   user_email: string
-  org_id: string
-  cost_center_id: string
+  new_org_id: string
+  new_cost_center_id: string
 }
 
 type ChangeTeamMetric = Metric & { fields: ChangeTeamFieldsMetric }
@@ -32,8 +32,8 @@ const buildMetric = (metricParams: ChangeTeamParams): ChangeTeamMetric => {
       user_id: metricParams.userId,
       user_role: metricParams.userRole,
       user_email: metricParams.userEmail,
-      org_id: metricParams.orgId,
-      cost_center_id: metricParams.costCenterId,
+      new_org_id: metricParams.orgId,
+      new_cost_center_id: metricParams.costCenterId,
     },
   }
 }
