@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Change Team action metrics
+
 ## [1.35.3] - 2023-07-19
 
 ### Fixed

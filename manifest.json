@@ -114,6 +114,13 @@
         "host": "{{account}}.vtexcommercestable.com.br",
         "path": "/api/scheduler/master/vtex.gmc-keep-alive"
       }
+    },
+    {
+      "name": "outbound-access",
+      "attrs": {
+        "host": "rc.vtex.com",
+        "path": "/api/analytics/schemaless-events"
+      }
     }
   ],
   "settingsSchema": {
