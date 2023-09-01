@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Issue with Sales Manager Description.
+
 ## [1.36.0] - 2023-08-09
 
 ### Added
