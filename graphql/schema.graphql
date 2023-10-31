@@ -2,6 +2,7 @@ type Query {
   getAppSettings: SettingsResponse
     @cacheControl(scope: PRIVATE)
     @settings(settingsType: "workspace")
+    @auditAccess
 
   getRole(id: ID!): Role @cacheControl(scope: PRIVATE, maxAge: SHORT)
 
@@ -11,7 +12,7 @@ type Query {
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @settings(settingsType: "workspace")
     @withSession
-  @auditAccess
+    @auditAccess
 
   getFeaturesByModule(module: String!): Feature
     @settings(settingsType: "workspace")
@@ -20,15 +21,18 @@ type Query {
   listFeatures: [FullFeature]
     @settings(settingsType: "workspace")
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
+    @auditAccess
 
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
   getB2BUser(id: ID!): User @cacheControl(scope: PRIVATE)
 
   checkCustomerSchema: Boolean @cacheControl(scope: PRIVATE) @auditAccess
 
-  getUserByEmail(email: String!): [User] @cacheControl(scope: PRIVATE) @auditAccess
+  getUserByEmail(email: String!): [User]
+    @cacheControl(scope: PRIVATE)
+    @auditAccess
 
-  listAllUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  listAllUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT) @auditAccess
 
   listUsers(organizationId: ID, costCenterId: ID, roleId: ID): [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
@@ -76,9 +80,11 @@ type Mutation {
     name: String!
     slug: String
     features: [FeatureInput]
-  ): MutationResponse @cacheControl(scope: PRIVATE)
+  ): MutationResponse @cacheControl(scope: PRIVATE) @auditAccess
 
-  deleteRole(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
+  deleteRole(id: ID!): MutationResponse
+    @cacheControl(scope: PRIVATE)
+    @auditAccess
 
   saveUser(
     id: ID
