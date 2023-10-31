@@ -15,50 +15,57 @@ export class AuditAccess extends SchemaDirectiveVisitor {
       context: Context,
       info: any
     ) => {
-      const {
-        vtex: { adminUserAuthToken, storeUserAuthToken, account, logger },
-        request,
-      } = context
-
-      const operation = field.astNode?.name?.value ?? request.url
-      const forwardedHost = request.headers['x-forwarded-host'] as string
-      const caller = request.headers['x-vtex-caller'] as string
-
-      const hasAdminToken = !!(
-        adminUserAuthToken ?? (context?.headers.vtexidclientautcookie as string)
-      )
-
-      const hasStoreToken = !!storeUserAuthToken
-      const hasApiToken = !!request.headers['vtex-api-apptoken']
-
-      let role
-      let permissions = []
-
-      if (hasAdminToken || hasStoreToken) {
-        const checkUserPermissions = await checkUserPermission(
-          null,
-          { skipError: true },
-          context
-        )
-
-        role = checkUserPermissions.role.slug
-        permissions = checkUserPermissions.permissions
-      }
-
-      const authMetric = new AuthMetric(account, {
-        caller,
-        forwardedHost,
-        hasAdminToken,
-        hasApiToken,
-        hasStoreToken,
-        operation,
-        permissions,
-        role,
-      })
-
-      sendAuthMetric(logger, authMetric)
+      this.sendAuthMetric(field, context)
 
       return resolve(root, args, context, info)
     }
+  }
+
+  private async sendAuthMetric(
+    field: GraphQLField<any, any>,
+    context: Context
+  ) {
+    const {
+      vtex: { adminUserAuthToken, storeUserAuthToken, account, logger },
+      request,
+    } = context
+
+    const operation = field.astNode?.name?.value ?? request.url
+    const forwardedHost = request.headers['x-forwarded-host'] as string
+    const caller = request.headers['x-vtex-caller'] as string
+
+    const hasAdminToken = !!(
+      adminUserAuthToken ?? (context?.headers.vtexidclientautcookie as string)
+    )
+
+    const hasStoreToken = !!storeUserAuthToken
+    const hasApiToken = !!request.headers['vtex-api-apptoken']
+
+    let role
+    let permissions
+
+    if (hasAdminToken || hasStoreToken) {
+      const userPermissions = await checkUserPermission(
+        null,
+        { skipError: true },
+        context
+      )
+
+      role = userPermissions?.role?.slug
+      permissions = userPermissions?.permissions
+    }
+
+    const authMetric = new AuthMetric(account, {
+      caller,
+      forwardedHost,
+      hasAdminToken,
+      hasApiToken,
+      hasStoreToken,
+      operation,
+      permissions,
+      role,
+    })
+
+    await sendAuthMetric(logger, authMetric)
   }
 }

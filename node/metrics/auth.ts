@@ -7,8 +7,8 @@ export interface AuthAuditMetric {
   operation: string
   forwardedHost: string
   caller: string
-  role: string
-  permissions: string[]
+  role?: string
+  permissions?: string[]
   hasAdminToken: boolean
   hasStoreToken: boolean
   hasApiToken: boolean
