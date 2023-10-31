@@ -1,6 +1,7 @@
 import type { Logger } from '@vtex/api/lib/service/logger/logger'
-import {B2B_METRIC_NAME, Metric, sendMetric} from "../clients/metrics";
 
+import type { Metric } from '../clients/metrics'
+import { B2B_METRIC_NAME, sendMetric } from '../clients/metrics'
 
 export interface AuthAuditMetric {
   operation: string
