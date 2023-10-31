@@ -11,6 +11,7 @@ type Query {
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @settings(settingsType: "workspace")
     @withSession
+  @auditAccess
 
   getFeaturesByModule(module: String!): Feature
     @settings(settingsType: "workspace")
@@ -23,9 +24,9 @@ type Query {
   getUser(id: ID!): User @cacheControl(scope: PRIVATE)
   getB2BUser(id: ID!): User @cacheControl(scope: PRIVATE)
 
-  checkCustomerSchema: Boolean @cacheControl(scope: PRIVATE)
+  checkCustomerSchema: Boolean @cacheControl(scope: PRIVATE) @auditAccess
 
-  getUserByEmail(email: String!): [User] @cacheControl(scope: PRIVATE)
+  getUserByEmail(email: String!): [User] @cacheControl(scope: PRIVATE) @auditAccess
 
   listAllUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
 
@@ -140,6 +141,7 @@ type Mutation {
   setCurrentOrganization(orgId: ID!, costId: ID!): MutationResponse
     @withSession
     @cacheControl(scope: PRIVATE)
+    @auditAccess
 }
 
 type UserImpersonation {
