@@ -35,17 +35,14 @@ export type ChangeTeamParams = {
 }
 
 const buildMetric = (metricParams: ChangeTeamParams): ChangeTeamMetric => {
-  return {
-    account: metricParams.account,
-    fields: {
-      date: new Date().toISOString(),
-      user_id: metricParams.userId,
-      user_role: metricParams.userRole,
-      user_email: metricParams.userEmail,
-      new_org_id: metricParams.orgId,
-      new_cost_center_id: metricParams.costCenterId,
-    },
-  } as ChangeTeamMetric
+  return new ChangeTeamMetric(metricParams.account, {
+    date: new Date().toISOString(),
+    user_id: metricParams.userId,
+    user_role: metricParams.userRole,
+    user_email: metricParams.userEmail,
+    new_org_id: metricParams.orgId,
+    new_cost_center_id: metricParams.costCenterId,
+  })
 }
 
 export const sendChangeTeamMetric = async (metricParams: ChangeTeamParams) => {
