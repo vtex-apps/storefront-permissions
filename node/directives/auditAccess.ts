@@ -21,10 +21,7 @@ export class AuditAccess extends SchemaDirectiveVisitor {
     }
   }
 
-  private async sendAuthMetric(
-    field: GraphQLField<any, any>,
-    context: Context
-  ) {
+  private async sendAuthMetric(field: GraphQLField<any, any>, context: any) {
     const {
       vtex: { adminUserAuthToken, storeUserAuthToken, account, logger },
       request,
@@ -32,7 +29,8 @@ export class AuditAccess extends SchemaDirectiveVisitor {
 
     const operation = field.astNode?.name?.value ?? request.url
     const forwardedHost = request.headers['x-forwarded-host'] as string
-    const caller = request.headers['x-vtex-caller'] as string
+    const caller =
+      context.vtex.sender ?? (request.headers['x-vtex-caller'] as string)
 
     const hasAdminToken = !!(
       adminUserAuthToken ?? (context?.headers.vtexidclientautcookie as string)
