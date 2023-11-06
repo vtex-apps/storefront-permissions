@@ -1,5 +1,5 @@
-import type { Metric } from './metrics'
-import { sendMetric } from './metrics'
+import type { Metric } from '../../clients/metrics'
+import { B2B_METRIC_NAME, sendMetric } from '../../clients/metrics'
 
 type ChangeTeamFieldsMetric = {
   date: string
@@ -10,7 +10,20 @@ type ChangeTeamFieldsMetric = {
   new_cost_center_id: string
 }
 
-type ChangeTeamMetric = Metric & { fields: ChangeTeamFieldsMetric }
+export class ChangeTeamMetric implements Metric {
+  public readonly description: string
+  public readonly kind: string
+  public readonly account: string
+  public readonly fields: ChangeTeamFieldsMetric
+  public readonly name = B2B_METRIC_NAME
+
+  constructor(account: string, fields: ChangeTeamFieldsMetric) {
+    this.account = account
+    this.fields = fields
+    this.kind = 'change-team-graphql-event'
+    this.description = 'User change team/organization - Graphql'
+  }
+}
 
 export type ChangeTeamParams = {
   account: string
@@ -22,20 +35,14 @@ export type ChangeTeamParams = {
 }
 
 const buildMetric = (metricParams: ChangeTeamParams): ChangeTeamMetric => {
-  return {
-    name: 'b2b-suite-buyerorg-data' as const,
-    account: metricParams.account,
-    kind: 'change-team-graphql-event',
-    description: 'User change team/organization - Graphql',
-    fields: {
-      date: new Date().toISOString(),
-      user_id: metricParams.userId,
-      user_role: metricParams.userRole,
-      user_email: metricParams.userEmail,
-      new_org_id: metricParams.orgId,
-      new_cost_center_id: metricParams.costCenterId,
-    },
-  }
+  return new ChangeTeamMetric(metricParams.account, {
+    date: new Date().toISOString(),
+    user_id: metricParams.userId,
+    user_role: metricParams.userRole,
+    user_email: metricParams.userEmail,
+    new_org_id: metricParams.orgId,
+    new_cost_center_id: metricParams.costCenterId,
+  })
 }
 
 export const sendChangeTeamMetric = async (metricParams: ChangeTeamParams) => {
