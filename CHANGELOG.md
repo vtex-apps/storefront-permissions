@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- Change to use selectedAddresses field when updating OrderForm Shipping Data
+
 ## [1.37.0] - 2023-11-06
 
 ### Added
