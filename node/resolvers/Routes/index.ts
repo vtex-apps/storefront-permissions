@@ -533,10 +533,10 @@ export const Routes = {
       promises.push(
         checkout
           .updateOrderFormShipping(orderFormId, {
-            address: {
+            selectedAddresses: [{
               ...address,
               geoCoordinates: address.geoCoordinates ?? [],
-            },
+            }],
             clearAddressIfPostalCodeNotFound: false,
           })
           .catch((error) => {
