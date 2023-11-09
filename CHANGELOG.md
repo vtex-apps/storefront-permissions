@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Remove get permissions from access audit metrics
+
 ## [1.37.0] - 2023-11-06
 
 ### Added
