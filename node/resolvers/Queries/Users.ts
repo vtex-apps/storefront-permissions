@@ -7,7 +7,6 @@ import {
   CUSTOMER_SCHEMA_NAME,
 } from '../../utils/constants'
 import { getRole } from './Roles'
-import { getAppSettings } from './Settings'
 
 const config: any = currentSchema('b2b_users')
 
@@ -574,8 +573,6 @@ export const checkUserPermission = async (
   params: any,
   ctx: Context
 ) => {
-  await getAppSettings(null, null, ctx)
-
   const {
     vtex: { logger },
   } = ctx
