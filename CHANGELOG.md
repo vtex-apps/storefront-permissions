@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.37.2] - 2023-11-10
+
 ### Fixed
 
 - Reduce sync roles, remove from checkUserPermissions and listRoles
