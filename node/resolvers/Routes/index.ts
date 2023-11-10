@@ -2,10 +2,10 @@ import { ForbiddenError } from '@vtex/api'
 import { json } from 'co-body'
 
 import { getRole } from '../Queries/Roles'
-import { getAppSettings, getSessionWatcher } from '../Queries/Settings'
+import { getSessionWatcher } from '../Queries/Settings'
 import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
 import { generateClUser, QUERIES } from './utils'
-import { setActiveUserByOrganization, getUser } from '../Mutations/Users'
+import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
@@ -22,7 +22,6 @@ export const Routes = {
     } = ctx
 
     ctx.set('Content-Type', 'application/json')
-    await getAppSettings(null, null, ctx)
 
     const params: any = await json(ctx.req)
 
