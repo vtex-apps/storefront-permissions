@@ -4,3 +4,4 @@ directive @withSession on FIELD_DEFINITION
 directive @withSender on FIELD_DEFINITION
 directive @withUserPermissions on FIELD_DEFINITION
 directive @auditAccess on FIELD | FIELD_DEFINITION
+directive @checkAccessWithFeatureFlag on FIELD | FIELD_DEFINITION
