@@ -14,7 +14,7 @@ export async function checkUserOrAdminTokenAccess(
 
   if (!adminUserAuthToken && !storeUserAuthToken) {
     logger.warn({
-      message: `CheckUserAccess: No admin or store token was provided for ${operation}`,
+      message: `CheckUserAccess: No admin or store token was provided`,
       operation,
     })
     throw new AuthenticationError('No admin or store token was provided')
@@ -26,9 +26,8 @@ export async function checkUserOrAdminTokenAccess(
     } catch (err) {
       logger.warn({
         error: err,
-        message: `CheckUserAccess: Invalid admin token for ${operation}`,
+        message: `CheckUserAccess: Invalid admin token`,
         operation,
-        token: adminUserAuthToken,
       })
       throw new ForbiddenError('Unauthorized Access')
     }
@@ -39,7 +38,7 @@ export async function checkUserOrAdminTokenAccess(
       authUser = await vtexId.getAuthenticatedUser(storeUserAuthToken)
       if (!authUser?.user) {
         logger.warn({
-          message: `CheckUserAccess: No valid user found by store user token for ${operation}`,
+          message: `CheckUserAccess: No valid user found by store user token`,
           operation,
         })
         authUser = null
@@ -47,9 +46,8 @@ export async function checkUserOrAdminTokenAccess(
     } catch (err) {
       logger.warn({
         error: err,
-        message: `CheckUserAccess: Invalid store user token for ${operation}`,
+        message: `CheckUserAccess: Invalid store user token`,
         operation,
-        token: adminUserAuthToken,
       })
       authUser = null
     }
@@ -70,9 +68,7 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
       context: Context,
       info: any
     ) => {
-      const operationName = field.astNode?.name?.value
-
-      await checkUserOrAdminTokenAccess(context, operationName)
+      await checkUserOrAdminTokenAccess(context, field.astNode?.name?.value)
 
       return resolve(root, args, context, info)
     }
