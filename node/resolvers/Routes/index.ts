@@ -535,6 +535,7 @@ export const Routes = {
             address: {
               ...address,
               geoCoordinates: address.geoCoordinates ?? [],
+              isDisposable: true,
             },
             clearAddressIfPostalCodeNotFound: false,
           })
