@@ -1,3 +1,4 @@
+import type { IOContext } from '@vtex/api'
 import { IOClients } from '@vtex/api'
 
 import { LMClient } from '../utils/LicenseManager'
@@ -9,6 +10,20 @@ import { OrganizationsGraphQLClient } from './Organizations'
 import { SalesChannel } from './salesChannel'
 import { Schema } from './schema'
 import VtexId from './vtexId'
+
+export const getTokenToHeader = (ctx: IOContext) => {
+  const token =
+    ctx.storeUserAuthToken ?? ctx.adminUserAuthToken ?? ctx.authToken
+
+  const { sessionToken } = ctx
+
+  return {
+    'x-vtex-credential': ctx.authToken,
+    VtexIdclientAutCookie: token,
+    cookie: `VtexIdclientAutCookie=${token}`,
+    'x-vtex-session': sessionToken ?? '',
+  }
+}
 
 // Extend the default IOClients implementation with our own custom clients.
 export class Clients extends IOClients {

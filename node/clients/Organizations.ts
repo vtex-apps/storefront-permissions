@@ -2,13 +2,7 @@ import type { InstanceOptions, IOContext } from '@vtex/api'
 import { AppClient, GraphQLClient } from '@vtex/api'
 
 import { QUERIES } from '../resolvers/Routes/utils'
-
-const getTokenToHeader = (ctx: IOContext) => {
-  return {
-    VtexIdclientAutCookie:
-      ctx.storeUserAuthToken ?? ctx.adminUserAuthToken ?? ctx.authToken,
-  }
-}
+import { getTokenToHeader } from './index'
 
 const getPersistedQuery = () => {
   return {
