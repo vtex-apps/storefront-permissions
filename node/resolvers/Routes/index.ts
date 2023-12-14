@@ -4,7 +4,7 @@ import { json } from 'co-body'
 import { getRole } from '../Queries/Roles'
 import { getSessionWatcher } from '../Queries/Settings'
 import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
-import { generateClUser, QUERIES } from './utils'
+import { generateClUser } from './utils'
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
 
 export const Routes = {
@@ -90,7 +90,7 @@ export const Routes = {
   setProfile: async (ctx: Context) => {
     const {
       clients: {
-        graphqlServer,
+        organizations,
         masterdata,
         checkout,
         profileSystem,
@@ -234,23 +234,12 @@ export const Routes = {
     response['storefront-permissions'].organization.value = user.orgId
 
     const getOrganization = async (orgId: any): Promise<any> => {
-      return graphqlServer
-        .query(
-          QUERIES.getOrganizationById,
-          { id: orgId },
-          {
-            persistedQuery: {
-              provider: 'vtex.b2b-organizations-graphql@0.x',
-              sender: 'vtex.storefront-permissions@1.x',
-            },
-          }
-        )
-        .catch((error) => {
-          logger.error({
-            error,
-            message: 'setProfile.graphqlGetOrganizationById',
-          })
+      return organizations.getOrganizationById(orgId).catch((error) => {
+        logger.error({
+          error,
+          message: 'setProfile.graphqlGetOrganizationById',
         })
+      })
     }
 
     const [
@@ -263,39 +252,10 @@ export const Routes = {
       data: any
     }> = await Promise.all([
       getOrganization(user.orgId),
-      graphqlServer.query(
-        QUERIES.getCostCenterById,
-        { id: user.costId },
-        {
-          persistedQuery: {
-            provider: 'vtex.b2b-organizations-graphql@0.x',
-            sender: 'vtex.storefront-permissions@1.x',
-          },
-        }
-      ),
+      organizations.getCostCenterById(user.costId),
       salesChannelClient.getSalesChannel(),
-      graphqlServer.query(
-        QUERIES.getMarketingTags,
-        {
-          costId: user.costId,
-        },
-        {
-          persistedQuery: {
-            provider: 'vtex.b2b-organizations-graphql@0.x',
-            sender: 'vtex.storefront-permissions@1.x',
-          },
-        }
-      ),
-      graphqlServer.query(
-        QUERIES.getB2BSettings,
-        {},
-        {
-          persistedQuery: {
-            provider: 'vtex.b2b-organizations-graphql@0.x',
-            sender: 'vtex.storefront-permissions@1.x',
-          },
-        }
-      ),
+      organizations.getMarketingTags(user.costId),
+      organizations.getB2BSettings(),
     ])
 
     let organization = organizationResponse?.data?.getOrganizationById
@@ -303,15 +263,8 @@ export const Routes = {
     // prevent login if org is inactive
     if (organization.status === 'inactive') {
       // try to find a valid organization
-      const organizationsByUserResponse: any = await graphqlServer
-        .query(
-          QUERIES.getOrganizationsByEmail,
-          { email },
-          {
-            provider: 'vtex.b2b-organizations-graphql@0.x',
-            sender: 'vtex.storefront-permissions@1.x',
-          }
-        )
+      const organizationsByUserResponse: any = await organizations
+        .getOrganizationsByEmail(email)
         .catch((error) => {
           logger.error({
             error,

@@ -1,14 +1,29 @@
+import type { IOContext } from '@vtex/api'
 import { IOClients } from '@vtex/api'
 
 import { LMClient } from '../utils/LicenseManager'
 import { ProfileSystemClient } from '../utils/ProfileSystem'
 import { Checkout } from './checkout'
-import { GraphQLServer } from './GraphQLServer'
+import FullSessions from './FullSessions'
 import IdentityClient from './IdentityClient'
+import { OrganizationsGraphQLClient } from './Organizations'
+import { SalesChannel } from './salesChannel'
 import { Schema } from './schema'
 import VtexId from './vtexId'
-import { SalesChannel } from './salesChannel'
-import FullSessions from './FullSessions'
+
+export const getTokenToHeader = (ctx: IOContext) => {
+  const token =
+    ctx.storeUserAuthToken ?? ctx.adminUserAuthToken ?? ctx.authToken
+
+  const { sessionToken } = ctx
+
+  return {
+    'x-vtex-credential': ctx.authToken,
+    VtexIdclientAutCookie: token,
+    cookie: `VtexIdclientAutCookie=${token}`,
+    'x-vtex-session': sessionToken ?? '',
+  }
+}
 
 // Extend the default IOClients implementation with our own custom clients.
 export class Clients extends IOClients {
@@ -24,8 +39,8 @@ export class Clients extends IOClients {
     return this.getOrSet('checkout', Checkout)
   }
 
-  public get graphqlServer() {
-    return this.getOrSet('graphqlServer', GraphQLServer)
+  public get organizations() {
+    return this.getOrSet('organizations', OrganizationsGraphQLClient)
   }
 
   public get schema() {

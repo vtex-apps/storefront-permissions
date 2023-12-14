@@ -1,6 +1,8 @@
 import type { InstanceOptions, IOContext } from '@vtex/api'
 import { JanusClient } from '@vtex/api'
 
+import { getTokenToHeader } from './index'
+
 const getRouteSchema = (dataEntity: string) =>
   `/api/dataentities/${dataEntity}/schemas`
 
@@ -10,9 +12,7 @@ export class Schema extends JanusClient {
       ...options,
       headers: {
         ...options?.headers,
-        ...(ctx.storeUserAuthToken
-          ? { VtexIdclientAutCookie: ctx.storeUserAuthToken }
-          : { VtexIdclientAutCookie: ctx.authToken }),
+        ...getTokenToHeader(ctx),
         'x-vtex-user-agent': ctx.userAgent,
       },
     })

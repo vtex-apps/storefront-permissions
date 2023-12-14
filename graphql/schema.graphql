@@ -3,7 +3,6 @@ type Query {
     @cacheControl(scope: PRIVATE)
     @settings(settingsType: "workspace")
     @withSender
-    @auditAccess
 
   getRole(id: ID!): Role @cacheControl(scope: PRIVATE, maxAge: SHORT)
 
@@ -14,7 +13,6 @@ type Query {
     @settings(settingsType: "workspace")
     @withSession
     @withSender
-    @auditAccess
 
   getFeaturesByModule(module: String!): Feature
     @settings(settingsType: "workspace")
@@ -24,31 +22,28 @@ type Query {
     @settings(settingsType: "workspace")
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @withSender
-    @auditAccess
 
-  getUser(id: ID!): User @cacheControl(scope: PRIVATE)
+  getUser(id: ID!): User @cacheControl(scope: PRIVATE) @checkUserAccess
   getB2BUser(id: ID!): User @cacheControl(scope: PRIVATE)
 
-  checkCustomerSchema: Boolean
-    @cacheControl(scope: PRIVATE)
-    @withSender
-    @auditAccess
+  checkCustomerSchema: Boolean @cacheControl(scope: PRIVATE) @withSender
 
   getUserByEmail(email: String!): [User]
     @cacheControl(scope: PRIVATE)
     @withSender
-    @auditAccess
+    @checkUserAccess
 
   listAllUsers: [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @withSender
-    @auditAccess
+    @checkUserAccess
 
   listUsers(organizationId: ID, costCenterId: ID, roleId: ID): [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @deprecated(
       reason: "This query is deprecated, use listUsersPaginated query instead."
     )
+    @checkUserAccess
 
   listUsersPaginated(
     organizationId: ID
@@ -59,7 +54,9 @@ type Query {
     search: String
     sortOrder: String
     sortedBy: String
-  ): UserPagination @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  ): UserPagination
+    @cacheControl(scope: PRIVATE, maxAge: SHORT)
+    @checkUserAccess
 
   checkImpersonation: UserImpersonation
     @settings(settingsType: "workspace")
@@ -74,12 +71,17 @@ type Query {
 
   getSessionWatcher: Boolean @cacheControl(scope: PRIVATE)
 
-  getUsersByEmail(email: String!): [User] @cacheControl(scope: PRIVATE)
+  getUsersByEmail(email: String!): [User]
+    @cacheControl(scope: PRIVATE)
+    @checkUserAccess
 
-  getActiveUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
+  getActiveUserByEmail(email: String!): User
+    @cacheControl(scope: PRIVATE)
+    @checkUserAccess
 
   getOrganizationsByEmail(email: String!): [Organization]
     @cacheControl(scope: PRIVATE)
+    @checkUserAccess
 }
 
 type Mutation {
@@ -90,12 +92,12 @@ type Mutation {
     name: String!
     slug: String
     features: [FeatureInput]
-  ): MutationResponse @cacheControl(scope: PRIVATE) @withSender @auditAccess
+  ): MutationResponse @cacheControl(scope: PRIVATE) @withSender @checkUserAccess
 
   deleteRole(id: ID!): MutationResponse
     @cacheControl(scope: PRIVATE)
     @withSender
-    @auditAccess
+    @checkUserAccess
 
   saveUser(
     id: ID
@@ -159,7 +161,6 @@ type Mutation {
     @withSession
     @cacheControl(scope: PRIVATE)
     @withSender
-    @auditAccess
 }
 
 type UserImpersonation {
