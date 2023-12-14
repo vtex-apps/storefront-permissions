@@ -8,11 +8,11 @@ export async function checkUserOrAdminTokenAccess(
   operation?: string
 ) {
   const {
-    vtex: { adminUserAuthToken, storeUserAuthToken, logger, authToken },
+    vtex: { adminUserAuthToken, storeUserAuthToken, logger },
     clients: { identity, vtexId },
   } = ctx
 
-  if (!adminUserAuthToken && !storeUserAuthToken && !authToken) {
+  if (!adminUserAuthToken && !storeUserAuthToken) {
     logger.warn({
       message: `CheckUserAccess: No admin or store token was provided`,
       operation,
@@ -53,16 +53,6 @@ export async function checkUserOrAdminTokenAccess(
     }
 
     if (!authUser) {
-      throw new ForbiddenError('Unauthorized Access')
-    }
-  } else if (authToken) {
-    try {
-      await identity.validateToken({ token: authToken })
-    } catch (err) {
-      logger.warn({
-        error: err,
-        message: 'CheckUserAccess: Invalid admin token',
-      })
       throw new ForbiddenError('Unauthorized Access')
     }
   }
