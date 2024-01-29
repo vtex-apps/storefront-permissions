@@ -639,3 +639,32 @@ export const setCurrentOrganization = async (
     return { status: 'error', message: error }
   }
 }
+
+export const ignoreB2BSessionData = async (
+  _: void,
+  { enabled }: { enabled: boolean },
+  ctx: Context
+) => {
+  const {
+    cookies,
+    request,
+    vtex: { logger },
+    clients: { session },
+  } = ctx
+
+  const sessionCookie =
+    cookies.get('vtex_session') ?? request.header?.sessiontoken
+
+  try {
+    await session.updateSession('removeB2B', enabled, [], sessionCookie)
+
+    return { status: 'success', message: '' }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'removeB2BSessionData.error',
+    })
+
+    return { status: 'error', message: error }
+  }
+}
