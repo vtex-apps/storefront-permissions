@@ -121,6 +121,10 @@ type Mutation {
     canImpersonate: Boolean = false
     email: String
     name: String
+    isCorporate: Boolean = false
+    corporateName: String
+    corporateDocument: String
+    tradeName: String
   ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
 
   addUser(
@@ -132,6 +136,10 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
+    isCorporate: Boolean = false
+    corporateName: String
+    corporateDocument: String
+    tradeName: String
   ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
 
   addCostCenterToUser(costId: ID!, userId: ID!): MutationResponse

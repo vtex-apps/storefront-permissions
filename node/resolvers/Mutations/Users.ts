@@ -13,10 +13,10 @@ const config: any = currentSchema('b2b_users')
 
 const addUserToMasterdata = async ({
   masterdata,
-  params: { name, email },
+  params: { name, email, isCorporate, corporateName, corporateDocument, tradeName },
 }: {
   masterdata: any
-  params: { name: string; email: string }
+  params: { name: string; email: string, isCorporate: boolean, corporateName: string, corporateDocument: string, tradeName: string }
 }) => {
   const names = name.split(' ')
   const [firstName] = names
@@ -30,6 +30,10 @@ const addUserToMasterdata = async ({
         email,
         firstName,
         lastName,
+        isCorporate,
+        corporateName, 
+        corporateDocument,
+        tradeName
       },
     })
     .then((response: { DocumentId: string }) => {
