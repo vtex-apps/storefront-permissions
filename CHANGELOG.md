@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Add 'isCorporate', 'tradeAccount', 'corporateName' and 'corporateDocument' in AddUser and UpdateUser
+
 ## [1.38.0] - 2023-12-14
 
 ### Added
