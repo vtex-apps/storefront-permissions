@@ -161,7 +161,7 @@ export const Routes = {
     let tradeName = null
     let stateRegistration = null
     let user = null
-    let isCorporate = false;
+    let isCorporate = false
 
     if (b2bImpersonate) {
       try {
