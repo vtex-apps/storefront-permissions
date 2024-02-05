@@ -86,6 +86,7 @@ export const generateClUser = async ({
   businessName,
   businessDocument,
   tradeName,
+  isCorporate,
   stateRegistration,
   ctx,
 }: {
@@ -94,6 +95,7 @@ export const generateClUser = async ({
   businessName: string | null
   businessDocument: string | null
   tradeName: string | null
+  isCorporate: boolean
   stateRegistration: string | null
   ctx: Context
 }) => {
@@ -121,7 +123,7 @@ export const generateClUser = async ({
     clUser.phone = phoneNumber
   }
 
-  if (businessName && businessDocument) {
+  if (isCorporate) {
     clUser.isCorporate = true
     clUser.document = null
     clUser.corporateName = businessName

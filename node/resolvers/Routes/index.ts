@@ -161,6 +161,7 @@ export const Routes = {
     let tradeName = null
     let stateRegistration = null
     let user = null
+    let isCorporate = false;
 
     if (b2bImpersonate) {
       try {
@@ -308,6 +309,10 @@ export const Routes = {
         })
         throw new ForbiddenError('Organization is inactive')
       }
+    }
+
+    if (organization) {
+      isCorporate = true
     }
 
     businessName = organization.name
@@ -509,6 +514,7 @@ export const Routes = {
       phoneNumber,
       stateRegistration,
       tradeName,
+      isCorporate,
     })
 
     if (clUser && orderFormId) {
