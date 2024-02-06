@@ -161,6 +161,10 @@ type Mutation {
     @withSession
     @cacheControl(scope: PRIVATE)
     @withSender
+
+  ignoreB2BSessionData(enabled: Boolean!): MutationResponse
+    @withSession
+    @cacheControl(scope: PRIVATE)
 }
 
 type UserImpersonation {
