@@ -161,7 +161,6 @@ export const Routes = {
     let tradeName = null
     let stateRegistration = null
     let user = null
-    let isCorporate = false
 
     if (b2bImpersonate) {
       try {
@@ -311,9 +310,7 @@ export const Routes = {
       }
     }
 
-    if (organization) {
-      isCorporate = true
-    }
+    const isCorporate = organization ? true : false
 
     businessName = organization.name
     tradeName = organization.tradeName
