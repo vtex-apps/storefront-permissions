@@ -212,6 +212,7 @@ export const Routes = {
     }
 
     if (!email) {
+      await checkout.clearCart(orderFormId)
       ctx.response.body = response
       ctx.response.status = 200
 
