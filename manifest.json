@@ -1,7 +1,7 @@
 {
   "name": "storefront-permissions",
   "vendor": "vtex",
-  "version": "1.38.0",
+  "version": "1.39.0",
   "title": "Storefront Permissions",
   "description": "Manage User's permissions on apps that relates to this app",
   "mustUpdateAt": "2022-08-28",

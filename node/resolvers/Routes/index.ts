@@ -162,6 +162,15 @@ export const Routes = {
     let stateRegistration = null
     let user = null
 
+    const ignoreB2B = body?.public?.removeB2B?.value
+
+    if (ignoreB2B) {
+      ctx.response.body = response
+      ctx.response.status = 200
+
+      return
+    }
+
     if (b2bImpersonate) {
       try {
         user = (await getUser({

@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Fix IsCorporate in SetProfile
 
+## [1.39.0] - 2024-02-06
+
+### Added
+
+- New `ignoreB2BSessionData` mutation to allow a user to leave/resume the B2B context
+
 ## [1.38.0] - 2023-12-14
 
 ### Added
@@ -55,15 +61,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.35.2] - 2023-07-13
 
 ### Changed
+
 - Edited README.md file
 
 ## [1.35.1] - 2023-06-29
 
-### Fixed 
+### Fixed
 
 - Removing the document on orderform in case of business/corporate profile data
 - Removing all the non digits from the business document to prevent checkout errors
-
 
 ## [1.35.0] - 2023-05-31
 
@@ -92,11 +98,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.33.3] - 2023-05-08
 
 ### Fixed
+
 - Fixed issue where `documentType` is always set to cpf
 
 ## [1.33.2] - 2023-05-03
 
 ### Fixed
+
 - geoCoordinates empty
 
 ## [1.33.1] - 2023-04-21
@@ -109,8 +117,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- Fix on impersonation user 
-
+- Fix on impersonation user
 
 ## [1.32.0] - 2023-04-19
 
@@ -118,15 +125,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Added the x-b2b-senderapp header to fix problems with the new B2B API
 
-
 ## [1.31.5] - 2023-04-11
 
 ### Fixed
 
-- Fixed clear call async calls 
-
+- Fixed clear call async calls
 
 ### Removed
+
 - [ENGINEERS-1247] - Disable cypress tests in PR level
 
 ### Changed
@@ -140,7 +146,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Fixed the `setProfile` to clear the cart properly
 - Improved calls on set profile in order to get faster response
 
-
 ## [1.31.3] - 2023-03-01
 
 ### Fixed
@@ -150,6 +155,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.31.2] - 2023-02-27
 
 ### Fixed
+
 - `setProfile` adding sku 1 to the cart to set sales channel when the cart is empty
 - `setProfile` losing item attachments after login
 
@@ -164,7 +170,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - Added a feature when the user logs in or changes the current organization.
-
 
 ## [1.30.0] - 2023-02-09
 
@@ -229,7 +234,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - getOrganizationsByEmail is returning all users instead of only first 50 records
 
-
 ## [1.29.2] - 2022-11-28
 
 ### Fixed
@@ -248,7 +252,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.29.0] - 2022-11-08
 
-
 ### Added
 
 - Added the functionality to the storefront permissions to change the sales channel according to the Organization
@@ -264,7 +267,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - Force the business document and state registration on setProfile method
-
 
 ## [1.27.0] - 2022-10-19
 
@@ -302,7 +304,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
- - Changed the validation of the add user
+- Changed the validation of the add user
 
 ### Added
 
