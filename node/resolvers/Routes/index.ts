@@ -310,7 +310,7 @@ export const Routes = {
       }
     }
 
-    const isCorporate = Boolean(organization)
+    const isCorporate = true
 
     businessName = organization.name
     tradeName = organization.tradeName
