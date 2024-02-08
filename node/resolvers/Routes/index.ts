@@ -152,6 +152,7 @@ export const Routes = {
     const b2bImpersonate = body?.public?.impersonate?.value
     const telemarketingImpersonate = body?.impersonate?.storeUserId?.value
     const orderFormId = body?.checkout?.orderFormId?.value
+    const isCorporate = true
 
     let email = body?.authentication?.storeUserEmail?.value
     let businessName = null
@@ -318,8 +319,6 @@ export const Routes = {
         throw new ForbiddenError('Organization is inactive')
       }
     }
-
-    const isCorporate = true
 
     businessName = organization.name
     tradeName = organization.tradeName
