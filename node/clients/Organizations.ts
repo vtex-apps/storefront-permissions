@@ -1,5 +1,5 @@
 import type { InstanceOptions, IOContext } from '@vtex/api'
-import { AppClient, GraphQLClient } from '@vtex/api'
+import { AppGraphQLClient } from '@vtex/api'
 
 import { QUERIES } from '../resolvers/Routes/utils'
 import { getTokenToHeader } from './index'
@@ -13,12 +13,9 @@ const getPersistedQuery = () => {
   }
 }
 
-export class OrganizationsGraphQLClient extends AppClient {
-  protected graphql: GraphQLClient
-
+export class OrganizationsGraphQLClient extends AppGraphQLClient {
   constructor(ctx: IOContext, options?: InstanceOptions) {
-    super('vtex.graphql-server@1.x', ctx, options)
-    this.graphql = new GraphQLClient(this.http)
+    super('vtex.b2b-organizations-graphql@0.x', ctx, options)
   }
 
   public getOrganizationById = async (orgId: string): Promise<unknown> => {
@@ -81,7 +78,6 @@ export class OrganizationsGraphQLClient extends AppClient {
           headers: getTokenToHeader(this.context),
           locale: this.context.locale,
         },
-        url: '/graphql',
       }
     )
   }
