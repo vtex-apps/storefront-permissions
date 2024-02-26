@@ -127,7 +127,7 @@ Once you are done developing and installing your own app, if you have [Storefron
 
 The session watcher is based in the [session transformation feature](https://developers.vtex.com/docs/guides/vtex-io-documentation-collecting-user-session-data#configuring-vtexsession) to update the cart fields with Buyer [Organization data](https://github.com/vtex-apps/b2b-organizations): `Shipping Address`, `Profile` and `Marketdata` ( `utmCampaign` with `organization.id` and `utmMedium` with `costCenter.id` )
 
-To activate it, [use the mutation}(#setSessionWatcher).
+To activate it, [use the mutation](#setSessionWatcher).
 
 ### GraphQL queries
 
