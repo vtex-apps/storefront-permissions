@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- Add intro description about Session Watcher
+
 ## [1.39.1] - 2024-02-09
 
 ### Fixed
