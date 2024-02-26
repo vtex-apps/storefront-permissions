@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- Add intro description about Session Watcher
+
 ## [1.39.1] - 2024-02-09
 
 ### Fixed
@@ -29,7 +32,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- Add 'isDisposable' property to create address requests, indicating whether the address is disposable to prevent duplicates.
+- Add the 'disposable' property to create address requests, indicating whether the address is disposable to prevent duplicates.
 
 ## [1.37.2] - 2023-11-10
 
