@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Adjust b2b-organizations-graphql integration
 
+## [1.39.2] - 2024-02-26
+
+### Changed
+- Add intro description about Session Watcher
+
 ## [1.39.1] - 2024-02-09
 
 ### Fixed

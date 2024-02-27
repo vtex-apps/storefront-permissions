@@ -123,6 +123,11 @@ If you would like to develop your own app and integrate it with **Storefront Per
 
 Once you are done developing and installing your own app, if you have [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui), the features of your app associated with each role will be automatically loaded on the **Storefront Permissions** page. For more details on this, read our documentation on the [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui) app.
 
+### Session Watcher
+
+The session watcher is based in the [session transformation feature](https://developers.vtex.com/docs/guides/vtex-io-documentation-collecting-user-session-data#configuring-vtexsession) to update the cart fields with Buyer [Organization data](https://github.com/vtex-apps/b2b-organizations): `Shipping Address`, `Profile` and `Marketdata` ( `utmCampaign` with `organization.id` and `utmMedium` with `costCenter.id` )
+
+To activate it, [use the mutation](#setSessionWatcher).
 
 ### GraphQL queries
 
@@ -288,7 +293,7 @@ mutation impersonateUser($userId: ID)
 }
 ```
 
-#### setSessionWatcher
+#### <a href="#setSessionWatcher"></a> setSessionWatcher
 
 If your account is not using `vtex.b2b-organizations` you may want to disable the Session Watcher to avoid unnecessary operations. To do so, set the `active` property to `false` in the mutation exemplified below.
 
