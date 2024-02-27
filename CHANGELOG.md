@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.39.3] - 2024-02-27
+
 ### Fixed
 
 - Adjust b2b-organizations-graphql integration
