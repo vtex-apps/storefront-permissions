@@ -49,13 +49,13 @@ export const QUERIES = {
     }`,
   getMarketingTags: `
     query ($costId: ID!) {
-      getMarketingTags(costId: $costId) @context(provider: "vtex.b2b-organizations-graphql") {
+      getMarketingTags(costId: $costId){
         tags
       }
     }
   `,
   getOrganizationById: `query Organization($id: ID!){
-      getOrganizationById(id: $id) @context(provider: "vtex.b2b-organizations-graphql"){
+      getOrganizationById(id: $id){
         name
         tradeName
         status
