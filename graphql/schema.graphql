@@ -157,7 +157,7 @@ type Mutation {
     @checkAdminAccess
     @cacheControl(scope: PRIVATE)
 
-  setCurrentOrganization(orgId: ID!, costId: ID!): MutationResponse
+  setCurrentOrganization(orgId: ID!, costId: ID!, userEmail: String): MutationResponse
     @withSession
     @cacheControl(scope: PRIVATE)
     @withSender

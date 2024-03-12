@@ -575,11 +575,9 @@ export const setCurrentOrganization = async (
 
   const { sessionData } = ctx.vtex as any
 
-  const { orgId, costId } = params
+  const { orgId, costId, userEmail } = params
 
-  const {
-    email: { value: email },
-  } = sessionData.namespaces.profile
+  const email = sessionData?.namespaces?.profile?.value ?? userEmail
 
   const organizationList = (await getOrganizationsByEmail(
     _,
