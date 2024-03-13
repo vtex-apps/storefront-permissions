@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Changed
+
 - Changed to remove space instead of character
 
 ## [1.39.3] - 2024-02-27
