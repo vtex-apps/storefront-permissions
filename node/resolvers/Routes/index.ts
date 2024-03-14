@@ -377,7 +377,7 @@ export const Routes = {
 
     businessDocument =
       costCenterResponse.data.getCostCenterById.businessDocument?.replace(
-        /\s*/,
+        /[^a-zA-Z0-9]*/,
         ''
       )
 
