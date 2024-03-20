@@ -92,18 +92,18 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   const { email, orgId, costId } = params
-  
+
   let where = `email=${email}`
 
   if (orgId) {
     where += ` AND orgId=${orgId}`
   }
 
-  if (costId){
+  if (costId) {
     where += ` AND costId=${costId}`
   }
 
-  return getAllUsers({ masterdata, logger, where: where })
+  return getAllUsers({ masterdata, logger, where })
 }
 
 export const getActiveUserByEmail = async (
