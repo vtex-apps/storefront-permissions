@@ -91,9 +91,19 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
     vtex: { logger },
   } = ctx
 
-  const { email } = params
+  const { email, orgId, costId } = params
 
-  return getAllUsers({ masterdata, logger, where: `email=${email}` })
+  let where = `email=${email}`
+
+  if (orgId) {
+    where += ` AND orgId=${orgId}`
+  }
+
+  if (costId) {
+    where += ` AND costId=${costId}`
+  }
+
+  return getAllUsers({ masterdata, logger, where })
 }
 
 export const getActiveUserByEmail = async (
