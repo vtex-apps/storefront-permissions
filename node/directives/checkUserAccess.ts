@@ -2,6 +2,7 @@ import { AuthenticationError, ForbiddenError } from '@vtex/api'
 import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'
 import { SchemaDirectiveVisitor } from 'graphql-tools'
+
 import { getActiveUserByEmail } from '../resolvers/Queries/Users'
 
 export async function checkUserOrAdminTokenAccess(
@@ -35,8 +36,7 @@ export async function checkUserOrAdminTokenAccess(
   } else if (storeUserAuthToken) {
     let authUser = null
 
-    // Label to break out of the try-catch block and skip the remaining code
-    getAuthUser: try {
+    try {
       authUser = await vtexId.getAuthenticatedUser(storeUserAuthToken)
       if (!authUser?.user) {
         logger.warn({
@@ -44,20 +44,19 @@ export async function checkUserOrAdminTokenAccess(
           operation,
         })
         authUser = null
-        break getAuthUser // Break out of the try-catch block and skip the remaining code
-      }
-
-      const user = await getActiveUserByEmail(
-        null,
-        { email: authUser?.user },
-        ctx
-      ) as { roleId: string } | null;
-      if (!user?.roleId) {
-        logger.warn({
-          message: `CheckUserAccess: No valid role for user found by store user token`,
-          operation,
-        })
-        authUser = null
+      } else {
+        const user = await getActiveUserByEmail(
+          null,
+          { email: authUser?.user },
+          ctx
+        ) as { roleId: string } | null
+        if (!user?.roleId) {
+          logger.warn({
+            message: `CheckUserAccess: No valid role for user found by store user token`,
+            operation,
+          })
+          authUser = null
+        }
       }
     } catch (err) {
       logger.warn({
