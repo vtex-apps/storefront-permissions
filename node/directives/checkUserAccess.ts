@@ -45,11 +45,12 @@ export async function checkUserOrAdminTokenAccess(
         })
         authUser = null
       } else {
-        const user = await getActiveUserByEmail(
+        const user = (await getActiveUserByEmail(
           null,
           { email: authUser?.user },
           ctx
-        ) as { roleId: string } | null
+        )) as { roleId: string } | null
+
         if (!user?.roleId) {
           logger.warn({
             message: `CheckUserAccess: No valid role for user found by store user token`,
