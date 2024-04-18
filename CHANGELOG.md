@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Fix auth issue by adding role check to checkUserAccess directive
+
 ## [1.40.0] - 2024-03-20
 
 ### Changed
