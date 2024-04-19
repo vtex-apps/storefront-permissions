@@ -30,7 +30,6 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         if (!authUser?.audience || authUser?.audience !== 'admin') {
           logger.warn({
             message: `CheckAdminAccess: No valid user found by admin token`,
-            operation,
           })
           throw new ForbiddenError('Unauthorized Access')
         }
