@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Fix auth issue by adding additional admin token check to checkUserAccess and checkAdminAccess
+
 ## [1.40.1] - 2024-04-18
 
 ### Fixed
