@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Provide correct auth tokens to clients
+
 ## [1.40.2] - 2024-04-19
 
 ### Fixed
