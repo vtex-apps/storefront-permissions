@@ -23,16 +23,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
       }
 
       try {
-        const authUser = await identity.validateToken({
-          token: adminUserAuthToken,
-        })
-
-        if (!authUser?.audience || authUser?.audience !== 'admin') {
-          logger.warn({
-            message: `CheckAdminAccess: No valid user found by admin token`,
-          })
-          throw new ForbiddenError('Unauthorized Access')
-        }
+        await identity.validateToken({ token: adminUserAuthToken })
       } catch (err) {
         logger.warn({
           error: err,

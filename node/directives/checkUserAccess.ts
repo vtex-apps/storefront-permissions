@@ -24,17 +24,7 @@ export async function checkUserOrAdminTokenAccess(
 
   if (adminUserAuthToken) {
     try {
-      const authUser = await identity.validateToken({
-        token: adminUserAuthToken,
-      })
-
-      if (!authUser?.audience || authUser?.audience !== 'admin') {
-        logger.warn({
-          message: `CheckUserAccess: No valid user found by admin token`,
-          operation,
-        })
-        throw new ForbiddenError('Unauthorized Access')
-      }
+      await identity.validateToken({ token: adminUserAuthToken })
     } catch (err) {
       logger.warn({
         error: err,
