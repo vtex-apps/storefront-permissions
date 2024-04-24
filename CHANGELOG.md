@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Add token validation logs
+
 ### Removed
 - Reverted changes from versions 1.40.3, 1.40.2 and 1.40.1
 
