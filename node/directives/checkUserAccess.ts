@@ -3,8 +3,6 @@ import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'
 import { SchemaDirectiveVisitor } from 'graphql-tools'
 
-import { getActiveUserByEmail } from '../resolvers/Queries/Users'
-
 export async function checkUserOrAdminTokenAccess(
   ctx: Context,
   operation?: string
@@ -24,17 +22,7 @@ export async function checkUserOrAdminTokenAccess(
 
   if (adminUserAuthToken) {
     try {
-      const authUser = await identity.validateToken({
-        token: adminUserAuthToken,
-      })
-
-      if (!authUser?.audience || authUser?.audience !== 'admin') {
-        logger.warn({
-          message: `CheckUserAccess: No valid user found by admin token`,
-          operation,
-        })
-        throw new ForbiddenError('Unauthorized Access')
-      }
+      await identity.validateToken({ token: adminUserAuthToken })
     } catch (err) {
       logger.warn({
         error: err,
@@ -54,20 +42,6 @@ export async function checkUserOrAdminTokenAccess(
           operation,
         })
         authUser = null
-      } else {
-        const user = (await getActiveUserByEmail(
-          null,
-          { email: authUser?.user },
-          ctx
-        )) as { roleId: string } | null
-
-        if (!user?.roleId) {
-          logger.warn({
-            message: `CheckUserAccess: No valid role for user found by store user token`,
-            operation,
-          })
-          authUser = null
-        }
       }
     } catch (err) {
       logger.warn({
