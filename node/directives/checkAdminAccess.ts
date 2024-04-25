@@ -3,8 +3,7 @@ import { AuthenticationError, ForbiddenError } from '@vtex/api'
 import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'
 
-import { CheckAdminAccessMetric } from '../metrics/checkAdminAccessMetric'
-import sendAuthMetric from '../metrics/auth'
+import sendAuthMetric, { AuthMetric } from '../metrics/auth'
 
 export class CheckAdminAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
@@ -21,15 +20,19 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         clients: { identity },
       } = context
 
-      const metric = new CheckAdminAccessMetric(context.vtex.account, {
-        operation: field.astNode?.name?.value ?? context.request.url,
-        forwardedHost: context.request.header['x-forwarded-host'] as string,
-        caller: context.request.header['x-vtex-caller'] as string,
-        userAgent: context.request.header['user-agent'] as string,
-        hasAdminToken: !!adminUserAuthToken,
-        hasStoreToken: false,
-        hasApiToken: false,
-      })
+      const metric = new AuthMetric(
+        context.vtex.account,
+        {
+          operation: field.astNode?.name?.value ?? context.request.url,
+          forwardedHost: context.request.header['x-forwarded-host'] as string,
+          caller: context.request.header['x-vtex-caller'] as string,
+          userAgent: context.request.header['user-agent'] as string,
+          hasAdminToken: !!adminUserAuthToken,
+          hasStoreToken: false,
+          hasApiToken: false,
+        },
+        'CheckAdminAccess'
+      )
 
       if (!adminUserAuthToken) {
         metric.error = 'No admin token provided'

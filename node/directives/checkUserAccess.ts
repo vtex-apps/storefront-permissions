@@ -4,8 +4,7 @@ import { defaultFieldResolver } from 'graphql'
 import { SchemaDirectiveVisitor } from 'graphql-tools'
 
 import { getActiveUserByEmail } from '../resolvers/Queries/Users'
-import { CheckUserAccessMetric } from '../metrics/checkUserAccessMetric'
-import sendAuthMetric from '../metrics/auth'
+import sendAuthMetric, { AuthMetric } from '../metrics/auth'
 
 export async function checkUserOrAdminTokenAccess(
   ctx: Context,
@@ -16,15 +15,19 @@ export async function checkUserOrAdminTokenAccess(
     clients: { identity, vtexId },
   } = ctx
 
-  const metric = new CheckUserAccessMetric(ctx.vtex.account, {
-    operation: operation ?? ctx.request.url,
-    forwardedHost: ctx.request.header['x-forwarded-host'] as string,
-    caller: ctx.request.header['x-vtex-caller'] as string,
-    userAgent: ctx.request.header['user-agent'] as string,
-    hasAdminToken: !!adminUserAuthToken,
-    hasStoreToken: !!storeUserAuthToken,
-    hasApiToken: false,
-  })
+  const metric = new AuthMetric(
+    ctx.vtex.account,
+    {
+      operation: operation ?? ctx.request.url,
+      forwardedHost: ctx.request.header['x-forwarded-host'] as string,
+      caller: ctx.request.header['x-vtex-caller'] as string,
+      userAgent: ctx.request.header['user-agent'] as string,
+      hasAdminToken: !!adminUserAuthToken,
+      hasStoreToken: !!storeUserAuthToken,
+      hasApiToken: false,
+    },
+    'CheckUserAccess'
+  )
 
   if (!adminUserAuthToken && !storeUserAuthToken) {
     metric.error = 'No admin or store token was provided'

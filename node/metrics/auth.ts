@@ -21,12 +21,13 @@ export class AuthMetric implements Metric {
   public readonly account: string
   public readonly fields: AuthAuditMetric
   public readonly name = B2B_METRIC_NAME
+  public error?: string
 
-  constructor(account: string, fields: AuthAuditMetric) {
+  constructor(account: string, fields: AuthAuditMetric, description?: string) {
     this.account = account
     this.fields = fields
     this.kind = 'b2b-storefront-permissions-auth-event'
-    this.description = 'Auth metric event'
+    this.description = description ?? 'Auth metric event'
   }
 }
 
