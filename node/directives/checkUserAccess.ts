@@ -4,9 +4,8 @@ import { defaultFieldResolver } from 'graphql'
 import { SchemaDirectiveVisitor } from 'graphql-tools'
 
 import { getActiveUserByEmail } from '../resolvers/Queries/Users'
-import sendCheckUserAccessMetric, {
-  CheckUserAccessMetric,
-} from '../metrics/checkUserAccessMetric'
+import { CheckUserAccessMetric } from '../metrics/checkUserAccessMetric'
+import sendAuthMetric from '../metrics/auth'
 
 export async function checkUserOrAdminTokenAccess(
   ctx: Context,
@@ -24,12 +23,13 @@ export async function checkUserOrAdminTokenAccess(
     userAgent: ctx.request.header['user-agent'] as string,
     hasAdminToken: !!adminUserAuthToken,
     hasStoreToken: !!storeUserAuthToken,
+    hasApiToken: false,
     error: '',
   })
 
   if (!adminUserAuthToken && !storeUserAuthToken) {
     metric.fields.error = 'No admin or store token was provided'
-    sendCheckUserAccessMetric(logger, metric)
+    sendAuthMetric(logger, metric)
     logger.warn({
       message: `CheckUserAccess: No admin or store token was provided`,
       userAgent: ctx.request.header['user-agent'],
@@ -51,7 +51,7 @@ export async function checkUserOrAdminTokenAccess(
       // we should also throw an exception inside this if in case of errors
       if (!authUser?.audience || authUser?.audience !== 'admin') {
         metric.fields.error = 'Token is not an admin token'
-        sendCheckUserAccessMetric(logger, metric)
+        sendAuthMetric(logger, metric)
         logger.warn({
           message: `CheckUserAccess: Token is not an admin token`,
           userAgent: ctx.request.header['user-agent'],
@@ -62,7 +62,7 @@ export async function checkUserOrAdminTokenAccess(
       }
     } catch (err) {
       metric.fields.error = 'Invalid admin token'
-      sendCheckUserAccessMetric(logger, metric)
+      sendAuthMetric(logger, metric)
       logger.warn({
         error: err,
         message: `CheckUserAccess: Invalid admin token`,
@@ -80,7 +80,7 @@ export async function checkUserOrAdminTokenAccess(
       authUser = await vtexId.getAuthenticatedUser(storeUserAuthToken)
       if (!authUser?.user) {
         metric.fields.error = 'No valid user found by store user token'
-        sendCheckUserAccessMetric(logger, metric)
+        sendAuthMetric(logger, metric)
         logger.warn({
           message: `CheckUserAccess: No valid user found by store user token`,
           userAgent: ctx.request.header['user-agent'],
@@ -103,7 +103,7 @@ export async function checkUserOrAdminTokenAccess(
 
           if (!user?.roleId) {
             metric.fields.error = 'No active user found by store user token'
-            sendCheckUserAccessMetric(logger, metric)
+            sendAuthMetric(logger, metric)
             logger.warn({
               message: `CheckUserAccess: No active user found by store user token`,
               userAgent: ctx.request.header['user-agent'],
@@ -114,7 +114,7 @@ export async function checkUserOrAdminTokenAccess(
           }
         } catch (err) {
           metric.fields.error = 'Error getting user by email'
-          sendCheckUserAccessMetric(logger, metric)
+          sendAuthMetric(logger, metric)
           logger.warn({
             error: err,
             message: `CheckUserAccess: Error getting user by email`,
@@ -127,7 +127,7 @@ export async function checkUserOrAdminTokenAccess(
       }
     } catch (err) {
       metric.fields.error = 'Invalid store user token'
-      sendCheckUserAccessMetric(logger, metric)
+      sendAuthMetric(logger, metric)
       logger.warn({
         error: err,
         message: `CheckUserAccess: Invalid store user token`,

@@ -3,9 +3,8 @@ import { AuthenticationError, ForbiddenError } from '@vtex/api'
 import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'
 
-import sendCheckAdminAccessMetric, {
-  CheckAdminAccessMetric,
-} from '../metrics/checkAdminAccessMetric'
+import { CheckAdminAccessMetric } from '../metrics/checkAdminAccessMetric'
+import sendAuthMetric from '../metrics/auth'
 
 export class CheckAdminAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
@@ -23,16 +22,19 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
       } = context
 
       const metric = new CheckAdminAccessMetric(context.vtex.account, {
+        operation: field.astNode?.name?.value ?? context.request.url,
         forwardedHost: context.request.header['x-forwarded-host'] as string,
         caller: context.request.header['x-vtex-caller'] as string,
         userAgent: context.request.header['user-agent'] as string,
         hasAdminToken: !!adminUserAuthToken,
+        hasStoreToken: false,
+        hasApiToken: false,
         error: '',
       })
 
       if (!adminUserAuthToken) {
         metric.fields.error = 'No admin token provided'
-        sendCheckAdminAccessMetric(logger, metric)
+        sendAuthMetric(logger, metric)
         logger.warn({
           message: 'CheckAdminAccess: No admin token provided',
           userAgent: context.request.header['user-agent'],
@@ -52,7 +54,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         // we should also throw an exception inside this if in case of errors
         if (!authUser?.audience || authUser?.audience !== 'admin') {
           metric.fields.error = 'Token is not an admin token'
-          sendCheckAdminAccessMetric(logger, metric)
+          sendAuthMetric(logger, metric)
           logger.warn({
             message: `CheckUserAccess: Token is not an admin token`,
             userAgent: context.request.header['user-agent'],
@@ -62,7 +64,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         }
       } catch (err) {
         metric.fields.error = 'Invalid token'
-        sendCheckAdminAccessMetric(logger, metric)
+        sendAuthMetric(logger, metric)
         logger.warn({
           error: err,
           message: 'CheckAdminAccess: Invalid token',

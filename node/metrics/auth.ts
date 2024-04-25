@@ -7,11 +7,13 @@ export interface AuthAuditMetric {
   operation: string
   forwardedHost: string
   caller: string
+  userAgent: string
   role?: string
   permissions?: string[]
   hasAdminToken: boolean
   hasStoreToken: boolean
   hasApiToken: boolean
+  error?: string
 }
 
 export class AuthMetric implements Metric {
