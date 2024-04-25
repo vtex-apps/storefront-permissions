@@ -29,11 +29,10 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         hasAdminToken: !!adminUserAuthToken,
         hasStoreToken: false,
         hasApiToken: false,
-        error: '',
       })
 
       if (!adminUserAuthToken) {
-        metric.fields.error = 'No admin token provided'
+        metric.error = 'No admin token provided'
         sendAuthMetric(logger, metric)
         logger.warn({
           message: 'CheckAdminAccess: No admin token provided',
@@ -53,7 +52,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         // For now we only log in case of errors, but in follow up commits
         // we should also throw an exception inside this if in case of errors
         if (!authUser?.audience || authUser?.audience !== 'admin') {
-          metric.fields.error = 'Token is not an admin token'
+          metric.error = 'Token is not an admin token'
           sendAuthMetric(logger, metric)
           logger.warn({
             message: `CheckUserAccess: Token is not an admin token`,
@@ -63,7 +62,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           })
         }
       } catch (err) {
-        metric.fields.error = 'Invalid token'
+        metric.error = 'Invalid token'
         sendAuthMetric(logger, metric)
         logger.warn({
           error: err,

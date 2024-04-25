@@ -13,7 +13,6 @@ export interface AuthAuditMetric {
   hasAdminToken: boolean
   hasStoreToken: boolean
   hasApiToken: boolean
-  error?: string
 }
 
 export class AuthMetric implements Metric {

@@ -7,11 +7,13 @@ export class CheckAdminAccessMetric implements AuthMetric {
   public readonly account: string
   public readonly fields: AuthAuditMetric
   public readonly name = B2B_METRIC_NAME
+  public error: string
 
   constructor(account: string, fields: AuthAuditMetric) {
     this.account = account
     this.fields = fields
     this.kind = 'b2b-storefront-permissions-check-admin-access'
     this.description = 'CheckAdminAccess'
+    this.error = ''
   }
 }

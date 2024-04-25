@@ -24,11 +24,10 @@ export async function checkUserOrAdminTokenAccess(
     hasAdminToken: !!adminUserAuthToken,
     hasStoreToken: !!storeUserAuthToken,
     hasApiToken: false,
-    error: '',
   })
 
   if (!adminUserAuthToken && !storeUserAuthToken) {
-    metric.fields.error = 'No admin or store token was provided'
+    metric.error = 'No admin or store token was provided'
     sendAuthMetric(logger, metric)
     logger.warn({
       message: `CheckUserAccess: No admin or store token was provided`,
@@ -50,7 +49,7 @@ export async function checkUserOrAdminTokenAccess(
       // For now we only log in case of errors, but in follow up commits
       // we should also throw an exception inside this if in case of errors
       if (!authUser?.audience || authUser?.audience !== 'admin') {
-        metric.fields.error = 'Token is not an admin token'
+        metric.error = 'Token is not an admin token'
         sendAuthMetric(logger, metric)
         logger.warn({
           message: `CheckUserAccess: Token is not an admin token`,
@@ -61,7 +60,7 @@ export async function checkUserOrAdminTokenAccess(
         })
       }
     } catch (err) {
-      metric.fields.error = 'Invalid admin token'
+      metric.error = 'Invalid admin token'
       sendAuthMetric(logger, metric)
       logger.warn({
         error: err,
@@ -79,7 +78,7 @@ export async function checkUserOrAdminTokenAccess(
     try {
       authUser = await vtexId.getAuthenticatedUser(storeUserAuthToken)
       if (!authUser?.user) {
-        metric.fields.error = 'No valid user found by store user token'
+        metric.error = 'No valid user found by store user token'
         sendAuthMetric(logger, metric)
         logger.warn({
           message: `CheckUserAccess: No valid user found by store user token`,
@@ -102,7 +101,7 @@ export async function checkUserOrAdminTokenAccess(
           )) as { roleId: string } | null
 
           if (!user?.roleId) {
-            metric.fields.error = 'No active user found by store user token'
+            metric.error = 'No active user found by store user token'
             sendAuthMetric(logger, metric)
             logger.warn({
               message: `CheckUserAccess: No active user found by store user token`,
@@ -113,7 +112,7 @@ export async function checkUserOrAdminTokenAccess(
             })
           }
         } catch (err) {
-          metric.fields.error = 'Error getting user by email'
+          metric.error = 'Error getting user by email'
           sendAuthMetric(logger, metric)
           logger.warn({
             error: err,
@@ -126,7 +125,7 @@ export async function checkUserOrAdminTokenAccess(
         }
       }
     } catch (err) {
-      metric.fields.error = 'Invalid store user token'
+      metric.error = 'Invalid store user token'
       sendAuthMetric(logger, metric)
       logger.warn({
         error: err,
