@@ -20,10 +20,11 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         clients: { identity },
       } = context
 
+      const operation = field.astNode?.name?.value ?? context.request.url
       const metric = new AuthMetric(
         context.vtex.account,
         {
-          operation: field.astNode?.name?.value ?? context.request.url,
+          operation,
           forwardedHost: context.request.header['x-forwarded-host'] as string,
           caller: context.request.header['x-vtex-caller'] as string,
           userAgent: context.request.header['user-agent'] as string,
@@ -42,6 +43,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           userAgent: context.request.header['user-agent'],
           vtexCaller: context.request.header['x-vtex-caller'],
           forwardedHost: context.request.header['x-forwarded-host'],
+          operation,
         })
         throw new AuthenticationError('No token was provided')
       }
@@ -62,6 +64,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
             userAgent: context.request.header['user-agent'],
             vtexCaller: context.request.header['x-vtex-caller'],
             forwardedHost: context.request.header['x-forwarded-host'],
+            operation,
           })
         }
       } catch (err) {
@@ -73,6 +76,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           userAgent: context.request.header['user-agent'],
           vtexCaller: context.request.header['x-vtex-caller'],
           forwardedHost: context.request.header['x-forwarded-host'],
+          operation,
           token: adminUserAuthToken,
         })
         throw new ForbiddenError('Unauthorized Access')
