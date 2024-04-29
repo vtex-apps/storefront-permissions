@@ -27,6 +27,7 @@ export class AuditAccess extends SchemaDirectiveVisitor {
     } = context
 
     const operation = field.astNode?.name?.value ?? request.url
+    const userAgent = request.headers['user-agent'] as string
     const forwardedHost = request.headers['x-forwarded-host'] as string
     const caller =
       context.vtex.sender ?? (request.headers['x-vtex-caller'] as string)
@@ -40,6 +41,7 @@ export class AuditAccess extends SchemaDirectiveVisitor {
 
     const authMetric = new AuthMetric(account, {
       caller,
+      userAgent,
       forwardedHost,
       hasAdminToken,
       hasApiToken,
