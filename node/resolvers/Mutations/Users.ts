@@ -234,6 +234,10 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
       message: 'addUser.error',
     })
 
+    if (error instanceof UserInputError) {
+      return { status: 'error', message: 'invalidUserDuplicated' }
+    }
+
     return { status: 'error', message: error }
   }
 }
