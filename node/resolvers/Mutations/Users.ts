@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { UserInputError } from '@vtex/api'
+
 import { currentSchema } from '../../utils'
 import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
 import type { ChangeTeamParams } from '../../utils/metrics/changeTeam'
@@ -23,6 +25,21 @@ const addUserToMasterdata = async ({
 
   names.shift()
   const lastName = names.length > 0 ? names.join(' ') : firstName // if it gets the lastName empty, it'll repeat the firstName to avoid errors on the checkout
+
+  const userExists = await masterdata.searchDocuments({
+    dataEntity: CUSTOMER_SCHEMA_NAME,
+    fields: ['id'],
+    pagination: {
+      page: 1,
+      pageSize: 1,
+    },
+    where: `email=${email}`,
+  })
+
+  if (userExists.length) {
+    throw new UserInputError(`OrganizationUserAlreadyExists`)
+  }
+
   const { DocumentId } = await masterdata
     .createDocument({
       dataEntity: CUSTOMER_SCHEMA_NAME,
