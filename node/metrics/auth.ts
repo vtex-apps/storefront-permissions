@@ -11,8 +11,11 @@ export interface AuthAuditMetric {
   role?: string
   permissions?: string[]
   hasAdminToken: boolean
+  hasValidAdminToken?: boolean
   hasStoreToken: boolean
+  hasValidStoreToken?: boolean
   hasApiToken: boolean
+  hasValidApiToken?: boolean
 }
 
 export class AuthMetric implements Metric {

@@ -6,147 +6,6 @@ import { SchemaDirectiveVisitor } from 'graphql-tools'
 import { getActiveUserByEmail } from '../resolvers/Queries/Users'
 import sendAuthMetric, { AuthMetric } from '../metrics/auth'
 
-export async function checkUserOrAdminTokenAccess(
-  ctx: Context,
-  operation?: string
-) {
-  const {
-    vtex: { adminUserAuthToken, storeUserAuthToken, logger },
-    clients: { identity, vtexId },
-  } = ctx
-
-  const metric = new AuthMetric(
-    ctx.vtex.account,
-    {
-      operation: operation ?? ctx.request.url,
-      forwardedHost: ctx.request.header['x-forwarded-host'] as string,
-      caller: ctx.request.header['x-vtex-caller'] as string,
-      userAgent: ctx.request.header['user-agent'] as string,
-      hasAdminToken: !!adminUserAuthToken,
-      hasStoreToken: !!storeUserAuthToken,
-      hasApiToken: false,
-    },
-    'CheckUserAccess'
-  )
-
-  if (!adminUserAuthToken && !storeUserAuthToken) {
-    metric.error = 'No admin or store token was provided'
-    sendAuthMetric(logger, metric)
-    logger.warn({
-      message: `CheckUserAccess: No admin or store token was provided`,
-      userAgent: ctx.request.header['user-agent'],
-      vtexCaller: ctx.request.header['x-vtex-caller'],
-      forwardedHost: ctx.request.header['x-forwarded-host'],
-      operation,
-    })
-    throw new AuthenticationError('No admin or store token was provided')
-  }
-
-  if (adminUserAuthToken) {
-    try {
-      const authUser = await identity.validateToken({
-        token: adminUserAuthToken,
-      })
-
-      // This is the first step before actually enabling this code.
-      // For now we only log in case of errors, but in follow up commits
-      // we should also throw an exception inside this if in case of errors
-      if (!authUser?.audience || authUser?.audience !== 'admin') {
-        metric.error = 'Token is not an admin token'
-        sendAuthMetric(logger, metric)
-        logger.warn({
-          message: `CheckUserAccess: Token is not an admin token`,
-          userAgent: ctx.request.header['user-agent'],
-          vtexCaller: ctx.request.header['x-vtex-caller'],
-          forwardedHost: ctx.request.header['x-forwarded-host'],
-          operation,
-        })
-      }
-    } catch (err) {
-      metric.error = 'Invalid admin token'
-      sendAuthMetric(logger, metric)
-      logger.warn({
-        error: err,
-        message: `CheckUserAccess: Invalid admin token`,
-        userAgent: ctx.request.header['user-agent'],
-        vtexCaller: ctx.request.header['x-vtex-caller'],
-        forwardedHost: ctx.request.header['x-forwarded-host'],
-        operation,
-      })
-      throw new ForbiddenError('Unauthorized Access')
-    }
-  } else if (storeUserAuthToken) {
-    let authUser = null
-
-    try {
-      authUser = await vtexId.getAuthenticatedUser(storeUserAuthToken)
-      if (!authUser?.user) {
-        metric.error = 'No valid user found by store user token'
-        sendAuthMetric(logger, metric)
-        logger.warn({
-          message: `CheckUserAccess: No valid user found by store user token`,
-          userAgent: ctx.request.header['user-agent'],
-          vtexCaller: ctx.request.header['x-vtex-caller'],
-          forwardedHost: ctx.request.header['x-forwarded-host'],
-          operation,
-        })
-        authUser = null
-      } else {
-        // This is the first step before actually enabling this code.
-        // For now we only log in case of errors, but in follow up commits
-        // we will remove this additional try/catch and set authUser = null
-        // in case of errors
-        try {
-          const user = (await getActiveUserByEmail(
-            null,
-            { email: authUser?.user },
-            ctx
-          )) as { roleId: string } | null
-
-          if (!user?.roleId) {
-            metric.error = 'No active user found by store user token'
-            sendAuthMetric(logger, metric)
-            logger.warn({
-              message: `CheckUserAccess: No active user found by store user token`,
-              userAgent: ctx.request.header['user-agent'],
-              vtexCaller: ctx.request.header['x-vtex-caller'],
-              forwardedHost: ctx.request.header['x-forwarded-host'],
-              operation,
-            })
-          }
-        } catch (err) {
-          metric.error = 'Error getting user by email'
-          sendAuthMetric(logger, metric)
-          logger.warn({
-            error: err,
-            message: `CheckUserAccess: Error getting user by email`,
-            userAgent: ctx.request.header['user-agent'],
-            vtexCaller: ctx.request.header['x-vtex-caller'],
-            forwardedHost: ctx.request.header['x-forwarded-host'],
-            operation,
-          })
-        }
-      }
-    } catch (err) {
-      metric.error = 'Invalid store user token'
-      sendAuthMetric(logger, metric)
-      logger.warn({
-        error: err,
-        message: `CheckUserAccess: Invalid store user token`,
-        userAgent: ctx.request.header['user-agent'],
-        vtexCaller: ctx.request.header['x-vtex-caller'],
-        forwardedHost: ctx.request.header['x-forwarded-host'],
-        operation,
-      })
-      authUser = null
-    }
-
-    if (!authUser) {
-      throw new ForbiddenError('Unauthorized Access')
-    }
-  }
-}
-
 export class CheckUserAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
     const { resolve = defaultFieldResolver } = field
@@ -157,7 +16,155 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
       context: Context,
       info: any
     ) => {
-      await checkUserOrAdminTokenAccess(context, field.astNode?.name?.value)
+      const {
+        vtex: { adminUserAuthToken, storeUserAuthToken, logger },
+        clients: { identity, vtexId },
+      } = context
+
+      // check if has admin token and if it is valid
+      const hasAdminToken = !!adminUserAuthToken
+      let hasValidAdminToken
+      // this is used to check if the token is valid by current standards
+      let hasCurrentValidAdminToken = false
+
+      if (hasAdminToken) {
+        try {
+          const authUser = await identity.validateToken({
+            token: adminUserAuthToken as string,
+          })
+
+          // we set this flag to true if the token is valid by current standards
+          // in the future we should remove this line
+          hasCurrentValidAdminToken = true
+
+          if (authUser?.audience === 'admin') {
+            hasValidAdminToken = true
+          } else {
+            hasValidAdminToken = false
+          }
+        } catch (err) {
+          // noop so we leave hasValidAdminToken as undefined
+        }
+      }
+
+      // check if has api token and if it is valid
+      const apiToken = context?.headers['vtex-api-apptoken'] as string
+      const appKey = context?.headers['vtex-api-appkey'] as string
+      const hasApiToken = !!(apiToken?.length && appKey?.length)
+      let hasValidApiToken
+
+      if (hasApiToken) {
+        try {
+          const { token } = await identity.getToken({
+            appkey: appKey,
+            apptoken: apiToken,
+          })
+
+          const authUser = await identity.validateToken({
+            token,
+          })
+
+          if (authUser?.audience === 'admin') {
+            hasValidApiToken = true
+          } else {
+            hasValidApiToken = false
+          }
+        } catch (err) {
+          // noop so we leave hasValidApiToken as undefined
+        }
+      }
+
+      // check if has store token and if it is valid
+      const hasStoreToken = !!storeUserAuthToken
+      let hasValidStoreToken
+      // this is used to check if the token is valid by current standards
+      let hasCurrentValidStoreToken = false
+
+      if (hasStoreToken) {
+        try {
+          const authUser = await vtexId.getAuthenticatedUser(
+            storeUserAuthToken as string
+          )
+
+          if (authUser?.user) {
+            // we set this flag to true if the token is valid by current standards
+            // in the future we should remove this line
+            hasCurrentValidStoreToken = true
+
+            const user = (await getActiveUserByEmail(
+              null,
+              { email: authUser?.user },
+              context
+            )) as { roleId: string } | null
+
+            if (user?.roleId) {
+              hasValidStoreToken = true
+            } else {
+              hasValidStoreToken = false
+            }
+          } else {
+            hasValidStoreToken = false
+          }
+        } catch (err) {
+          // noop so we leave hasValidStoreToken as undefined
+        }
+      }
+
+      // now we emit a metric with all the collected data before we proceed
+      const operation = field?.astNode?.name?.value ?? context?.request?.url
+      const auditMetric = new AuthMetric(
+        context?.vtex?.account,
+        {
+          operation,
+          forwardedHost: context?.request?.headers[
+            'x-forwarded-host'
+          ] as string,
+          caller: context?.request?.headers['x-vtex-caller'] as string,
+          userAgent: context?.request?.headers['user-agent'] as string,
+          hasAdminToken,
+          hasValidAdminToken,
+          hasApiToken,
+          hasValidApiToken,
+          hasStoreToken,
+          hasValidStoreToken,
+        },
+        'CheckUserAccessAudit'
+      )
+
+      sendAuthMetric(logger, auditMetric)
+
+      if (!hasAdminToken && !hasStoreToken) {
+        logger.warn({
+          message: 'CheckUserAccess: No token provided',
+          userAgent: context?.request?.headers['user-agent'],
+          vtexCaller: context?.request?.headers['x-vtex-caller'],
+          forwardedHost: context?.request?.headers['x-forwarded-host'],
+          operation,
+          hasAdminToken,
+          hasValidAdminToken,
+          hasApiToken,
+          hasValidApiToken,
+          hasStoreToken,
+        })
+        throw new AuthenticationError('No token was provided')
+      }
+
+      if (!hasCurrentValidAdminToken && !hasCurrentValidStoreToken) {
+        logger.warn({
+          message: `CheckUserAccess: Invalid token`,
+          userAgent: context?.request?.headers['user-agent'],
+          vtexCaller: context?.request?.headers['x-vtex-caller'],
+          forwardedHost: context?.request?.headers['x-forwarded-host'],
+          operation,
+          hasAdminToken,
+          hasValidAdminToken,
+          hasApiToken,
+          hasValidApiToken,
+          hasStoreToken,
+          hasValidStoreToken,
+        })
+        throw new ForbiddenError('Unauthorized Access')
+      }
 
       return resolve(root, args, context, info)
     }
