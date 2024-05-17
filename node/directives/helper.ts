@@ -21,7 +21,7 @@ export const validateAdminToken = async (
   if (hasAdminToken) {
     try {
       const authUser = await identity.validateToken({
-        token: adminUserAuthToken as string,
+        token: adminUserAuthToken,
       })
 
       // we set this flag to true if the token is valid by current standards
@@ -30,8 +30,6 @@ export const validateAdminToken = async (
 
       if (authUser?.audience === 'admin') {
         hasValidAdminToken = true
-      } else {
-        hasValidAdminToken = false
       }
     } catch (err) {
       // noop so we leave hasValidAdminToken as false
@@ -70,8 +68,6 @@ export const validateApiToken = async (
 
       if (authUser?.audience === 'admin') {
         hasValidApiToken = true
-      } else {
-        hasValidApiToken = false
       }
     } catch (err) {
       // noop so we leave hasValidApiToken as false
@@ -101,9 +97,7 @@ export const validateStoreToken = async (
 
   if (hasStoreToken) {
     try {
-      const authUser = await vtexId.getAuthenticatedUser(
-        storeUserAuthToken as string
-      )
+      const authUser = await vtexId.getAuthenticatedUser(storeUserAuthToken)
 
       if (authUser?.user) {
         // we set this flag to true if the token is valid by current standards
@@ -118,11 +112,7 @@ export const validateStoreToken = async (
 
         if (user?.roleId) {
           hasValidStoreToken = true
-        } else {
-          hasValidStoreToken = false
         }
-      } else {
-        hasValidStoreToken = false
       }
     } catch (err) {
       // noop so we leave hasValidStoreToken as false
