@@ -15,10 +15,12 @@ const config: any = currentSchema('b2b_users')
 
 const addUserToMasterdata = async ({
   masterdata,
-  params: { name, email },
+  params: { name, email, costId, orgId },
+  ctx,
 }: {
   masterdata: any
-  params: { name: string; email: string }
+  params: { name: string; email: string; costId: string; orgId: string }
+  ctx: Context
 }) => {
   const names = name.split(' ')
   const [firstName] = names
@@ -26,15 +28,11 @@ const addUserToMasterdata = async ({
   names.shift()
   const lastName = names.length > 0 ? names.join(' ') : firstName // if it gets the lastName empty, it'll repeat the firstName to avoid errors on the checkout
 
-  const userExists = await masterdata.searchDocuments({
-    dataEntity: CUSTOMER_SCHEMA_NAME,
-    fields: ['id'],
-    pagination: {
-      page: 1,
-      pageSize: 1,
-    },
-    where: `email=${email}`,
-  })
+  const userExists = await getAllUsersByEmail(
+    '_',
+    { email, orgId, costId },
+    ctx
+  )
 
   if (userExists.length) {
     throw new UserInputError(`OrganizationUserAlreadyExists`)
@@ -197,7 +195,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
-    const cId = await addUserToMasterdata({ masterdata, params })
+    const cId = await addUserToMasterdata({ masterdata, params, ctx })
 
     const organizations = await getOrganizationsByEmail(
       _,
@@ -251,7 +249,7 @@ export const updateUser = async (_: any, params: any, ctx: Context) => {
   try {
     // check if new user already exists in CL and create profile if not
     if (!params.clId) {
-      params.clId = await addUserToMasterdata({ masterdata, params })
+      params.clId = await addUserToMasterdata({ masterdata, params, ctx })
     }
 
     await createPermission({
