@@ -5,6 +5,7 @@ metadata:
   annotations:
     github.com/project-slug: vtex-apps/storefront-permissions
 spec:
-  type: other
-  lifecycle: unknown
+  system: b2b-suite
+  type: backend-api
+  lifecycle: maintenance
   owner: b-2-b-enabler
