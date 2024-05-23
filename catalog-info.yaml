@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: storefront-permissions
+  annotations:
+    github.com/project-slug: vtex-apps/storefront-permissions
+spec:
+  type: other
+  lifecycle: unknown
+  owner: b-2-b-enabler
