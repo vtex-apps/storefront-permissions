@@ -1,4 +1,83 @@
-import { getActiveUserByEmail } from '../resolvers/Queries/Users'
+import { currentSchema } from '../utils'
+
+const config: any = currentSchema('b2b_users')
+
+const PAGINATION = {
+  page: 1,
+  pageSize: 50,
+}
+
+// This function checks if given email is an user part of a buyer org.
+// This was copied (slightly modified) from Users.ts/getAllUsers.
+const isUserPartOfBuyerOrg = async (email: string, ctx: Context) => {
+  const {
+    clients: { masterdata },
+  } = ctx
+
+  let hasUser = false
+  const where = `email=${email}`
+
+  try {
+    let currentPage = PAGINATION.page
+    let hasMore = true
+
+    const scrollMasterData = async (): Promise<boolean> => {
+      const resp = await masterdata.searchDocumentsWithPaginationInfo({
+        dataEntity: config.name,
+        fields: [
+          'id',
+          'roleId',
+          'clId',
+          'email',
+          'name',
+          'orgId',
+          'costId',
+          'userId',
+          'canImpersonate',
+          'active',
+        ],
+        pagination: {
+          page: currentPage,
+          pageSize: PAGINATION.pageSize,
+        },
+        schema: config.version,
+        ...(where ? { where } : {}),
+      })
+
+      const { data, pagination } = resp as unknown as {
+        pagination: {
+          total: number
+        }
+        data: any
+      }
+
+      const totalPages = Math.ceil(pagination.total / PAGINATION.pageSize)
+
+      if (currentPage >= totalPages) {
+        hasMore = false
+      }
+
+      // as soon as we find an user for this email that is part of a buyer org, we can stop the search
+      if (data.length > 0) {
+        return true
+      }
+
+      if (hasMore) {
+        currentPage += 1
+        hasUser = await scrollMasterData()
+      }
+
+      return hasUser
+    }
+
+    hasUser = await scrollMasterData()
+  } catch (error) {
+    // if it fails at somepoint, it means we have not found any user part
+    // of a buyer org until now, so we just let the function return false
+  }
+
+  return hasUser
+}
 
 export const validateAdminToken = async (
   context: Context,
@@ -104,13 +183,12 @@ export const validateStoreToken = async (
         // in the future we should remove this line
         hasCurrentValidStoreToken = true
 
-        const user = (await getActiveUserByEmail(
-          null,
-          { email: authUser?.user },
+        const userIsPartOfBuyerOrg = await isUserPartOfBuyerOrg(
+          authUser?.user,
           context
-        )) as { roleId: string } | null
+        )
 
-        if (user?.roleId) {
+        if (userIsPartOfBuyerOrg) {
           hasValidStoreToken = true
         }
       }
