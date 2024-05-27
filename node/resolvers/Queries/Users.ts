@@ -42,7 +42,7 @@ export const isUserPartOfBuyerOrg = async (email: string, ctx: Context) => {
       return true
     }
   } catch (error) {
-    // if it fails at somepoint, we threat it like no user was found
+    // if it fails at somepoint, we treat it like no user was found
     // on any buyer org, so we just let the function return false
   }
 
