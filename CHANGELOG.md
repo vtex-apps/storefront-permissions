@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- Check user is part of buyer org instead of "active" on checkUserAccess directive
+
 ## [1.40.5] - 2024-05-22
 ### Changed
 - Improved metrics and logging for checkUserAccess and checkAdminAccess directives
