@@ -1,4 +1,4 @@
-import { getActiveUserByEmail } from '../resolvers/Queries/Users'
+import { isUserPartOfBuyerOrg } from '../resolvers/Queries/Users'
 
 export const validateAdminToken = async (
   context: Context,
@@ -104,13 +104,12 @@ export const validateStoreToken = async (
         // in the future we should remove this line
         hasCurrentValidStoreToken = true
 
-        const user = (await getActiveUserByEmail(
-          null,
-          { email: authUser?.user },
+        const userIsPartOfBuyerOrg = await isUserPartOfBuyerOrg(
+          authUser?.user,
           context
-        )) as { roleId: string } | null
+        )
 
-        if (user?.roleId) {
+        if (userIsPartOfBuyerOrg) {
           hasValidStoreToken = true
         }
       }
