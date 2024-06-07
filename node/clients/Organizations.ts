@@ -74,8 +74,8 @@ export class OrganizationsGraphQLClient extends AppGraphQLClient {
     return this.graphql.query(
       { query, variables, extensions },
       {
+        headers: getTokenToHeader(this.context),
         params: {
-          headers: getTokenToHeader(this.context),
           locale: this.context.locale,
         },
       }
