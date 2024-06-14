@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Add token validation directive
+
 ## [1.40.7] - 2024-06-11
 
 ### Fixed

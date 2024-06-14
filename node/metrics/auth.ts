@@ -3,19 +3,22 @@ import type { Logger } from '@vtex/api/lib/service/logger/logger'
 import type { Metric } from '../clients/metrics'
 import { B2B_METRIC_NAME, sendMetric } from '../clients/metrics'
 
-export interface AuthAuditMetric {
+export interface AuthAuditTokenMetrics {
+  hasAdminToken: boolean
+  hasValidAdminToken?: boolean
+  hasStoreToken?: boolean
+  hasValidStoreToken?: boolean
+  hasApiToken?: boolean
+  hasValidApiToken?: boolean
+}
+
+export interface AuthAuditMetric extends AuthAuditTokenMetrics {
   operation: string
   forwardedHost: string
   caller: string
   userAgent: string
   role?: string
   permissions?: string[]
-  hasAdminToken: boolean
-  hasValidAdminToken?: boolean
-  hasStoreToken: boolean
-  hasValidStoreToken?: boolean
-  hasApiToken: boolean
-  hasValidApiToken?: boolean
 }
 
 export class AuthMetric implements Metric {

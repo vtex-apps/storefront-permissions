@@ -36,7 +36,7 @@ type Query {
   listAllUsers: [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @withSender
-    @checkUserAccess
+    @validateUserAccess
 
   listUsers(organizationId: ID, costCenterId: ID, roleId: ID): [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
@@ -71,11 +71,7 @@ type Query {
 
   getSessionWatcher: Boolean @cacheControl(scope: PRIVATE)
 
-  getUsersByEmail(
-    email: String!
-    orgId: ID
-    costId: ID
-  ): [User]
+  getUsersByEmail(email: String!, orgId: ID, costId: ID): [User]
     @cacheControl(scope: PRIVATE)
     @checkUserAccess
 
