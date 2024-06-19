@@ -9,7 +9,7 @@ export const validateAdminToken = async (
   hasCurrentValidAdminToken: boolean
 }> => {
   const {
-    clients: { identity },
+    clients: { identity, lm },
   } = context
 
   // check if has admin token and if it is valid
@@ -29,7 +29,14 @@ export const validateAdminToken = async (
       hasCurrentValidAdminToken = true
 
       if (authUser?.audience === 'admin') {
-        hasValidAdminToken = true
+        const hasAdminPermissions = await lm.getUserAdminPermissions(
+          authUser?.account,
+          authUser?.id
+        )
+
+        if (hasAdminPermissions) {
+          hasValidAdminToken = true
+        }
       }
     } catch (err) {
       // noop so we leave hasValidAdminToken as false
