@@ -29,12 +29,10 @@ export const validateAdminToken = async (
       hasCurrentValidAdminToken = true
 
       if (authUser?.audience === 'admin') {
-        const hasAdminPermissions = await lm.getUserAdminPermissions(
+        hasValidAdminToken = await lm.getUserAdminPermissions(
           authUser.account,
           authUser.id
         )
-
-        hasValidAdminToken = hasAdminPermissions
       }
     } catch (err) {
       // noop so we leave hasValidAdminToken as false
