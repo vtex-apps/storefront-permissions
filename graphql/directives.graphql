@@ -1,5 +1,5 @@
 directive @checkUserAccess on FIELD | FIELD_DEFINITION
-directive @validateUserAccess on FIELD | FIELD_DEFINITION
+directive @validateStoreUserAccess on FIELD | FIELD_DEFINITION
 directive @checkAdminAccess on FIELD | FIELD_DEFINITION
 directive @withSession on FIELD_DEFINITION
 directive @withSender on FIELD_DEFINITION

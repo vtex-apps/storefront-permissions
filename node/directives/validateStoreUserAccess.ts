@@ -11,7 +11,7 @@ import {
   validateStoreToken,
 } from './helper'
 
-export class ValidateUserAccess extends SchemaDirectiveVisitor {
+export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
     const { resolve = defaultFieldResolver } = field
 
@@ -87,14 +87,14 @@ export class ValidateUserAccess extends SchemaDirectiveVisitor {
           userAgent,
           ...tokenMetrics,
         },
-        'ValidateUserAccessAudit'
+        'ValidateStoreUserAccessAudit'
       )
 
       sendAuthMetric(logger, auditMetric)
 
       if (!hasTokens) {
         logger.warn({
-          message: 'ValidateUserAccess: No token provided',
+          message: 'ValidateStoreUserAccess: No token provided',
           userAgent,
           caller,
           forwardedHost,
@@ -106,7 +106,7 @@ export class ValidateUserAccess extends SchemaDirectiveVisitor {
 
       if (!hasValidTokens) {
         logger.warn({
-          message: `ValidateUserAccess: Invalid token`,
+          message: `ValidateStoreUserAccess: Invalid token`,
           userAgent,
           caller,
           forwardedHost,

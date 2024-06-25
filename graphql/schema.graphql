@@ -36,7 +36,7 @@ type Query {
   listAllUsers: [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @withSender
-    @validateUserAccess
+    @validateStoreUserAccess
 
   listUsers(organizationId: ID, costCenterId: ID, roleId: ID): [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
