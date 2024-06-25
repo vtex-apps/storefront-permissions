@@ -74,13 +74,11 @@ export class LMClient extends ExternalClient {
   }
 
   public getUserAdminPermissions = async (account: string, userId: string) => {
-    return this.get(this.routes.getUserAdminPermissions(account, userId))
-      .then((res: any) => {
+    return this.get(this.routes.getUserAdminPermissions(account, userId)).then(
+      (res: any) => {
         return res
-      })
-      .catch(() => {
-        return false
-      })
+      }
+    )
   }
 
   protected get = <T>(url: string) => {

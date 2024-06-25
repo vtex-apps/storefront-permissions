@@ -21,29 +21,24 @@ export const isUserPartOfBuyerOrg = async (email: string, ctx: Context) => {
     clients: { masterdata },
   } = ctx
 
-  try {
-    const where = `email=${email}`
-    const resp = await masterdata.searchDocumentsWithPaginationInfo({
-      dataEntity: config.name,
-      fields: ['id'], // we don't need to fetch all fields, only if there is an entry or not
-      pagination: {
-        page: 1,
-        pageSize: 1, // we only need to know if there is at least one user entry
-      },
-      schema: config.version,
-      ...(where ? { where } : {}),
-    })
+  const where = `email=${email}`
+  const resp = await masterdata.searchDocumentsWithPaginationInfo({
+    dataEntity: config.name,
+    fields: ['id'], // we don't need to fetch all fields, only if there is an entry or not
+    pagination: {
+      page: 1,
+      pageSize: 1, // we only need to know if there is at least one user entry
+    },
+    schema: config.version,
+    ...(where ? { where } : {}),
+  })
 
-    const { data } = resp as unknown as {
-      data: any
-    }
+  const { data } = resp as unknown as {
+    data: any
+  }
 
-    if (data.length > 0) {
-      return true
-    }
-  } catch (error) {
-    // if it fails at somepoint, we treat it like no user was found
-    // on any buyer org, so we just let the function return false
+  if (data.length > 0) {
+    return true
   }
 
   return false
