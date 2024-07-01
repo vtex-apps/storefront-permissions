@@ -10,11 +10,11 @@ export interface AuthAuditMetric {
   userAgent: string
   role?: string
   permissions?: string[]
-  hasAdminToken: boolean
+  hasAdminToken?: boolean
   hasValidAdminToken?: boolean
-  hasStoreToken: boolean
+  hasStoreToken?: boolean
   hasValidStoreToken?: boolean
-  hasApiToken: boolean
+  hasApiToken?: boolean
   hasValidApiToken?: boolean
 }
 

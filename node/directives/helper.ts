@@ -9,7 +9,8 @@ export const validateAdminToken = async (
   hasCurrentValidAdminToken: boolean
 }> => {
   const {
-    clients: { identity },
+    clients: { identity, lm },
+    vtex: { logger },
   } = context
 
   // check if has admin token and if it is valid
@@ -29,10 +30,17 @@ export const validateAdminToken = async (
       hasCurrentValidAdminToken = true
 
       if (authUser?.audience === 'admin') {
-        hasValidAdminToken = true
+        hasValidAdminToken = await lm.getUserAdminPermissions(
+          authUser.account,
+          authUser.id
+        )
       }
     } catch (err) {
       // noop so we leave hasValidAdminToken as false
+      logger.warn({
+        message: 'Error validating admin token',
+        err,
+      })
     }
   }
 
@@ -47,6 +55,7 @@ export const validateApiToken = async (
 }> => {
   const {
     clients: { identity },
+    vtex: { logger },
   } = context
 
   // check if has api token and if it is valid
@@ -71,6 +80,10 @@ export const validateApiToken = async (
       }
     } catch (err) {
       // noop so we leave hasValidApiToken as false
+      logger.warn({
+        message: 'Error validating API token',
+        err,
+      })
     }
   }
 
@@ -87,6 +100,7 @@ export const validateStoreToken = async (
 }> => {
   const {
     clients: { vtexId },
+    vtex: { logger },
   } = context
 
   // check if has store token and if it is valid
@@ -115,6 +129,10 @@ export const validateStoreToken = async (
       }
     } catch (err) {
       // noop so we leave hasValidStoreToken as false
+      logger.warn({
+        message: 'Error validating store token:',
+        err,
+      })
     }
   }
 
