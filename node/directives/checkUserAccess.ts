@@ -6,6 +6,7 @@ import { SchemaDirectiveVisitor } from 'graphql-tools'
 import sendAuthMetric, { AuthMetric } from '../metrics/auth'
 import {
   validateAdminToken,
+  validateAdminTokenOnHeader,
   validateApiToken,
   validateStoreToken,
 } from './helper'
@@ -24,8 +25,20 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      const { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
+      let { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
         await validateAdminToken(context, adminUserAuthToken as string)
+
+      let hasAdminTokenOnHeader = false
+
+      // If there's no admin token on context, search for it on header
+      if (!hasAdminToken) {
+        ;({
+          hasAdminToken,
+          hasValidAdminToken,
+          hasCurrentValidAdminToken,
+          hasAdminTokenOnHeader,
+        } = await validateAdminTokenOnHeader(context))
+      }
 
       const { hasApiToken, hasValidApiToken } = await validateApiToken(context)
 
@@ -53,6 +66,7 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasValidApiToken,
           hasStoreToken,
           hasValidStoreToken,
+          hasAdminTokenOnHeader,
         },
         'CheckUserAccessAudit'
       )
@@ -71,6 +85,7 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasApiToken,
           hasValidApiToken,
           hasStoreToken,
+          hasAdminTokenOnHeader,
         })
         throw new AuthenticationError('No token was provided')
       }
@@ -88,6 +103,7 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasValidApiToken,
           hasStoreToken,
           hasValidStoreToken,
+          hasAdminTokenOnHeader,
         })
         throw new ForbiddenError('Unauthorized Access')
       }

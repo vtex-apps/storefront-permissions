@@ -4,7 +4,11 @@ import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'
 
 import sendAuthMetric, { AuthMetric } from '../metrics/auth'
-import { validateAdminToken, validateApiToken } from './helper'
+import {
+  validateAdminToken,
+  validateAdminTokenOnHeader,
+  validateApiToken,
+} from './helper'
 
 export class CheckAdminAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
@@ -20,8 +24,20 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      const { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
+      let { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
         await validateAdminToken(context, adminUserAuthToken as string)
+
+      let hasAdminTokenOnHeader = false
+
+      // If there's no admin token on context, search for it on header
+      if (!hasAdminToken) {
+        ;({
+          hasAdminToken,
+          hasValidAdminToken,
+          hasCurrentValidAdminToken,
+          hasAdminTokenOnHeader,
+        } = await validateAdminTokenOnHeader(context))
+      }
 
       const { hasApiToken, hasValidApiToken } = await validateApiToken(context)
 
@@ -47,6 +63,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           hasApiToken,
           hasValidApiToken,
           hasStoreToken,
+          hasAdminTokenOnHeader,
         },
         'CheckAdminAccessAudit'
       )
@@ -65,6 +82,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           hasApiToken,
           hasValidApiToken,
           hasStoreToken,
+          hasAdminTokenOnHeader,
         })
         throw new AuthenticationError('No token was provided')
       }
@@ -81,6 +99,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           hasApiToken,
           hasValidApiToken,
           hasStoreToken,
+          hasAdminTokenOnHeader,
         })
         throw new ForbiddenError('Unauthorized Access')
       }

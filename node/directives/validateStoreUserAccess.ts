@@ -7,6 +7,7 @@ import type { AuthAuditMetric } from '../metrics/auth'
 import sendAuthMetric, { AuthMetric } from '../metrics/auth'
 import {
   validateAdminToken,
+  validateAdminTokenOnHeader,
   validateApiToken,
   validateStoreToken,
 } from './helper'
@@ -41,13 +42,26 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
         userAgent,
       }
 
-      const { hasAdminToken, hasValidAdminToken } = await validateAdminToken(
+      let { hasAdminToken, hasValidAdminToken } = await validateAdminToken(
         context,
         adminUserAuthToken as string
       )
 
+      let hasAdminTokenOnHeader = false
+
+      // If there's no admin token on context, search for it on header
+      if (!hasAdminToken) {
+        ;({ hasAdminToken, hasValidAdminToken, hasAdminTokenOnHeader } =
+          await validateAdminTokenOnHeader(context))
+      }
+
       // add admin token metrics
-      metricFields = { ...metricFields, hasAdminToken, hasValidAdminToken }
+      metricFields = {
+        ...metricFields,
+        hasAdminToken,
+        hasValidAdminToken,
+        hasAdminTokenOnHeader,
+      }
 
       // allow access if has valid admin token
       if (hasValidAdminToken) {
