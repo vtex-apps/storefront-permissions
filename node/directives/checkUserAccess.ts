@@ -68,7 +68,12 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
 
       sendAuthMetric(logger, auditMetric)
 
-      if (!hasAdminToken && !hasStoreToken && !hasAdminTokenOnHeader) {
+      if (
+        !hasAdminToken &&
+        !hasApiToken &&
+        !hasStoreToken &&
+        !hasAdminTokenOnHeader
+      ) {
         logger.warn({
           message: 'CheckUserAccess: No token provided',
           userAgent,
@@ -88,6 +93,7 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
 
       if (
         !hasCurrentValidAdminToken &&
+        !hasValidApiToken &&
         !hasCurrentValidStoreToken &&
         !hasCurrentValidAdminTokenOnHeader
       ) {
