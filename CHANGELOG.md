@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Get tokens from headers when necessary
+
 ## [1.41.0] - 2024-07-01
 
 ### Added
