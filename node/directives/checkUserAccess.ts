@@ -25,20 +25,14 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      let { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
+      const { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
         await validateAdminToken(context, adminUserAuthToken as string)
 
-      let hasAdminTokenOnHeader = false
-
-      // If there's no admin token on context, search for it on header
-      if (!hasAdminToken) {
-        ;({
-          hasAdminToken,
-          hasValidAdminToken,
-          hasCurrentValidAdminToken,
-          hasAdminTokenOnHeader,
-        } = await validateAdminTokenOnHeader(context))
-      }
+      const {
+        hasAdminTokenOnHeader,
+        hasValidAdminTokenOnHeader,
+        hasCurrentValidAdminTokenOnHeader,
+      } = await validateAdminTokenOnHeader(context)
 
       const { hasApiToken, hasValidApiToken } = await validateApiToken(context)
 
@@ -67,13 +61,14 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasStoreToken,
           hasValidStoreToken,
           hasAdminTokenOnHeader,
+          hasValidAdminTokenOnHeader,
         },
         'CheckUserAccessAudit'
       )
 
       sendAuthMetric(logger, auditMetric)
 
-      if (!hasAdminToken && !hasStoreToken) {
+      if (!hasAdminToken && !hasStoreToken && !hasAdminTokenOnHeader) {
         logger.warn({
           message: 'CheckUserAccess: No token provided',
           userAgent,
@@ -86,11 +81,16 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasValidApiToken,
           hasStoreToken,
           hasAdminTokenOnHeader,
+          hasValidAdminTokenOnHeader,
         })
         throw new AuthenticationError('No token was provided')
       }
 
-      if (!hasCurrentValidAdminToken && !hasCurrentValidStoreToken) {
+      if (
+        !hasCurrentValidAdminToken &&
+        !hasCurrentValidStoreToken &&
+        !hasCurrentValidAdminTokenOnHeader
+      ) {
         logger.warn({
           message: `CheckUserAccess: Invalid token`,
           userAgent,
@@ -104,6 +104,7 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasStoreToken,
           hasValidStoreToken,
           hasAdminTokenOnHeader,
+          hasValidAdminTokenOnHeader,
         })
         throw new ForbiddenError('Unauthorized Access')
       }

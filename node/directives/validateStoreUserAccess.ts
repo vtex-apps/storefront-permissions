@@ -42,29 +42,45 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
         userAgent,
       }
 
-      let { hasAdminToken, hasValidAdminToken } = await validateAdminToken(
+      const { hasAdminToken, hasValidAdminToken } = await validateAdminToken(
         context,
         adminUserAuthToken as string
       )
-
-      let hasAdminTokenOnHeader = false
-
-      // If there's no admin token on context, search for it on header
-      if (!hasAdminToken) {
-        ;({ hasAdminToken, hasValidAdminToken, hasAdminTokenOnHeader } =
-          await validateAdminTokenOnHeader(context))
-      }
 
       // add admin token metrics
       metricFields = {
         ...metricFields,
         hasAdminToken,
         hasValidAdminToken,
-        hasAdminTokenOnHeader,
       }
 
       // allow access if has valid admin token
       if (hasValidAdminToken) {
+        sendAuthMetric(
+          logger,
+          new AuthMetric(
+            context?.vtex?.account,
+            metricFields,
+            'ValidateStoreUserAccessAudit'
+          )
+        )
+
+        return resolve(root, args, context, info)
+      }
+
+      // If there's no valid admin token on context, search for it on header
+      const { hasAdminTokenOnHeader, hasValidAdminTokenOnHeader } =
+        await validateAdminTokenOnHeader(context)
+
+      // add admin header token metrics
+      metricFields = {
+        ...metricFields,
+        hasAdminTokenOnHeader,
+        hasValidAdminTokenOnHeader,
+      }
+
+      // allow access if has valid admin token
+      if (hasValidAdminTokenOnHeader) {
         sendAuthMetric(
           logger,
           new AuthMetric(

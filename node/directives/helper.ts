@@ -142,20 +142,18 @@ export const validateStoreToken = async (
 export const validateAdminTokenOnHeader = async (
   context: Context
 ): Promise<{
-  hasAdminToken: boolean
-  hasValidAdminToken: boolean
-  hasCurrentValidAdminToken: boolean
   hasAdminTokenOnHeader: boolean
+  hasValidAdminTokenOnHeader: boolean
+  hasCurrentValidAdminTokenOnHeader: boolean
 }> => {
   const adminUserAuthToken = context?.headers.vtexidclientautcookie as string
   const hasAdminTokenOnHeader = !!adminUserAuthToken?.length
 
   if (!hasAdminTokenOnHeader) {
     return {
-      hasAdminToken: false,
-      hasValidAdminToken: false,
-      hasCurrentValidAdminToken: false,
-      hasAdminTokenOnHeader,
+      hasAdminTokenOnHeader: false,
+      hasValidAdminTokenOnHeader: false,
+      hasCurrentValidAdminTokenOnHeader: false,
     }
   }
 
@@ -163,9 +161,8 @@ export const validateAdminTokenOnHeader = async (
     await validateAdminToken(context, adminUserAuthToken)
 
   return {
-    hasAdminToken,
-    hasValidAdminToken,
-    hasCurrentValidAdminToken,
-    hasAdminTokenOnHeader,
+    hasAdminTokenOnHeader: hasAdminToken,
+    hasValidAdminTokenOnHeader: hasValidAdminToken,
+    hasCurrentValidAdminTokenOnHeader: hasCurrentValidAdminToken,
   }
 }
