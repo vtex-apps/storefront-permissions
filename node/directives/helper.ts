@@ -10,7 +10,7 @@ export const validateAdminToken = async (
 }> => {
   const {
     clients: { identity, lm },
-    vtex: { logger },
+    vtex: { account, logger },
   } = context
 
   // check if has admin token and if it is valid
@@ -29,9 +29,9 @@ export const validateAdminToken = async (
       // in the future we should remove this line
       hasCurrentValidAdminToken = true
 
-      if (authUser?.audience === 'admin') {
+      if (authUser?.audience === 'admin' && authUser?.account === account) {
         hasValidAdminToken = await lm.getUserAdminPermissions(
-          authUser.account,
+          account,
           authUser.id
         )
       }
@@ -54,8 +54,8 @@ export const validateApiToken = async (
   hasValidApiToken: boolean
 }> => {
   const {
-    clients: { identity },
-    vtex: { logger },
+    clients: { identity, lm },
+    vtex: { account, logger },
   } = context
 
   // check if has api token and if it is valid
@@ -75,8 +75,11 @@ export const validateApiToken = async (
         token,
       })
 
-      if (authUser?.audience === 'admin') {
-        hasValidApiToken = true
+      if (authUser?.audience === 'admin' && authUser?.account === account) {
+        hasValidApiToken = await lm.getUserAdminPermissions(
+          account,
+          authUser.id
+        )
       }
     } catch (err) {
       // noop so we leave hasValidApiToken as false
