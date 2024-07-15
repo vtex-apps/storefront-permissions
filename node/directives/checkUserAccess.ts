@@ -24,10 +24,15 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      const { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
-        await validateAdminToken(context, adminUserAuthToken as string)
+      const {
+        hasAdminToken,
+        hasValidAdminToken,
+        hasCurrentValidAdminToken,
+        hasValidAdminTokenFromStore,
+      } = await validateAdminToken(context, adminUserAuthToken as string)
 
-      const { hasApiToken, hasValidApiToken } = await validateApiToken(context)
+      const { hasApiToken, hasValidApiToken, hasValidApiTokenFromStore } =
+        await validateApiToken(context)
 
       const { hasStoreToken, hasValidStoreToken, hasCurrentValidStoreToken } =
         await validateStoreToken(context, storeUserAuthToken as string)
@@ -53,6 +58,8 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasValidApiToken,
           hasStoreToken,
           hasValidStoreToken,
+          hasValidAdminTokenFromStore,
+          hasValidApiTokenFromStore,
         },
         'CheckUserAccessAudit'
       )
@@ -71,6 +78,8 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasApiToken,
           hasValidApiToken,
           hasStoreToken,
+          hasValidAdminTokenFromStore,
+          hasValidApiTokenFromStore,
         })
         throw new AuthenticationError('No token was provided')
       }
@@ -88,6 +97,8 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasValidApiToken,
           hasStoreToken,
           hasValidStoreToken,
+          hasValidAdminTokenFromStore,
+          hasValidApiTokenFromStore,
         })
         throw new ForbiddenError('Unauthorized Access')
       }

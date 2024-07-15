@@ -7,8 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-### Fixed
-- Add account validation for admin and api tokens
+### Added
+- Add validation metrics for admin and api tokens
 
 ## [1.41.0] - 2024-07-01
 

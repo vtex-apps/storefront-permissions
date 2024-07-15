@@ -7,6 +7,7 @@ export const validateAdminToken = async (
   hasAdminToken: boolean
   hasValidAdminToken: boolean
   hasCurrentValidAdminToken: boolean
+  hasValidAdminTokenFromStore: boolean
 }> => {
   const {
     clients: { identity, lm },
@@ -18,6 +19,8 @@ export const validateAdminToken = async (
   let hasValidAdminToken = false
   // this is used to check if the token is valid by current standards
   let hasCurrentValidAdminToken = false
+  // this is used to check if the token is valid and from this store
+  let hasValidAdminTokenFromStore = false
 
   if (hasAdminToken) {
     try {
@@ -29,8 +32,17 @@ export const validateAdminToken = async (
       // in the future we should remove this line
       hasCurrentValidAdminToken = true
 
-      if (authUser?.audience === 'admin' && authUser?.account === account) {
+      if (authUser?.audience === 'admin') {
         hasValidAdminToken = await lm.getUserAdminPermissions(
+          authUser.account,
+          authUser.id
+        )
+      }
+
+      // check if the token is from this store. Currently used for metrics
+      // in future we should merge this with the previous check
+      if (authUser?.audience === 'admin' && authUser?.account === account) {
+        hasValidAdminTokenFromStore = await lm.getUserAdminPermissions(
           account,
           authUser.id
         )
@@ -44,7 +56,12 @@ export const validateAdminToken = async (
     }
   }
 
-  return { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken }
+  return {
+    hasAdminToken,
+    hasValidAdminToken,
+    hasCurrentValidAdminToken,
+    hasValidAdminTokenFromStore,
+  }
 }
 
 export const validateApiToken = async (
@@ -52,6 +69,7 @@ export const validateApiToken = async (
 ): Promise<{
   hasApiToken: boolean
   hasValidApiToken: boolean
+  hasValidApiTokenFromStore: boolean
 }> => {
   const {
     clients: { identity, lm },
@@ -63,6 +81,7 @@ export const validateApiToken = async (
   const appKey = context?.headers['vtex-api-appkey'] as string
   const hasApiToken = !!(apiToken?.length && appKey?.length)
   let hasValidApiToken = false
+  let hasValidApiTokenFromStore = false
 
   if (hasApiToken) {
     try {
@@ -75,8 +94,14 @@ export const validateApiToken = async (
         token,
       })
 
+      if (authUser?.audience === 'admin') {
+        hasValidApiToken = true
+      }
+
+      // check if the token is from this store. Currently used for metrics
+      // in future we should merge this with the previous check
       if (authUser?.audience === 'admin' && authUser?.account === account) {
-        hasValidApiToken = await lm.getUserAdminPermissions(
+        hasValidApiTokenFromStore = await lm.getUserAdminPermissions(
           account,
           authUser.id
         )
@@ -90,7 +115,7 @@ export const validateApiToken = async (
     }
   }
 
-  return { hasApiToken, hasValidApiToken }
+  return { hasApiToken, hasValidApiToken, hasValidApiTokenFromStore }
 }
 
 export const validateStoreToken = async (
