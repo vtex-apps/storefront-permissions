@@ -166,3 +166,31 @@ export const validateStoreToken = async (
 
   return { hasStoreToken, hasValidStoreToken, hasCurrentValidStoreToken }
 }
+
+export const validateAdminTokenOnHeader = async (
+  context: Context
+): Promise<{
+  hasAdminTokenOnHeader: boolean
+  hasValidAdminTokenOnHeader: boolean
+  hasCurrentValidAdminTokenOnHeader: boolean
+}> => {
+  const adminUserAuthToken = context?.headers.vtexidclientautcookie as string
+  const hasAdminTokenOnHeader = !!adminUserAuthToken?.length
+
+  if (!hasAdminTokenOnHeader) {
+    return {
+      hasAdminTokenOnHeader: false,
+      hasValidAdminTokenOnHeader: false,
+      hasCurrentValidAdminTokenOnHeader: false,
+    }
+  }
+
+  const { hasAdminToken, hasCurrentValidAdminToken, hasValidAdminToken } =
+    await validateAdminToken(context, adminUserAuthToken)
+
+  return {
+    hasAdminTokenOnHeader: hasAdminToken,
+    hasValidAdminTokenOnHeader: hasValidAdminToken,
+    hasCurrentValidAdminTokenOnHeader: hasCurrentValidAdminToken,
+  }
+}

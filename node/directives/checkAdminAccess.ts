@@ -4,7 +4,11 @@ import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'
 
 import sendAuthMetric, { AuthMetric } from '../metrics/auth'
-import { validateAdminToken, validateApiToken } from './helper'
+import {
+  validateAdminToken,
+  validateAdminTokenOnHeader,
+  validateApiToken,
+} from './helper'
 
 export class CheckAdminAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
@@ -26,6 +30,12 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         hasCurrentValidAdminToken,
         hasValidAdminTokenFromStore,
       } = await validateAdminToken(context, adminUserAuthToken as string)
+
+      const {
+        hasAdminTokenOnHeader,
+        hasValidAdminTokenOnHeader,
+        hasCurrentValidAdminTokenOnHeader,
+      } = await validateAdminTokenOnHeader(context)
 
       const { hasApiToken, hasValidApiToken, hasValidApiTokenFromStore } =
         await validateApiToken(context)
@@ -52,6 +62,8 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           hasApiToken,
           hasValidApiToken,
           hasStoreToken,
+          hasAdminTokenOnHeader,
+          hasValidAdminTokenOnHeader,
           hasValidAdminTokenFromStore,
           hasValidApiTokenFromStore,
         },
@@ -60,7 +72,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
 
       sendAuthMetric(logger, auditMetric)
 
-      if (!hasAdminToken) {
+      if (!hasAdminToken && !hasApiToken && !hasAdminTokenOnHeader) {
         logger.warn({
           message: 'CheckAdminAccess: No token provided',
           userAgent,
@@ -72,13 +84,19 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           hasApiToken,
           hasValidApiToken,
           hasStoreToken,
+          hasAdminTokenOnHeader,
+          hasValidAdminTokenOnHeader,
           hasValidAdminTokenFromStore,
           hasValidApiTokenFromStore,
         })
         throw new AuthenticationError('No token was provided')
       }
 
-      if (!hasCurrentValidAdminToken) {
+      if (
+        !hasCurrentValidAdminToken &&
+        !hasValidApiToken &&
+        !hasCurrentValidAdminTokenOnHeader
+      ) {
         logger.warn({
           message: 'CheckAdminAccess: Invalid token',
           userAgent,
@@ -90,6 +108,8 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           hasApiToken,
           hasValidApiToken,
           hasStoreToken,
+          hasAdminTokenOnHeader,
+          hasValidAdminTokenOnHeader,
           hasValidAdminTokenFromStore,
           hasValidApiTokenFromStore,
         })

@@ -7,6 +7,7 @@ import type { AuthAuditMetric } from '../metrics/auth'
 import sendAuthMetric, { AuthMetric } from '../metrics/auth'
 import {
   validateAdminToken,
+  validateAdminTokenOnHeader,
   validateApiToken,
   validateStoreToken,
 } from './helper'
@@ -54,6 +55,31 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
 
       // allow access if has valid admin token
       if (hasValidAdminToken) {
+        sendAuthMetric(
+          logger,
+          new AuthMetric(
+            context?.vtex?.account,
+            metricFields,
+            'ValidateStoreUserAccessAudit'
+          )
+        )
+
+        return resolve(root, args, context, info)
+      }
+
+      // If there's no valid admin token on context, search for it on header
+      const { hasAdminTokenOnHeader, hasValidAdminTokenOnHeader } =
+        await validateAdminTokenOnHeader(context)
+
+      // add admin header token metrics
+      metricFields = {
+        ...metricFields,
+        hasAdminTokenOnHeader,
+        hasValidAdminTokenOnHeader,
+      }
+
+      // allow access if has valid admin token
+      if (hasValidAdminTokenOnHeader) {
         sendAuthMetric(
           logger,
           new AuthMetric(
