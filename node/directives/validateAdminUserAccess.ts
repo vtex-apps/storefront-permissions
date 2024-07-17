@@ -5,7 +5,11 @@ import { defaultFieldResolver } from 'graphql'
 
 import type { AuthAuditMetric } from '../metrics/auth'
 import sendAuthMetric, { AuthMetric } from '../metrics/auth'
-import { validateAdminToken, validateApiToken } from './helper'
+import {
+  validateAdminToken,
+  validateAdminTokenOnHeader,
+  validateApiToken,
+} from './helper'
 
 export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
@@ -37,13 +41,16 @@ export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
         userAgent,
       }
 
-      const { hasAdminToken, hasValidAdminToken } = await validateAdminToken(
-        context,
-        adminUserAuthToken as string
-      )
+      const { hasAdminToken, hasValidAdminToken, hasValidAdminTokenFromStore } =
+        await validateAdminToken(context, adminUserAuthToken as string)
 
       // add admin token metrics
-      metricFields = { ...metricFields, hasAdminToken, hasValidAdminToken }
+      metricFields = {
+        ...metricFields,
+        hasAdminToken,
+        hasValidAdminToken,
+        hasValidAdminTokenFromStore,
+      }
 
       // allow access if has valid admin token
       if (hasValidAdminToken) {
@@ -59,13 +66,40 @@ export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
         return resolve(root, args, context, info)
       }
 
-      const { hasApiToken, hasValidApiToken } = await validateApiToken(context)
+      // If there's no valid admin token on context, search for it on header
+      const { hasAdminTokenOnHeader, hasValidAdminTokenOnHeader } =
+        await validateAdminTokenOnHeader(context)
+
+      // add admin header token metrics
+      metricFields = {
+        ...metricFields,
+        hasAdminTokenOnHeader,
+        hasValidAdminTokenOnHeader,
+      }
+
+      // allow access if has valid admin token
+      if (hasValidAdminTokenOnHeader) {
+        sendAuthMetric(
+          logger,
+          new AuthMetric(
+            context?.vtex?.account,
+            metricFields,
+            'ValidateStoreUserAccessAudit'
+          )
+        )
+
+        return resolve(root, args, context, info)
+      }
+
+      const { hasApiToken, hasValidApiToken, hasValidApiTokenFromStore } =
+        await validateApiToken(context)
 
       // add API token metrics
       metricFields = {
         ...metricFields,
         hasApiToken,
         hasValidApiToken,
+        hasValidApiTokenFromStore,
       }
 
       // allow access if has valid API token
