@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 - Changed the token validation directive of some operations
+## [1.43.0] - 2024-07-23
+
+### Added
+- Add admin validation directive
+
+## [1.42.0] - 2024-07-17
+
+### Fixed
+- Get tokens from headers when necessary
+
+## [1.41.1] - 2024-07-15
+
+### Added
+- Add validation metrics for admin and api tokens
 
 ## [1.41.0] - 2024-07-01
 

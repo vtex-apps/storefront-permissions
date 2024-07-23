@@ -1,7 +1,7 @@
+import { SchemaDirectiveVisitor } from 'graphql-tools'
 import { AuthenticationError, ForbiddenError } from '@vtex/api'
 import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'
-import { SchemaDirectiveVisitor } from 'graphql-tools'
 
 import type { AuthAuditMetric } from '../metrics/auth'
 import sendAuthMetric, { AuthMetric } from '../metrics/auth'
@@ -9,10 +9,9 @@ import {
   validateAdminToken,
   validateAdminTokenOnHeader,
   validateApiToken,
-  validateStoreToken,
 } from './helper'
 
-export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
+export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
     const { resolve = defaultFieldResolver } = field
 
@@ -23,7 +22,7 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
       info: any
     ) => {
       const {
-        vtex: { adminUserAuthToken, storeUserAuthToken, logger },
+        vtex: { adminUserAuthToken, logger },
       } = context
 
       // get metrics data
@@ -60,7 +59,7 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
           new AuthMetric(
             context?.vtex?.account,
             metricFields,
-            'ValidateStoreUserAccessAudit'
+            'ValidateAdminUserAccessAudit'
           )
         )
 
@@ -85,7 +84,7 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
           new AuthMetric(
             context?.vtex?.account,
             metricFields,
-            'ValidateStoreUserAccessAudit'
+            'ValidateAdminUserAccessAudit'
           )
         )
 
@@ -110,33 +109,7 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
           new AuthMetric(
             context?.vtex?.account,
             metricFields,
-            'ValidateStoreUserAccessAudit'
-          )
-        )
-
-        return resolve(root, args, context, info)
-      }
-
-      const { hasStoreToken, hasValidStoreToken } = await validateStoreToken(
-        context,
-        storeUserAuthToken as string
-      )
-
-      // add store token metrics
-      metricFields = {
-        ...metricFields,
-        hasStoreToken,
-        hasValidStoreToken,
-      }
-
-      // allow access if has valid store token
-      if (hasValidStoreToken) {
-        sendAuthMetric(
-          logger,
-          new AuthMetric(
-            context?.vtex?.account,
-            metricFields,
-            'ValidateStoreUserAccessAudit'
+            'ValidateAdminUserAccessAudit'
           )
         )
 
@@ -144,9 +117,9 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
       }
 
       // deny access if no tokens were provided
-      if (!hasAdminToken && !hasApiToken && !hasStoreToken) {
+      if (!hasAdminToken && !hasAdminTokenOnHeader && !hasApiToken) {
         logger.warn({
-          message: 'ValidateStoreUserAccess: No token provided',
+          message: 'ValidateAdminUserAccess: No token provided',
           ...metricFields,
         })
         throw new AuthenticationError('No token was provided')
@@ -154,7 +127,7 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
 
       // deny access if no valid tokens were provided
       logger.warn({
-        message: `ValidateStoreUserAccess: Invalid token`,
+        message: 'ValidateAdminUserAccess: Invalid token',
         ...metricFields,
       })
       throw new ForbiddenError('Unauthorized Access')
