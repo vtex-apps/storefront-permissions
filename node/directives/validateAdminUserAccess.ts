@@ -84,7 +84,7 @@ export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
           new AuthMetric(
             context?.vtex?.account,
             metricFields,
-            'ValidateStoreUserAccessAudit'
+            'ValidateAdminUserAccessAudit'
           )
         )
 
