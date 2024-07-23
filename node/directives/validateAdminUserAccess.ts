@@ -117,7 +117,7 @@ export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
       }
 
       // deny access if no tokens were provided
-      if (!hasAdminToken && !hasApiToken) {
+      if (!hasAdminToken && !hasAdminTokenOnHeader && !hasApiToken) {
         logger.warn({
           message: 'ValidateAdminUserAccess: No token provided',
           ...metricFields,
