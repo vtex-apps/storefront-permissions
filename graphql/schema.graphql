@@ -73,11 +73,11 @@ type Query {
 
   getUsersByEmail(email: String!, orgId: ID, costId: ID): [User]
     @cacheControl(scope: PRIVATE)
-    @checkUserAccess
+    @validateStoreUserAccess
 
   getActiveUserByEmail(email: String!): User
     @cacheControl(scope: PRIVATE)
-    @checkUserAccess
+    @validateStoreUserAccess
 
   getOrganizationsByEmail(email: String!): [Organization]
     @cacheControl(scope: PRIVATE)
@@ -92,12 +92,15 @@ type Mutation {
     name: String!
     slug: String
     features: [FeatureInput]
-  ): MutationResponse @cacheControl(scope: PRIVATE) @withSender @checkUserAccess
+  ): MutationResponse
+    @cacheControl(scope: PRIVATE)
+    @withSender
+    @validateStoreUserAccess
 
   deleteRole(id: ID!): MutationResponse
     @cacheControl(scope: PRIVATE)
     @withSender
-    @checkUserAccess
+    @validateStoreUserAccess
 
   saveUser(
     id: ID
@@ -135,7 +138,7 @@ type Mutation {
   ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
 
   addCostCenterToUser(costId: ID!, userId: ID!): MutationResponse
-    @checkUserAccess
+    @validateStoreUserAccess
     @cacheControl(scope: PRIVATE)
 
   addOrganizationToUser(
@@ -146,7 +149,7 @@ type Mutation {
   ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
 
   setActiveUserByOrganization(userId: ID): MutationResponse
-    @checkUserAccess
+    @validateStoreUserAccess
     @cacheControl(scope: PRIVATE)
 
   impersonateUser(userId: ID): MutationResponse
