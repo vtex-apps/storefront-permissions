@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Removed metric and enforced new validation for admin and api tokens
+
 ## [1.43.1] - 2024-07-24
 
 ### Changed
