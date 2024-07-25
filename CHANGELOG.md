@@ -7,65 +7,84 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- addUser function to not accept invalid cost center
+
 ## [1.43.1] - 2024-07-24
 
 ### Changed
+
 - Changed the token validation directive of some operations
+
 ## [1.43.0] - 2024-07-23
 
 ### Added
+
 - Add admin validation directive
 
 ## [1.42.0] - 2024-07-17
 
 ### Fixed
+
 - Get tokens from headers when necessary
 
 ## [1.41.1] - 2024-07-15
 
 ### Added
+
 - Add validation metrics for admin and api tokens
 
 ## [1.41.0] - 2024-07-01
 
 ### Added
+
 - Add token validation directive
 
 ## [1.40.7] - 2024-06-11
 
 ### Fixed
+
 - Provide correct tokens to clients
 
 ## [1.40.6] - 2024-05-28
 
 ### Changed
+
 - Check user is part of buyer org instead of "active" on checkUserAccess directive
 
 ## [1.40.5] - 2024-05-22
+
 ### Changed
+
 - Improved metrics and logging for checkUserAccess and checkAdminAccess directives
 
 ## [1.40.4] - 2024-04-29
 
 ### Added
+
 - Add token validation logs
 
 ### Removed
+
 - Reverted changes from versions 1.40.3, 1.40.2 and 1.40.1
 
 ## [1.40.3] - 2024-04-24
 
 ### Fixed
+
 - Provide correct auth tokens to clients
 
 ## [1.40.2] - 2024-04-19
 
 ### Fixed
+
 - Fix auth issue by adding additional admin token check to checkUserAccess and checkAdminAccess
 
 ## [1.40.1] - 2024-04-18
 
 ### Fixed
+
 - Fix auth issue by adding role check to checkUserAccess directive
 
 ## [1.40.0] - 2024-03-20
@@ -89,6 +108,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.39.2] - 2024-02-26
 
 ### Changed
+
 - Add intro description about Session Watcher
 
 ## [1.39.1] - 2024-02-09

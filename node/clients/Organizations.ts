@@ -1,8 +1,9 @@
-import type { InstanceOptions, IOContext } from '@vtex/api'
+import type { GraphQLResponse, InstanceOptions, IOContext } from '@vtex/api'
 import { AppGraphQLClient } from '@vtex/api'
 
 import { QUERIES } from '../resolvers/Routes/utils'
 import { getTokenToHeader } from './index'
+import type { GetCostCenterType } from '../typings/custom'
 
 const getPersistedQuery = () => {
   return {
@@ -36,14 +37,14 @@ export class OrganizationsGraphQLClient extends AppGraphQLClient {
     })
   }
 
-  public getCostCenterById = async (costId: string): Promise<unknown> => {
+  public getCostCenterById = async (costId: string) => {
     return this.query({
       extensions: getPersistedQuery(),
       query: QUERIES.getCostCenterById,
       variables: {
         id: costId,
       },
-    })
+    }) as Promise<GraphQLResponse<GetCostCenterType>>
   }
 
   public getMarketingTags = async (costId: string): Promise<unknown> => {
