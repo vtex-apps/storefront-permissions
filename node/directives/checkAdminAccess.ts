@@ -24,12 +24,8 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      const {
-        hasAdminToken,
-        hasValidAdminToken,
-        hasCurrentValidAdminToken,
-        hasValidAdminTokenFromStore,
-      } = await validateAdminToken(context, adminUserAuthToken as string)
+      const { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
+        await validateAdminToken(context, adminUserAuthToken as string)
 
       const {
         hasAdminTokenOnHeader,
@@ -37,8 +33,7 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         hasCurrentValidAdminTokenOnHeader,
       } = await validateAdminTokenOnHeader(context)
 
-      const { hasApiToken, hasValidApiToken, hasValidApiTokenFromStore } =
-        await validateApiToken(context)
+      const { hasApiToken, hasValidApiToken } = await validateApiToken(context)
 
       const hasStoreToken = !!storeUserAuthToken // we don't need to validate store token
 
@@ -64,8 +59,6 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           hasStoreToken,
           hasAdminTokenOnHeader,
           hasValidAdminTokenOnHeader,
-          hasValidAdminTokenFromStore,
-          hasValidApiTokenFromStore,
         },
         'CheckAdminAccessAudit'
       )
@@ -86,8 +79,6 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           hasStoreToken,
           hasAdminTokenOnHeader,
           hasValidAdminTokenOnHeader,
-          hasValidAdminTokenFromStore,
-          hasValidApiTokenFromStore,
         })
         throw new AuthenticationError('No token was provided')
       }
@@ -110,8 +101,6 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
           hasStoreToken,
           hasAdminTokenOnHeader,
           hasValidAdminTokenOnHeader,
-          hasValidAdminTokenFromStore,
-          hasValidApiTokenFromStore,
         })
         throw new ForbiddenError('Unauthorized Access')
       }

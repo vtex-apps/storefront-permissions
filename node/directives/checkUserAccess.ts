@@ -25,12 +25,8 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      const {
-        hasAdminToken,
-        hasValidAdminToken,
-        hasCurrentValidAdminToken,
-        hasValidAdminTokenFromStore,
-      } = await validateAdminToken(context, adminUserAuthToken as string)
+      const { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
+        await validateAdminToken(context, adminUserAuthToken as string)
 
       const {
         hasAdminTokenOnHeader,
@@ -38,8 +34,7 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
         hasCurrentValidAdminTokenOnHeader,
       } = await validateAdminTokenOnHeader(context)
 
-      const { hasApiToken, hasValidApiToken, hasValidApiTokenFromStore } =
-        await validateApiToken(context)
+      const { hasApiToken, hasValidApiToken } = await validateApiToken(context)
 
       const { hasStoreToken, hasValidStoreToken, hasCurrentValidStoreToken } =
         await validateStoreToken(context, storeUserAuthToken as string)
@@ -67,8 +62,6 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasValidStoreToken,
           hasAdminTokenOnHeader,
           hasValidAdminTokenOnHeader,
-          hasValidAdminTokenFromStore,
-          hasValidApiTokenFromStore,
         },
         'CheckUserAccessAudit'
       )
@@ -94,8 +87,6 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasStoreToken,
           hasAdminTokenOnHeader,
           hasValidAdminTokenOnHeader,
-          hasValidAdminTokenFromStore,
-          hasValidApiTokenFromStore,
         })
         throw new AuthenticationError('No token was provided')
       }
@@ -120,8 +111,6 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasValidStoreToken,
           hasAdminTokenOnHeader,
           hasValidAdminTokenOnHeader,
-          hasValidAdminTokenFromStore,
-          hasValidApiTokenFromStore,
         })
         throw new ForbiddenError('Unauthorized Access')
       }

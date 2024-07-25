@@ -42,15 +42,16 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
         userAgent,
       }
 
-      const { hasAdminToken, hasValidAdminToken, hasValidAdminTokenFromStore } =
-        await validateAdminToken(context, adminUserAuthToken as string)
+      const { hasAdminToken, hasValidAdminToken } = await validateAdminToken(
+        context,
+        adminUserAuthToken as string
+      )
 
       // add admin token metrics
       metricFields = {
         ...metricFields,
         hasAdminToken,
         hasValidAdminToken,
-        hasValidAdminTokenFromStore,
       }
 
       // allow access if has valid admin token
@@ -92,15 +93,13 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
         return resolve(root, args, context, info)
       }
 
-      const { hasApiToken, hasValidApiToken, hasValidApiTokenFromStore } =
-        await validateApiToken(context)
+      const { hasApiToken, hasValidApiToken } = await validateApiToken(context)
 
       // add API token metrics
       metricFields = {
         ...metricFields,
         hasApiToken,
         hasValidApiToken,
-        hasValidApiTokenFromStore,
       }
 
       // allow access if has valid API token
