@@ -24,19 +24,6 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      const { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
-        await validateAdminToken(context, adminUserAuthToken as string)
-
-      const {
-        hasAdminTokenOnHeader,
-        hasValidAdminTokenOnHeader,
-        hasCurrentValidAdminTokenOnHeader,
-      } = await validateAdminTokenOnHeader(context)
-
-      const { hasApiToken, hasValidApiToken } = await validateApiToken(context)
-
-      const hasStoreToken = !!storeUserAuthToken // we don't need to validate store token
-
       // now we emit a metric with all the collected data before we proceed
       const operation = field.astNode?.name?.value ?? context.request.url
       const userAgent = context?.request?.headers['user-agent'] as string
@@ -44,6 +31,33 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
       const forwardedHost = context?.request?.headers[
         'x-forwarded-host'
       ] as string
+
+      const metricFields = {
+        operation,
+        forwardedHost,
+        caller,
+        userAgent,
+      }
+
+      const { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
+        await validateAdminToken(
+          context,
+          adminUserAuthToken as string,
+          metricFields
+        )
+
+      const {
+        hasAdminTokenOnHeader,
+        hasValidAdminTokenOnHeader,
+        hasCurrentValidAdminTokenOnHeader,
+      } = await validateAdminTokenOnHeader(context, metricFields)
+
+      const { hasApiToken, hasValidApiToken } = await validateApiToken(
+        context,
+        metricFields
+      )
+
+      const hasStoreToken = !!storeUserAuthToken // we don't need to validate store token
 
       const auditMetric = new AuthMetric(
         context?.vtex?.account,

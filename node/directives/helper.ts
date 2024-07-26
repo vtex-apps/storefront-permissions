@@ -2,7 +2,8 @@ import { isUserPartOfBuyerOrg } from '../resolvers/Queries/Users'
 
 export const validateAdminToken = async (
   context: Context,
-  adminUserAuthToken: string
+  adminUserAuthToken: string,
+  metricFields: any
 ): Promise<{
   hasAdminToken: boolean
   hasValidAdminToken: boolean
@@ -29,6 +30,20 @@ export const validateAdminToken = async (
       // in the future we should remove this line
       hasCurrentValidAdminToken = true
 
+      if (
+        authUser?.audience === 'admin' &&
+        authUser &&
+        authUser.account !== account
+      ) {
+        logger.warn({
+          message: 'validateAdminToken: Token from another account',
+          ...metricFields,
+          authUserAccount: authUser.account,
+          account,
+          user: authUser.user,
+        })
+      }
+
       if (authUser?.audience === 'admin' && authUser?.account === account) {
         hasValidAdminToken = await lm.getUserAdminPermissions(
           account,
@@ -52,7 +67,8 @@ export const validateAdminToken = async (
 }
 
 export const validateApiToken = async (
-  context: Context
+  context: Context,
+  metricFields: any
 ): Promise<{
   hasApiToken: boolean
   hasValidApiToken: boolean
@@ -78,6 +94,20 @@ export const validateApiToken = async (
       const authUser = await identity.validateToken({
         token,
       })
+
+      if (
+        authUser?.audience === 'admin' &&
+        authUser &&
+        authUser.account !== account
+      ) {
+        logger.warn({
+          message: 'validateApiToken: Token from another account',
+          ...metricFields,
+          authUserAccount: authUser.account,
+          account,
+          user: authUser.user,
+        })
+      }
 
       if (authUser?.audience === 'admin' && authUser?.account === account) {
         hasValidApiToken = await lm.getUserAdminPermissions(
@@ -147,7 +177,8 @@ export const validateStoreToken = async (
 }
 
 export const validateAdminTokenOnHeader = async (
-  context: Context
+  context: Context,
+  metricFields: any
 ): Promise<{
   hasAdminTokenOnHeader: boolean
   hasValidAdminTokenOnHeader: boolean
@@ -165,7 +196,7 @@ export const validateAdminTokenOnHeader = async (
   }
 
   const { hasAdminToken, hasCurrentValidAdminToken, hasValidAdminToken } =
-    await validateAdminToken(context, adminUserAuthToken)
+    await validateAdminToken(context, adminUserAuthToken, metricFields)
 
   return {
     hasAdminTokenOnHeader: hasAdminToken,

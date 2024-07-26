@@ -44,7 +44,8 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
 
       const { hasAdminToken, hasValidAdminToken } = await validateAdminToken(
         context,
-        adminUserAuthToken as string
+        adminUserAuthToken as string,
+        metricFields
       )
 
       // add admin token metrics
@@ -70,7 +71,7 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
 
       // If there's no valid admin token on context, search for it on header
       const { hasAdminTokenOnHeader, hasValidAdminTokenOnHeader } =
-        await validateAdminTokenOnHeader(context)
+        await validateAdminTokenOnHeader(context, metricFields)
 
       // add admin header token metrics
       metricFields = {
@@ -93,7 +94,10 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
         return resolve(root, args, context, info)
       }
 
-      const { hasApiToken, hasValidApiToken } = await validateApiToken(context)
+      const { hasApiToken, hasValidApiToken } = await validateApiToken(
+        context,
+        metricFields
+      )
 
       // add API token metrics
       metricFields = {
