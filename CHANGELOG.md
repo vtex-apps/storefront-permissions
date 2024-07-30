@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Storefront considers the active organizations when setting the user's profile
 
+## [1.43.2] - 2024-07-29
+
+### Added
+- Add enforcement of new validation for admin and api tokens
+- Add more details to admin and api token validation metric
+
 ## [1.43.1] - 2024-07-24
 
 ### Changed
