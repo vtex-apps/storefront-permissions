@@ -146,7 +146,7 @@ type Mutation {
     userId: ID!
     costId: ID!
     roleId: ID
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
 
   setActiveUserByOrganization(userId: ID): MutationResponse
     @validateStoreUserAccess
@@ -157,7 +157,7 @@ type Mutation {
     @cacheControl(scope: PRIVATE)
 
   deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
-    @checkAdminAccess
+    @validateAdminUserAccess
     @cacheControl(scope: PRIVATE)
 
   setCurrentOrganization(orgId: ID!, costId: ID!): MutationResponse

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- Changed the token validation directive of some operations
+
 ## [1.43.2] - 2024-07-29
 
 ### Added
@@ -17,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 - Changed the token validation directive of some operations
+
 ## [1.43.0] - 2024-07-23
 
 ### Added
@@ -48,6 +52,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Check user is part of buyer org instead of "active" on checkUserAccess directive
 
 ## [1.40.5] - 2024-05-22
+
 ### Changed
 - Improved metrics and logging for checkUserAccess and checkAdminAccess directives
 
