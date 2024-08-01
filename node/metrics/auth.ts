@@ -16,6 +16,8 @@ export interface AuthAuditMetric {
   hasValidStoreToken?: boolean
   hasApiToken?: boolean
   hasValidApiToken?: boolean
+  hasAdminTokenOnHeader?: boolean
+  hasValidAdminTokenOnHeader?: boolean
 }
 
 export class AuthMetric implements Metric {

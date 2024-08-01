@@ -2,7 +2,8 @@ import { isUserPartOfBuyerOrg } from '../resolvers/Queries/Users'
 
 export const validateAdminToken = async (
   context: Context,
-  adminUserAuthToken: string
+  adminUserAuthToken: string,
+  metricFields: any
 ): Promise<{
   hasAdminToken: boolean
   hasValidAdminToken: boolean
@@ -10,7 +11,7 @@ export const validateAdminToken = async (
 }> => {
   const {
     clients: { identity, lm },
-    vtex: { logger },
+    vtex: { account, logger },
   } = context
 
   // check if has admin token and if it is valid
@@ -29,9 +30,23 @@ export const validateAdminToken = async (
       // in the future we should remove this line
       hasCurrentValidAdminToken = true
 
-      if (authUser?.audience === 'admin') {
+      if (
+        authUser?.audience === 'admin' &&
+        authUser &&
+        authUser.account !== account
+      ) {
+        logger.warn({
+          message: 'validateAdminToken: Token from another account',
+          ...metricFields,
+          authUserAccount: authUser.account,
+          account,
+          user: authUser.user,
+        })
+      }
+
+      if (authUser?.audience === 'admin' && authUser?.account === account) {
         hasValidAdminToken = await lm.getUserAdminPermissions(
-          authUser.account,
+          account,
           authUser.id
         )
       }
@@ -44,18 +59,23 @@ export const validateAdminToken = async (
     }
   }
 
-  return { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken }
+  return {
+    hasAdminToken,
+    hasValidAdminToken,
+    hasCurrentValidAdminToken,
+  }
 }
 
 export const validateApiToken = async (
-  context: Context
+  context: Context,
+  metricFields: any
 ): Promise<{
   hasApiToken: boolean
   hasValidApiToken: boolean
 }> => {
   const {
-    clients: { identity },
-    vtex: { logger },
+    clients: { identity, lm },
+    vtex: { account, logger },
   } = context
 
   // check if has api token and if it is valid
@@ -75,8 +95,25 @@ export const validateApiToken = async (
         token,
       })
 
-      if (authUser?.audience === 'admin') {
-        hasValidApiToken = true
+      if (
+        authUser?.audience === 'admin' &&
+        authUser &&
+        authUser.account !== account
+      ) {
+        logger.warn({
+          message: 'validateApiToken: Token from another account',
+          ...metricFields,
+          authUserAccount: authUser.account,
+          account,
+          user: authUser.user,
+        })
+      }
+
+      if (authUser?.audience === 'admin' && authUser?.account === account) {
+        hasValidApiToken = await lm.getUserAdminPermissions(
+          account,
+          authUser.id
+        )
       }
     } catch (err) {
       // noop so we leave hasValidApiToken as false
@@ -137,4 +174,33 @@ export const validateStoreToken = async (
   }
 
   return { hasStoreToken, hasValidStoreToken, hasCurrentValidStoreToken }
+}
+
+export const validateAdminTokenOnHeader = async (
+  context: Context,
+  metricFields: any
+): Promise<{
+  hasAdminTokenOnHeader: boolean
+  hasValidAdminTokenOnHeader: boolean
+  hasCurrentValidAdminTokenOnHeader: boolean
+}> => {
+  const adminUserAuthToken = context?.headers.vtexidclientautcookie as string
+  const hasAdminTokenOnHeader = !!adminUserAuthToken?.length
+
+  if (!hasAdminTokenOnHeader) {
+    return {
+      hasAdminTokenOnHeader: false,
+      hasValidAdminTokenOnHeader: false,
+      hasCurrentValidAdminTokenOnHeader: false,
+    }
+  }
+
+  const { hasAdminToken, hasCurrentValidAdminToken, hasValidAdminToken } =
+    await validateAdminToken(context, adminUserAuthToken, metricFields)
+
+  return {
+    hasAdminTokenOnHeader: hasAdminToken,
+    hasValidAdminTokenOnHeader: hasValidAdminToken,
+    hasCurrentValidAdminTokenOnHeader: hasCurrentValidAdminToken,
+  }
 }
