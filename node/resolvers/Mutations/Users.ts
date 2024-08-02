@@ -180,6 +180,14 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
+    const costCenter = await ctx.clients.organizations.getCostCenterById(
+      params.costId
+    )
+
+    if (!costCenter?.data?.getCostCenterById.name) {
+      throw new Error(`Invalid cost center`)
+    }
+
     const cId = await addUserToMasterdata({ masterdata, params })
 
     const organizations = await getOrganizationsByEmail(
