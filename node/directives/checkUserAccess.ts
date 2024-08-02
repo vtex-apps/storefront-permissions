@@ -25,25 +25,6 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      const {
-        hasAdminToken,
-        hasValidAdminToken,
-        hasCurrentValidAdminToken,
-        hasValidAdminTokenFromStore,
-      } = await validateAdminToken(context, adminUserAuthToken as string)
-
-      const {
-        hasAdminTokenOnHeader,
-        hasValidAdminTokenOnHeader,
-        hasCurrentValidAdminTokenOnHeader,
-      } = await validateAdminTokenOnHeader(context)
-
-      const { hasApiToken, hasValidApiToken, hasValidApiTokenFromStore } =
-        await validateApiToken(context)
-
-      const { hasStoreToken, hasValidStoreToken, hasCurrentValidStoreToken } =
-        await validateStoreToken(context, storeUserAuthToken as string)
-
       // now we emit a metric with all the collected data before we proceed
       const operation = field?.astNode?.name?.value ?? context?.request?.url
       const userAgent = context?.request?.headers['user-agent'] as string
@@ -51,6 +32,34 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
       const forwardedHost = context?.request?.headers[
         'x-forwarded-host'
       ] as string
+
+      const metricFields = {
+        operation,
+        forwardedHost,
+        caller,
+        userAgent,
+      }
+
+      const { hasAdminToken, hasValidAdminToken, hasCurrentValidAdminToken } =
+        await validateAdminToken(
+          context,
+          adminUserAuthToken as string,
+          metricFields
+        )
+
+      const {
+        hasAdminTokenOnHeader,
+        hasValidAdminTokenOnHeader,
+        hasCurrentValidAdminTokenOnHeader,
+      } = await validateAdminTokenOnHeader(context, metricFields)
+
+      const { hasApiToken, hasValidApiToken } = await validateApiToken(
+        context,
+        metricFields
+      )
+
+      const { hasStoreToken, hasValidStoreToken, hasCurrentValidStoreToken } =
+        await validateStoreToken(context, storeUserAuthToken as string)
 
       const auditMetric = new AuthMetric(
         context?.vtex?.account,
@@ -67,8 +76,6 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasValidStoreToken,
           hasAdminTokenOnHeader,
           hasValidAdminTokenOnHeader,
-          hasValidAdminTokenFromStore,
-          hasValidApiTokenFromStore,
         },
         'CheckUserAccessAudit'
       )
@@ -94,8 +101,6 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasStoreToken,
           hasAdminTokenOnHeader,
           hasValidAdminTokenOnHeader,
-          hasValidAdminTokenFromStore,
-          hasValidApiTokenFromStore,
         })
         throw new AuthenticationError('No token was provided')
       }
@@ -120,8 +125,6 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
           hasValidStoreToken,
           hasAdminTokenOnHeader,
           hasValidAdminTokenOnHeader,
-          hasValidAdminTokenFromStore,
-          hasValidApiTokenFromStore,
         })
         throw new ForbiddenError('Unauthorized Access')
       }
