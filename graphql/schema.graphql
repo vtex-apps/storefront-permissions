@@ -124,7 +124,7 @@ type Mutation {
     canImpersonate: Boolean = false
     email: String
     name: String
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
 
   addUser(
     id: ID
@@ -135,7 +135,7 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
 
   addCostCenterToUser(costId: ID!, userId: ID!): MutationResponse
     @validateStoreUserAccess
@@ -153,7 +153,7 @@ type Mutation {
     @cacheControl(scope: PRIVATE)
 
   impersonateUser(userId: ID): MutationResponse
-    @checkUserAccess
+    @validateStoreUserAccess
     @cacheControl(scope: PRIVATE)
 
   deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
