@@ -199,22 +199,7 @@ export interface GetCostCenterType {
       id: string | null
       name: string | null
     } | null
-    addresses: {
-      addressId: string | null
-      addressType: string | null
-      addressQuery: string | null
-      postalCode: string | null
-      country: string | null
-      receiverName: string | null
-      city: string | null
-      state: string | null
-      street: string | null
-      number: string | null
-      complement: string | null
-      neighborhood: string | null
-      geoCoordinates: string | null
-      reference: string | null
-    }
+    address: Address
     phoneNumber: string | null
     businessDocument: string | null
     stateRegistration: string | null
