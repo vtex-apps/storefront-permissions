@@ -23,7 +23,7 @@ type Query {
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @withSender
 
-  getUser(id: ID!): User @cacheControl(scope: PRIVATE) @checkUserAccess
+  getUser(id: ID!): User @cacheControl(scope: PRIVATE) @validateStoreUserAccess
   getB2BUser(id: ID!): User @cacheControl(scope: PRIVATE)
 
   checkCustomerSchema: Boolean @cacheControl(scope: PRIVATE) @withSender
@@ -43,7 +43,7 @@ type Query {
     @deprecated(
       reason: "This query is deprecated, use listUsersPaginated query instead."
     )
-    @checkUserAccess
+    @validateStoreUserAccess
 
   listUsersPaginated(
     organizationId: ID
@@ -56,7 +56,7 @@ type Query {
     sortedBy: String
   ): UserPagination
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
-    @checkUserAccess
+    @validateStoreUserAccess
 
   checkImpersonation: UserImpersonation
     @settings(settingsType: "workspace")
@@ -81,7 +81,7 @@ type Query {
 
   getOrganizationsByEmail(email: String!): [Organization]
     @cacheControl(scope: PRIVATE)
-    @checkUserAccess
+    @validateStoreUserAccess
 }
 
 type Mutation {
