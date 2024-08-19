@@ -10,6 +10,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Session audit metrics
 
+## [1.44.0] - 2024-08-14
+
+### Changed
+- Changed the token validation directive of some operations
+
+## [1.43.5] - 2024-08-08
+
+### Fixed
+- Storefront considers the active organizations when setting the user's profile
+
+## [1.43.4] - 2024-08-07
+
+### Changed
+- Changed the token validation directive of some operations
+
 ## [1.43.3] - 2024-07-31
 
 ### Changed
