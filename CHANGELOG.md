@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Session audit metrics
+
 ## [1.44.0] - 2024-08-14
 
 ### Changed
