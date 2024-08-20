@@ -195,6 +195,7 @@ export interface DeliveryId {
 export interface GetCostCenterType {
   getCostCenterById: {
     name: string | null
+    organization: string | null
     paymentTerms: {
       id: string | null
       name: string | null

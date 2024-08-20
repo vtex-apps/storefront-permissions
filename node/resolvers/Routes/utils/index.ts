@@ -23,6 +23,7 @@ export const QUERIES = {
           name
         }
         name
+        organization
         addresses {
           addressId
           addressType
