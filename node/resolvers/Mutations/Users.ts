@@ -184,6 +184,9 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
       params.costId
     )
 
+    // before adding an user to a cost center we check if the cost
+    // center exists and if it has a valid name, otherwise both
+    // login and UI might break.
     if (
       !costCenter?.data?.getCostCenterById?.name ||
       params.orgId !== costCenter.data?.getCostCenterById?.organization
