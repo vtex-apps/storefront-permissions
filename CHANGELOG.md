@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.44.2] - 2024-08-21
+
 ### Fixed
 - addUser function to not accept invalid cost center
 
