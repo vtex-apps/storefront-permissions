@@ -185,8 +185,8 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
     )
 
     if (
-      !costCenter?.data?.getCostCenterById.name ||
-      params.orgId !== costCenter.data.getCostCenterById.organization
+      !costCenter?.data?.getCostCenterById?.name ||
+      params.orgId !== costCenter.data?.getCostCenterById?.organization
     ) {
       throw new Error(`Invalid cost center`)
     }
