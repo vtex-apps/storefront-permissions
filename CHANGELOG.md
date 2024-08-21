@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- add new auth metric field
+
 ## [1.44.2] - 2024-08-21
 
 ### Fixed
