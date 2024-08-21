@@ -189,7 +189,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
     // login and UI might break.
     if (
       !costCenter?.data?.getCostCenterById?.name ||
-      params.orgId !== costCenter.data?.getCostCenterById?.organization
+      params.orgId !== costCenter?.data?.getCostCenterById?.organization
     ) {
       throw new Error(`Invalid cost center`)
     }
