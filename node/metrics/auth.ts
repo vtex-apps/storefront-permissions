@@ -13,6 +13,7 @@ export interface AuthAuditMetric {
   hasAdminToken?: boolean
   hasValidAdminToken?: boolean
   hasStoreToken?: boolean
+  hasCurrentValidStoreToken?: boolean
   hasValidStoreToken?: boolean
   hasApiToken?: boolean
   hasValidApiToken?: boolean
