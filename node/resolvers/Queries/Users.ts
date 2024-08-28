@@ -49,6 +49,7 @@ export const getAllUsers = async ({
           pageSize: PAGINATION.pageSize,
         },
         schema: config.version,
+        sort: 'id asc',
         ...(where ? { where } : {}),
       })
 
