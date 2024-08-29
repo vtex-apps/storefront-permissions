@@ -135,6 +135,63 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
   return getAllUsers({ masterdata, logger, where })
 }
 
+export const getUsersByEmailPaginated = async ({
+  masterdata,
+  logger,
+  email,
+  page = 1,
+  pageSize = 25,
+}: {
+  masterdata: any
+  logger: any
+  email: string
+  page: number
+  pageSize: number
+}) => {
+  try {
+    const users = [] as any[]
+
+    const resp = await masterdata.searchDocumentsWithPaginationInfo({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'clId',
+        'email',
+        'name',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+        'active',
+      ],
+      pagination: {
+        page: page,
+        pageSize: pageSize,
+      },
+      schema: config.version,
+      where: `email = "${email}"`,
+    })
+
+    const { data } = resp as unknown as {
+      pagination: {
+        total: number
+      }
+      data: any
+    }
+
+    users.push(...data)
+
+    return users
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getUsersByEmailPaginated-error',
+    })
+    throw new Error(error)
+  }
+}
+
 export const getActiveUserByEmail = async (
   _: any,
   params: any,
@@ -809,6 +866,50 @@ export const getOrganizationsByEmail = async (
     logger.error({
       error,
       message: `getOrganizationsByEmail-error`,
+    })
+
+    return { status: 'error', message: error }
+  }
+}
+
+export const getOrganizationsByEmailPaginated = async (
+  _: any,
+  {
+    email = '',
+    page = 1,
+    pageSize = 25,
+  }: {
+    email: string
+    page: number
+    pageSize: number
+  },
+  ctx: Context
+) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  try {
+    const data = await masterdata.searchDocumentsWithPaginationInfo({
+      dataEntity: config.name,
+      fields: [
+        'clId',
+        'costId',
+        'id',
+        'orgId',
+        'roleId',
+      ],
+      pagination: { page, pageSize },
+      schema: config.version,
+      where: `email = "${email}"`,
+    })
+
+    return data
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'getOrganizationsByEmailPaginated-error',
     })
 
     return { status: 'error', message: error }
