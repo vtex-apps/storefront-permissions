@@ -166,8 +166,8 @@ export const getUsersByEmailPaginated = async ({
         'active',
       ],
       pagination: {
-        page: page,
-        pageSize: pageSize,
+        page,
+        pageSize,
       },
       schema: config.version,
       where: `email = "${email}"`,
@@ -893,13 +893,7 @@ export const getOrganizationsByEmailPaginated = async (
   try {
     const data = await masterdata.searchDocumentsWithPaginationInfo({
       dataEntity: config.name,
-      fields: [
-        'clId',
-        'costId',
-        'id',
-        'orgId',
-        'roleId',
-      ],
+      fields: ['clId', 'costId', 'id', 'orgId', 'roleId'],
       pagination: { page, pageSize },
       schema: config.version,
       where: `email = "${email}"`,
