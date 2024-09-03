@@ -14,4 +14,14 @@ export default class IdentityClient extends JanusClient {
   public async validateToken({ token }: { token: string }): Promise<any> {
     return this.http.post('/api/vtexid/credential/validate', { token })
   }
+
+  public async getToken({
+    appkey,
+    apptoken,
+  }: {
+    appkey: string
+    apptoken: string
+  }): Promise<any> {
+    return this.http.post('/api/vtexid/apptoken/login', { appkey, apptoken })
+  }
 }
