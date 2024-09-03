@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Add sort to searchDocumentsWithPaginationInfo at getAllUsers
+
 ## [1.44.3] - 2024-08-22
 
 ### Fixed
