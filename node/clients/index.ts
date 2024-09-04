@@ -12,7 +12,7 @@ import { Schema } from './schema'
 import VtexId from './vtexId'
 
 export const getTokenToHeader = (ctx: IOContext) => {
-  const adminToken = ctx.adminUserAuthToken ?? ctx.authToken
+  const adminToken = ctx.authToken
   const userToken = ctx.storeUserAuthToken
   const { sessionToken, account } = ctx
 

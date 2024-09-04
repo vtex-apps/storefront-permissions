@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Provide app token on calls to b2b-organizations-graphql app
+
 ## [1.44.4] - 2024-09-03
 
 ### Fixed
