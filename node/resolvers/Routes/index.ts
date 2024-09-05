@@ -244,7 +244,7 @@ export const Routes = {
     response['storefront-permissions'].organization.value = user.orgId
 
     const getOrganization = async (orgId: any): Promise<any> => {
-      return await organizations.getOrganizationById(orgId).catch((error) => {
+      return organizations.getOrganizationById(orgId).catch((error) => {
         logger.error({
           error,
           message: 'setProfile.graphqlGetOrganizationById',
