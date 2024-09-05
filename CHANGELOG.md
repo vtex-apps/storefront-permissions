@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Add await to requests to properly handle inactive organizations on login
+
 ## [1.44.5] - 2024-09-04
 
 ### Fixed
