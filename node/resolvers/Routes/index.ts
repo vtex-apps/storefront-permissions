@@ -387,7 +387,7 @@ export const Routes = {
     // Only require CPF if cost center contains an address in Brazil
     // This is a workaround to avoid setting CPF as documentType for countries other than Brazil
     if (
-      costCenterResponse?.data?.getCostCenterById?.addresses.some(
+      costCenterResponse?.data?.getCostCenterById?.addresses?.some(
         (address: { country: string }) => address.country === 'BRA'
       )
     ) {
@@ -461,7 +461,8 @@ export const Routes = {
         const [regionId] = await checkout.getRegionId(
           address.country,
           address.postalCode,
-          salesChannel.toString()
+          salesChannel.toString(),
+          address.geoCoordinates
         )
 
         if (regionId?.id) {
