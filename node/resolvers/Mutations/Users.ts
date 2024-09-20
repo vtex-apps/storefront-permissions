@@ -116,7 +116,7 @@ const updateUserFields = async ({ masterdata, fields, id }: any) => {
   return DocumentId
 }
 
-const createPermission = async ({ masterdata, vbase, params }: any) => {
+const createPermission = async ({ masterdata, params }: any) => {
   const {
     roleId,
     canImpersonate,
@@ -129,7 +129,7 @@ const createPermission = async ({ masterdata, vbase, params }: any) => {
     id,
   } = params
 
-  const { DocumentId } = await masterdata
+  await masterdata
     .createOrUpdateEntireDocument({
       dataEntity: config.name,
       fields: {
@@ -157,25 +157,11 @@ const createPermission = async ({ masterdata, vbase, params }: any) => {
 
       throw error
     })
-
-  if (DocumentId) {
-    await vbase.saveJSON('b2b_users', email, {
-      canImpersonate,
-      clId,
-      costId,
-      email,
-      id: DocumentId,
-      name,
-      orgId,
-      roleId,
-      userId,
-    })
-  }
 }
 
 export const addUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, lm, vbase },
+    clients: { masterdata, lm },
     vtex: { logger },
   } = ctx
 
@@ -220,8 +206,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
       params: {
         ...params,
         clId: cId,
-      },
-      vbase,
+      }
     })
 
     return { status: 'success', message: '', id: cId }
@@ -323,15 +308,13 @@ export const deleteUserProfile = async (_: any, params: any, ctx: Context) => {
 
 export const deleteUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, vbase },
+    clients: { masterdata },
     vtex: { logger },
   } = ctx
 
-  const { id, email } = params
+  const { id } = params
 
   try {
-    await vbase.deleteFile('b2b_users', email).catch(() => null)
-
     await masterdata.deleteDocument({
       dataEntity: config.name,
       id,

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Remove unnecessary b2b_users storage on vbase
+
 ## [1.44.6] - 2024-09-05
 
 ### Fixed
