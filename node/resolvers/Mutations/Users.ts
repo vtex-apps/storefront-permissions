@@ -222,7 +222,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
 
 export const updateUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, lm, vbase },
+    clients: { masterdata, lm },
     vtex: { logger },
   } = ctx
 
@@ -235,8 +235,7 @@ export const updateUser = async (_: any, params: any, ctx: Context) => {
     await createPermission({
       lm,
       masterdata,
-      params,
-      vbase,
+      params
     })
 
     return { status: 'success', message: '', id: params.clId }
