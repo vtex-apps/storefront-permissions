@@ -206,7 +206,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
       params: {
         ...params,
         clId: cId,
-      }
+      },
     })
 
     return { status: 'success', message: '', id: cId }
@@ -235,7 +235,7 @@ export const updateUser = async (_: any, params: any, ctx: Context) => {
     await createPermission({
       lm,
       masterdata,
-      params
+      params,
     })
 
     return { status: 'success', message: '', id: params.clId }
