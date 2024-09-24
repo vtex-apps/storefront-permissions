@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Force setProfile to use a valid cost center
+
 ## [1.40.4] - 2024-04-29
 
 ### Added
