@@ -311,8 +311,7 @@ export const Routes = {
         if (organizationList) {
           organization = (await getOrganization(organizationList.id))?.data
             ?.getOrganizationById
-
-          setActiveUserByOrganization(
+          await setActiveUserByOrganization(
             null,
             {
               costId: organizationList.costId,

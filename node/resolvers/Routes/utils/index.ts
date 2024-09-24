@@ -22,6 +22,8 @@ export const QUERIES = {
           id
           name
         }
+        name
+        organization
         addresses {
           addressId
           addressType

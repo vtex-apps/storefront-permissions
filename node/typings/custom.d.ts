@@ -203,3 +203,21 @@ export interface GetOrganizationsByEmailResponse {
     }>
   }
 }
+export interface GetCostCenterType {
+  getCostCenterById: {
+    name: string | null
+    organization: string | null
+    paymentTerms: {
+      id: string | null
+      name: string | null
+    } | null
+    address: Address
+    phoneNumber: string | null
+    businessDocument: string | null
+    stateRegistration: string | null
+    sellers: {
+      id: string | null
+      name: string | null
+    }
+  }
+}

@@ -15,6 +15,35 @@ const PAGINATION = {
   pageSize: 50,
 }
 
+// This function checks if given email is an user part of a buyer org.
+export const isUserPartOfBuyerOrg = async (email: string, ctx: Context) => {
+  const {
+    clients: { masterdata },
+  } = ctx
+
+  const where = `email=${email}`
+  const resp = await masterdata.searchDocumentsWithPaginationInfo({
+    dataEntity: config.name,
+    fields: ['id'], // we don't need to fetch all fields, only if there is an entry or not
+    pagination: {
+      page: 1,
+      pageSize: 1, // we only need to know if there is at least one user entry
+    },
+    schema: config.version,
+    ...(where ? { where } : {}),
+  })
+
+  const { data } = resp as unknown as {
+    data: any
+  }
+
+  if (data.length > 0) {
+    return true
+  }
+
+  return false
+}
+
 export const getAllUsers = async ({
   masterdata,
   logger,
@@ -49,6 +78,7 @@ export const getAllUsers = async ({
           pageSize: PAGINATION.pageSize,
         },
         schema: config.version,
+        sort: 'id asc',
         ...(where ? { where } : {}),
       })
 
