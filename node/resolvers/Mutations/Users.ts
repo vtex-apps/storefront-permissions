@@ -180,6 +180,20 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
+    const costCenter = await ctx.clients.organizations.getCostCenterById(
+      params.costId
+    )
+
+    // before adding an user to a cost center we check if the cost
+    // center exists and if it has a valid name, otherwise both
+    // login and UI might break.
+    if (
+      !costCenter?.data?.getCostCenterById?.name ||
+      params.orgId !== costCenter?.data?.getCostCenterById?.organization
+    ) {
+      throw new Error(`Invalid cost center`)
+    }
+
     const cId = await addUserToMasterdata({ masterdata, params })
 
     const organizations = await getOrganizationsByEmail(

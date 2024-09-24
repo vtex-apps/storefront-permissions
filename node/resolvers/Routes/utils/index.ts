@@ -22,6 +22,8 @@ export const QUERIES = {
           id
           name
         }
+        name
+        organization
         addresses {
           addressId
           addressType
@@ -71,7 +73,7 @@ export const QUERIES = {
       }
     }`,
   getOrganizationsByEmail: `query Organizations($email: String!) {
-       getOrganizationsByEmail(email: $email) @context(provider: "vtex.b2b-organizations-graphql") {
+       getOrganizationsByEmail(email: $email) {
           id
           organizationStatus
           costId
