@@ -165,14 +165,7 @@ export const Routes = {
 
     const ignoreB2B = body?.public?.removeB2B?.value
 
-    if (ignoreB2B) {
-      ctx.response.body = response
-      ctx.response.status = 200
-
-      return
-    }
-
-    if (!email) {
+    if (ignoreB2B || !email) {
       ctx.response.body = response
       ctx.response.status = 200
 
