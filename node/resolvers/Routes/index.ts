@@ -172,6 +172,13 @@ export const Routes = {
       return
     }
 
+    if (!email) {
+      ctx.response.body = response
+      ctx.response.status = 200
+
+      return
+    }
+
     if (b2bImpersonate) {
       try {
         user = (await getUser({
@@ -210,13 +217,6 @@ export const Routes = {
       response['storefront-permissions'].storeUserEmail.value =
         telemarketingEmail
       email = telemarketingEmail
-    }
-
-    if (!email) {
-      ctx.response.body = response
-      ctx.response.status = 200
-
-      return
     }
 
     if (user === null) {
