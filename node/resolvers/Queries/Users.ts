@@ -816,6 +816,44 @@ export const getOrganizationsByEmail = async (
   }
 }
 
+export const getOrganizationsByEmailPaginated = async (
+  _: any,
+  {
+    email = '',
+    page = 1,
+    pageSize = 25,
+  }: {
+    email: string
+    page: number
+    pageSize: number
+  },
+  ctx: Context
+) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  try {
+    const data = await masterdata.searchDocumentsWithPaginationInfo({
+      dataEntity: config.name,
+      fields: ['clId', 'costId', 'id', 'orgId', 'roleId'],
+      pagination: { page, pageSize },
+      schema: config.version,
+      where: `email = "${email}"`,
+    })
+
+    return data
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'getOrganizationsByEmailPaginated-error',
+    })
+
+    return { status: 'error', message: error }
+  }
+}
+
 export const getUserByEmailOrgIdAndCostId = async (
   _: any,
   params: any,

@@ -82,6 +82,14 @@ type Query {
   getOrganizationsByEmail(email: String!): [Organization]
     @cacheControl(scope: PRIVATE)
     @validateStoreUserAccess
+
+  getOrganizationsByEmailPaginated(
+    email: String!
+    page: Int
+    pageSize: Int
+  ): OrganizationPagination
+    @cacheControl(scope: PRIVATE)
+    @validateStoreUserAccess
 }
 
 type Mutation {
@@ -213,6 +221,11 @@ type Organization {
   costId: ID
   orgId: ID
   roleId: ID
+}
+
+type OrganizationPagination {
+  data: [Organization]
+  pagination: Pagination
 }
 
 type Profile {
