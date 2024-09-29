@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Add new `getOrganizationsByEmailPaginated` query to allow pagination on organizations by email query
 
+## [1.44.7] - 2024-09-25
+
+### Fixed
+- Remove unnecessary b2b_users storage on vbase
+
+## [1.44.6] - 2024-09-05
+
+### Fixed
+- Add await to requests to properly handle inactive organizations on login
+
+## [1.44.5] - 2024-09-04
+
+### Fixed
+- Provide app token on calls to b2b-organizations-graphql app
+
+## [1.44.4] - 2024-09-03
+
+### Fixed
+- Add sort to searchDocumentsWithPaginationInfo at getAllUsers
+
 ## [1.44.3] - 2024-08-22
 
 ### Fixed
