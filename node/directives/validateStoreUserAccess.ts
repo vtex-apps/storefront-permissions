@@ -122,7 +122,7 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
 
       const { hasStoreToken, hasValidStoreToken } = await validateStoreToken(
         context,
-        (storeUserAuthToken as string) ?? (adminUserAuthToken as string)
+        storeUserAuthToken as string
       )
 
       // add store token metrics
