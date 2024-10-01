@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 - Force setProfile to use a valid cost center
-- Increase timeout to 60 seconds
+- Increase timeout to 45 seconds
 
 ## [1.44.7] - 2024-09-25
 
