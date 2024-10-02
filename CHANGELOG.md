@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Adjust session provider early return logic
+
 ## [1.44.8] - 2024-10-02
 
 ### Fixed
