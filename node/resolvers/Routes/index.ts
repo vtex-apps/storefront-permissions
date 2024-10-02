@@ -165,7 +165,7 @@ export const Routes = {
 
     const ignoreB2B = body?.public?.removeB2B?.value
 
-    if (ignoreB2B) {
+    if (ignoreB2B || !email) {
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -210,13 +210,6 @@ export const Routes = {
       response['storefront-permissions'].storeUserEmail.value =
         telemarketingEmail
       email = telemarketingEmail
-    }
-
-    if (!email) {
-      ctx.response.body = response
-      ctx.response.status = 200
-
-      return
     }
 
     if (user === null) {
@@ -293,8 +286,7 @@ export const Routes = {
         if (organizationList) {
           organization = (await getOrganization(organizationList.id))?.data
             ?.getOrganizationById
-
-          setActiveUserByOrganization(
+          await setActiveUserByOrganization(
             null,
             {
               costId: organizationList.costId,

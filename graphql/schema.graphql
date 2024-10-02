@@ -23,7 +23,7 @@ type Query {
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @withSender
 
-  getUser(id: ID!): User @cacheControl(scope: PRIVATE) @checkUserAccess
+  getUser(id: ID!): User @cacheControl(scope: PRIVATE) @validateStoreUserAccess
   getB2BUser(id: ID!): User @cacheControl(scope: PRIVATE)
 
   checkCustomerSchema: Boolean @cacheControl(scope: PRIVATE) @withSender
@@ -36,14 +36,14 @@ type Query {
   listAllUsers: [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @withSender
-    @checkUserAccess
+    @validateStoreUserAccess
 
   listUsers(organizationId: ID, costCenterId: ID, roleId: ID): [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @deprecated(
       reason: "This query is deprecated, use listUsersPaginated query instead."
     )
-    @checkUserAccess
+    @validateStoreUserAccess
 
   listUsersPaginated(
     organizationId: ID
@@ -56,7 +56,7 @@ type Query {
     sortedBy: String
   ): UserPagination
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
-    @checkUserAccess
+    @validateStoreUserAccess
 
   checkImpersonation: UserImpersonation
     @settings(settingsType: "workspace")
@@ -71,21 +71,17 @@ type Query {
 
   getSessionWatcher: Boolean @cacheControl(scope: PRIVATE)
 
-  getUsersByEmail(
-    email: String!
-    orgId: ID
-    costId: ID
-  ): [User]
+  getUsersByEmail(email: String!, orgId: ID, costId: ID): [User]
     @cacheControl(scope: PRIVATE)
-    @checkUserAccess
+    @validateStoreUserAccess
 
   getActiveUserByEmail(email: String!): User
     @cacheControl(scope: PRIVATE)
-    @checkUserAccess
+    @validateStoreUserAccess
 
   getOrganizationsByEmail(email: String!): [Organization]
     @cacheControl(scope: PRIVATE)
-    @checkUserAccess
+    @validateStoreUserAccess
 }
 
 type Mutation {
@@ -96,12 +92,15 @@ type Mutation {
     name: String!
     slug: String
     features: [FeatureInput]
-  ): MutationResponse @cacheControl(scope: PRIVATE) @withSender @checkUserAccess
+  ): MutationResponse
+    @cacheControl(scope: PRIVATE)
+    @withSender
+    @validateStoreUserAccess
 
   deleteRole(id: ID!): MutationResponse
     @cacheControl(scope: PRIVATE)
     @withSender
-    @checkUserAccess
+    @validateStoreUserAccess
 
   saveUser(
     id: ID
@@ -113,7 +112,7 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
 
   updateUser(
     id: ID
@@ -125,7 +124,7 @@ type Mutation {
     canImpersonate: Boolean = false
     email: String
     name: String
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
 
   addUser(
     id: ID
@@ -136,10 +135,10 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
 
   addCostCenterToUser(costId: ID!, userId: ID!): MutationResponse
-    @checkUserAccess
+    @validateStoreUserAccess
     @cacheControl(scope: PRIVATE)
 
   addOrganizationToUser(
@@ -147,18 +146,18 @@ type Mutation {
     userId: ID!
     costId: ID!
     roleId: ID
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
 
   setActiveUserByOrganization(userId: ID): MutationResponse
-    @checkUserAccess
+    @validateStoreUserAccess
     @cacheControl(scope: PRIVATE)
 
   impersonateUser(userId: ID): MutationResponse
-    @checkUserAccess
+    @validateStoreUserAccess
     @cacheControl(scope: PRIVATE)
 
   deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
-    @checkAdminAccess
+    @validateAdminUserAccess
     @cacheControl(scope: PRIVATE)
 
   setCurrentOrganization(orgId: ID!, costId: ID!): MutationResponse

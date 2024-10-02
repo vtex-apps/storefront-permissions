@@ -12,15 +12,23 @@ import { Schema } from './schema'
 import VtexId from './vtexId'
 
 export const getTokenToHeader = (ctx: IOContext) => {
-  const token =
-    ctx.storeUserAuthToken ?? ctx.adminUserAuthToken ?? ctx.authToken
+  const adminToken = ctx.authToken
+  const userToken = ctx.storeUserAuthToken
+  const { sessionToken, account } = ctx
 
-  const { sessionToken } = ctx
+  let allCookies = `VtexIdclientAutCookie=${adminToken}`
+
+  if (userToken) {
+    allCookies += `; VtexIdclientAutCookie_${account}=${userToken}`
+  }
 
   return {
-    VtexIdclientAutCookie: token,
-    cookie: `VtexIdclientAutCookie=${token}`,
-    'x-vtex-session': sessionToken ?? '',
+    'x-vtex-credential': ctx.authToken,
+    VtexIdclientAutCookie: adminToken,
+    cookie: allCookies,
+    ...(sessionToken && {
+      'x-vtex-session': sessionToken,
+    }),
   }
 }
 
