@@ -12,6 +12,8 @@ import {
 const config: any = currentSchema('b2b_users')
 
 const MAX_RETRY = 5
+const RETRY_BACKOFF_FACTOR_MS = 100
+const MAX_BACKOFF_MS = 1000
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const setChangeSession = async (
@@ -39,7 +41,10 @@ const setChangeSession = async (
 
     if (countRetry < MAX_RETRY) {
       countRetry++
-      const backoff = 2 ** countRetry * 500
+      const backoff = Math.min(
+        2 ** (countRetry - 1) * RETRY_BACKOFF_FACTOR_MS,
+        MAX_BACKOFF_MS
+      )
 
       await delay(backoff)
 
