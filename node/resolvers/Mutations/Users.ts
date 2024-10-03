@@ -375,7 +375,7 @@ export const impersonateUser = async (_: any, params: any, ctx: Context) => {
   const { userId } = params
 
   try {
-    setChangeSession({
+    await setChangeSession({
       context: ctx,
       publicKey: 'impersonate',
       value: userId,
@@ -664,7 +664,7 @@ export const setCurrentOrganization = async (
 
     sendChangeTeamMetric(metricParams)
 
-    setChangeSession({
+    await setChangeSession({
       context: ctx,
       publicKey: 'b2bCurrentCostCenter',
       value: costId,
@@ -697,7 +697,7 @@ export const ignoreB2BSessionData = async (
     cookies.get('vtex_session') ?? request.header?.sessiontoken
 
   try {
-    setChangeSession({
+    await setChangeSession({
       context: ctx,
       publicKey: 'removeB2B',
       value: enabled,
