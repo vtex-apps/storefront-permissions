@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
@@ -12,9 +11,13 @@ import {
 
 const config: any = currentSchema('b2b_users')
 
-const setChangeSession = async (sessionParameters: any, countRetry = 0) => {
-  const retry = 5
+const MAX_RETRY = 5
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const setChangeSession = async (
+  sessionParameters: any,
+  countRetry = 0
+): Promise<void> => {
   const {
     context: {
       clients: { session },
@@ -31,13 +34,16 @@ const setChangeSession = async (sessionParameters: any, countRetry = 0) => {
     logger.error({
       error,
       message: 'setChangeSession.error',
+      attempt: countRetry,
     })
-    if (countRetry < retry) {
+
+    if (countRetry < MAX_RETRY) {
       countRetry++
-      logger.info({ message: `setChangeSession RETRY ${countRetry}` })
-      setTimeout(() => {
-        setChangeSession(sessionParameters, countRetry)
-      }, 1000)
+      const backoff = 2 ** countRetry * 500
+
+      await delay(backoff)
+
+      return setChangeSession(sessionParameters, countRetry)
     }
   }
 }
