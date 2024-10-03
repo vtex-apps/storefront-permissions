@@ -165,14 +165,14 @@ export const Routes = {
 
     const ignoreB2B = body?.public?.removeB2B?.value
 
-    if (ignoreB2B || !email) {
+    if (ignoreB2B) {
       ctx.response.body = response
       ctx.response.status = 200
 
       return
     }
 
-    if (b2bImpersonate) {
+    if (email && b2bImpersonate) {
       try {
         user = (await getUser({
           masterdata,
@@ -210,6 +210,13 @@ export const Routes = {
       response['storefront-permissions'].storeUserEmail.value =
         telemarketingEmail
       email = telemarketingEmail
+    }
+
+    if (!email) {
+      ctx.response.body = response
+      ctx.response.status = 200
+
+      return
     }
 
     if (user === null) {
