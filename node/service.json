@@ -2,7 +2,7 @@
   "stack": "nodejs",
   "memory": 256,
   "ttl": 60,
-  "timeout": 30,
+  "timeout": 45,
   "cpu": {
     "type": "shared",
     "value": 5,
