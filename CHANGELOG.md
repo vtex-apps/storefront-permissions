@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Force setProfile to use a valid cost center
 - Increase timeout to 45 seconds
 
+## [1.44.10] - 2024-10-07
+
+### Fixed
+
+- Use return instead of throwing a duplicate email error.
+
 ## [1.44.9] - 2024-10-03
 
 ### Fixed
