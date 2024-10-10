@@ -237,9 +237,10 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
         (org: any) => org.orgId === params.orgId && org.costId === params.costId
       )
     ) {
-      throw new Error(
-        `User with email ${params.email} already exists in the organization and cost center`
-      )
+      return {
+        message: `Email already exists in the organization and cost center`,
+        status: 'duplicated-organization',
+      }
     }
 
     await createPermission({

@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Error changing Cost Center after placing order
 
+## [1.44.10] - 2024-10-07
+
+### Fixed
+
+- Use return instead of throwing a duplicate email error.
+
 ## [1.44.9] - 2024-10-03
 
 ### Fixed
