@@ -11,6 +11,48 @@ import {
 
 const config: any = currentSchema('b2b_users')
 
+const MAX_RETRY = 5
+const RETRY_BACKOFF_FACTOR_MS = 100
+const MAX_BACKOFF_MS = 1000
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const setChangeSession = async (
+  sessionParameters: any,
+  countRetry = 0
+): Promise<void> => {
+  const {
+    context: {
+      clients: { session },
+      vtex: { logger },
+    },
+    publicKey,
+    value,
+    sessionCookie,
+  } = sessionParameters
+
+  try {
+    await session.updateSession(publicKey, value, [], sessionCookie)
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'setChangeSession.error',
+      attempt: countRetry,
+    })
+
+    if (countRetry < MAX_RETRY) {
+      countRetry++
+      const backoff = Math.min(
+        2 ** (countRetry - 1) * RETRY_BACKOFF_FACTOR_MS,
+        MAX_BACKOFF_MS
+      )
+
+      await delay(backoff)
+
+      return setChangeSession(sessionParameters, countRetry)
+    }
+  }
+}
+
 const addUserToMasterdata = async ({
   masterdata,
   params: { name, email },
@@ -333,14 +375,18 @@ export const deleteUser = async (_: any, params: any, ctx: Context) => {
 
 export const impersonateUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { session },
     vtex: { logger, sessionToken },
   } = ctx
 
   const { userId } = params
 
   try {
-    await session.updateSession('impersonate', userId, [], sessionToken)
+    await setChangeSession({
+      context: ctx,
+      publicKey: 'impersonate',
+      value: userId,
+      sessionCookie: sessionToken,
+    })
 
     return { status: 'success', message: '' }
   } catch (error) {
@@ -564,11 +610,13 @@ export const setCurrentOrganization = async (
   ctx: Context
 ) => {
   const {
+    vtex: { logger },
     cookies,
     request,
-    vtex: { logger },
-    clients: { session },
   } = ctx
+
+  const sessionCookie =
+    cookies.get('vtex_session') ?? request.header?.sessiontoken
 
   const { sessionData } = ctx.vtex as any
 
@@ -600,11 +648,7 @@ export const setCurrentOrganization = async (
     return { status: 'error', message: error }
   }
 
-  const sessionCookie =
-    cookies.get('vtex_session') ?? request.header?.sessiontoken
-
   try {
-    await session.updateSession('', null, [], sessionCookie)
     await setActiveUserByOrganization(
       _,
       {
@@ -626,6 +670,13 @@ export const setCurrentOrganization = async (
 
     sendChangeTeamMetric(metricParams)
 
+    await setChangeSession({
+      context: ctx,
+      publicKey: 'b2bCurrentCostCenter',
+      value: costId,
+      sessionCookie,
+    })
+
     return { status: 'success', message: '' }
   } catch (error) {
     logger.error({
@@ -646,14 +697,18 @@ export const ignoreB2BSessionData = async (
     cookies,
     request,
     vtex: { logger },
-    clients: { session },
   } = ctx
 
   const sessionCookie =
     cookies.get('vtex_session') ?? request.header?.sessiontoken
 
   try {
-    await session.updateSession('removeB2B', enabled, [], sessionCookie)
+    await setChangeSession({
+      context: ctx,
+      publicKey: 'removeB2B',
+      value: enabled,
+      sessionCookie,
+    })
 
     return { status: 'success', message: '' }
   } catch (error) {

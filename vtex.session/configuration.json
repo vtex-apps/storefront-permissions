@@ -4,7 +4,7 @@
       "authentication": ["storeUserEmail"],
       "checkout": ["orderFormId"],
       "impersonate": ["storeUserEmail", "storeUserId"],
-      "public": ["impersonate", "removeB2B"]
+      "public": ["impersonate", "removeB2B", "b2bCurrentCostCenter"]
     },
     "output": {
       "public": ["facets", "sc", "regionId"],
