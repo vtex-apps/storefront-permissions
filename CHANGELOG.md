@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - getRegionId now includes geographic coordinates in parameters when available
 
+## [1.44.11] - 2024-10-10
+
+### Fixed
+
+- Error changing Cost Center after placing order
+
 ## [1.44.10] - 2024-10-07
 
 ### Fixed
