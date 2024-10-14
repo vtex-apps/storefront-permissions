@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- getRegionId now includes geographic coordinates in parameters when available
+
 ## [1.44.11] - 2024-10-10
 
 ### Fixed
