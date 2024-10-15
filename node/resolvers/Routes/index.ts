@@ -186,7 +186,6 @@ export const Routes = {
           userId: string
           name: string
         }
-
         email = user.email
         let { userId } = user
 
@@ -267,6 +266,25 @@ export const Routes = {
       organizations.getMarketingTags(user.costId),
       organizations.getB2BSettings(),
     ])
+
+    // in case the cost center is not found, we need to find a valid cost center for the user
+    if (!costCenterResponse.data.getCostCenterById.businessDocument) {
+      try {
+        const usersByEmail = await organizations.getOrganizationsByEmail(email)
+
+        // when cost center comes without a name, it's because the cost center is deleted
+        const usersData = usersByEmail.data.getOrganizationsByEmail.find(
+          (userByEmail) => userByEmail.costCenterName !== null
+        )
+
+        user.costId = usersData?.costId ?? user.costId
+      } catch (error) {
+        logger.error({
+          error,
+          message: 'setProfile.graphqlGetOrganizationById',
+        })
+      }
+    }
 
     let organization = organizationResponse?.data?.getOrganizationById
 

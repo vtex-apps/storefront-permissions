@@ -73,11 +73,12 @@ export const QUERIES = {
       }
     }`,
   getOrganizationsByEmail: `query Organizations($email: String!) {
-       getOrganizationsByEmail(email: $email) {
+       getOrganizationsByEmail(email: $email){
           id
           organizationStatus
           costId
           orgId
+          costCenterName
        }
   }`,
 }

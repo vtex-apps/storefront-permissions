@@ -192,6 +192,17 @@ export interface DeliveryId {
   quantity: number | null
 }
 
+export interface GetOrganizationsByEmailResponse {
+  data: {
+    getOrganizationsByEmail: Array<{
+      id: string
+      organizationStatus: string
+      orgId: string
+      costId: string
+      costCenterName: string
+    }>
+  }
+}
 export interface GetCostCenterType {
   getCostCenterById: {
     name: string | null

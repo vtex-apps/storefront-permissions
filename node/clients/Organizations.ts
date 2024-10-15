@@ -3,7 +3,10 @@ import { AppGraphQLClient } from '@vtex/api'
 
 import { QUERIES } from '../resolvers/Routes/utils'
 import { getTokenToHeader } from './index'
-import type { GetCostCenterType } from '../typings/custom'
+import type {
+  GetCostCenterType,
+  GetOrganizationsByEmailResponse,
+} from '../typings/custom'
 
 const getPersistedQuery = () => {
   return {
@@ -57,12 +60,12 @@ export class OrganizationsGraphQLClient extends AppGraphQLClient {
     })
   }
 
-  public getOrganizationsByEmail = async (email: string): Promise<unknown> => {
+  public getOrganizationsByEmail = async (email: string) => {
     return this.query({
       extensions: getPersistedQuery(),
       query: QUERIES.getOrganizationsByEmail,
       variables: { email },
-    })
+    }) as Promise<GetOrganizationsByEmailResponse>
   }
 
   private query = async (param: {
