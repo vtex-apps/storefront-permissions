@@ -3,7 +3,8 @@ import { isUserPartOfBuyerOrg } from '../resolvers/Queries/Users'
 export const validateAdminToken = async (
   context: Context,
   adminUserAuthToken: string,
-  metricFields: any
+  metricFields: any,
+  orgPermission?: 'buyer_organization_edit' | 'buyer_organization_view'
 ): Promise<{
   hasAdminToken: boolean
   hasValidAdminToken: boolean
@@ -49,6 +50,18 @@ export const validateAdminToken = async (
           account,
           authUser.id
         )
+
+        if (
+          hasValidAdminToken &&
+          orgPermission &&
+          authUser.tokenType === 'user'
+        ) {
+          await lm.checkUserAdminPermission(
+            account,
+            authUser.user,
+            orgPermission
+          )
+        }
       }
     } catch (err) {
       // noop so we leave hasValidAdminToken as false

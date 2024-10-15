@@ -7,3 +7,5 @@ export const CUSTOMER_REQUIRED_FIELDS = [
   'dataEntityId',
 ]
 export const ROLES_VBASE_ID = 'allRolesVbId'
+
+export const B2B_LM_PRODUCT_CODE = '97' // resource name on lincense manager = B2B
