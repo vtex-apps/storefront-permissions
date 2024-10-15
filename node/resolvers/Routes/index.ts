@@ -478,7 +478,8 @@ export const Routes = {
         const [regionId] = await checkout.getRegionId(
           address.country,
           address.postalCode,
-          salesChannel.toString()
+          salesChannel.toString(),
+          address.geoCoordinates
         )
 
         if (regionId?.id) {
