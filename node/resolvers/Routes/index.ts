@@ -268,7 +268,11 @@ export const Routes = {
     ])
 
     // in case the cost center is not found, we need to find a valid cost center for the user
-    if (!costCenterResponse.data.getCostCenterById.businessDocument) {
+    if (
+      Object.values(costCenterResponse.data.getCostCenterById).every(
+        (value) => value === null
+      )
+    ) {
       try {
         const usersByEmail = await organizations.getOrganizationsByEmail(email)
 
