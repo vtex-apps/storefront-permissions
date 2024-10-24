@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- Change the way to check if the cost center is valid
+
+## [1.44.13] - 2024-10-15
+
+### Fixed
 - Force setProfile to use a valid cost center
 - Increase timeout to 45 seconds
 
