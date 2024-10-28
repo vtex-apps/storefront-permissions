@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.45.1] - 2024-10-28
+
 ### Fixed
 
 - Change the way to check if the cost center is valid
