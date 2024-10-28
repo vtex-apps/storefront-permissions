@@ -31,7 +31,7 @@ type Query {
   getUserByEmail(email: String!): [User]
     @cacheControl(scope: PRIVATE)
     @withSender
-    @checkUserAccess
+    @validateStoreUserAccess
 
   listAllUsers: [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
