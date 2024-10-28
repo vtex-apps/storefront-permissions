@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.45.0] - 2024-10-28
+
 ### Changed
 
 - Changed the token validation directive of the getUserByEmail operation
