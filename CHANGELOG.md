@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Change the way to check if the cost center is valid
 
+## [1.45.0] - 2024-10-28
+
+### Changed
+
+- Changed the token validation directive of the getUserByEmail operation
+
 ## [1.44.13] - 2024-10-15
 
 ### Fixed
