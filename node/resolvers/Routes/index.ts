@@ -268,25 +268,43 @@ export const Routes = {
     ])
 
     // in case the cost center is not found, we need to find a valid cost center for the user
+    const pageSize = 20;
     if (
       Object.values(costCenterResponse.data.getCostCenterById).every(
         (value) => value === null
       )
     ) {
       try {
-        const usersByEmail = await organizations.getOrganizationsByEmail(email)
+        let usersData = null;
+        let page = 1;
+        let hasMorePages = true;
 
-        // when cost center comes without a name, it's because the cost center is deleted
-        const usersData = usersByEmail.data.getOrganizationsByEmail.find(
-          (userByEmail) => userByEmail.costCenterName !== null
-        )
+        while (hasMorePages) {
+          const usersByEmail = await organizations.getOrganizationsByEmail(email, page, pageSize);
 
-        user.costId = usersData?.costId ?? user.costId
+          if (usersByEmail?.data?.getOrganizationsByEmail) {
+            usersData = usersByEmail.data.getOrganizationsByEmail.find(
+              (userByEmail) => userByEmail.costCenterName !== null
+            );
+
+            if (usersData) {
+              break;
+            }
+          }
+
+          hasMorePages = usersByEmail?.data?.getOrganizationsByEmail?.length === pageSize;
+          page++;
+        }
+
+        if (usersData) {
+          user.costId = usersData?.costId ?? user.costId;
+        }
+
       } catch (error) {
         logger.error({
           error,
           message: 'setProfile.graphqlGetOrganizationById',
-        })
+        });
       }
     }
 
@@ -295,43 +313,58 @@ export const Routes = {
     // prevent login if org is inactive
     if (organization.status === 'inactive') {
       // try to find a valid organization
-      const organizationsByUserResponse: any = await organizations
-        .getOrganizationsByEmail(email)
-        .catch((error) => {
-          logger.error({
-            error,
-            message: 'setProfile.graphqlGetOrganizationById',
-          })
-        })
+      let page = 1;
+      let hasMorePages = true;
+      let foundValidOrganization = false;
 
-      const organizationsByUser =
-        organizationsByUserResponse?.data?.getOrganizationsByEmail
-
-      if (organizationsByUser?.length) {
-        const organizationList = organizationsByUser.find(
-          (org: any) => org.organizationStatus !== 'inactive'
-        )
-
-        if (organizationList) {
-          organization = (await getOrganization(organizationList.id))?.data
-            ?.getOrganizationById
-          await setActiveUserByOrganization(
-            null,
-            {
-              costId: organizationList.costId,
-              email,
-              orgId: organizationList.orgId,
-              userId: organizationList.id,
-            },
-            ctx
-          ).catch((error) => {
-            logger.warn({
+      while (hasMorePages && !foundValidOrganization) {
+        const organizationsByUserResponse: any = await organizations
+          .getOrganizationsByEmail(email, page, pageSize)
+          .catch((error) => {
+            logger.error({
               error,
-              message: 'setProfile.setActiveUserByOrganizationError',
+              message: 'setProfile.graphqlGetOrganizationById',
             })
-          })
+          });
+
+        const organizationsByUser =
+          organizationsByUserResponse?.data?.getOrganizationsByEmail;
+
+        if (organizationsByUser?.length) {
+          const organizationList = organizationsByUser.find(
+            (org: any) => org.organizationStatus !== 'inactive'
+          );
+
+          if (organizationList) {
+            organization = (await getOrganization(organizationList.id))?.data
+              ?.getOrganizationById;
+
+            foundValidOrganization = true;
+
+            await setActiveUserByOrganization(
+              null,
+              {
+                costId: organizationList.costId,
+                email,
+                orgId: organizationList.orgId,
+                userId: organizationList.id,
+              },
+              ctx
+            ).catch((error) => {
+              logger.warn({
+                error,
+                message: 'setProfile.setActiveUserByOrganizationError',
+              })
+            });
+          }
         }
-      } else {
+
+        hasMorePages = organizationsByUser?.length === pageSize;
+
+        page++;
+      }
+
+      if (!foundValidOrganization) {
         logger.warn({
           message: `setProfile-organizationInactive`,
           organizationData: organization,

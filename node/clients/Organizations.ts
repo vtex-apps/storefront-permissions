@@ -60,13 +60,13 @@ export class OrganizationsGraphQLClient extends AppGraphQLClient {
     })
   }
 
-  public getOrganizationsByEmail = async (email: string) => {
+  public getOrganizationsByEmail = async (email: string, limit: number, offset: number) => {
     return this.query({
       extensions: getPersistedQuery(),
       query: QUERIES.getOrganizationsByEmail,
-      variables: { email },
-    }) as Promise<GetOrganizationsByEmailResponse>
-  }
+      variables: { email, limit, offset },
+    }) as Promise<GetOrganizationsByEmailResponse>;
+  };
 
   private query = async (param: {
     query: string
