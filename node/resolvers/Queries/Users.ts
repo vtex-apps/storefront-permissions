@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { removeVersionFromAppId } from '@vtex/api'
 
+import type { GetOrganizationsPaginatedByEmailResponse } from '../../typings/custom'
 import { currentSchema } from '../../utils'
 import {
   CUSTOMER_REQUIRED_FIELDS,
@@ -813,6 +814,45 @@ export const getOrganizationsByEmail = async (
     })
 
     return { status: 'error', message: error }
+  }
+}
+
+export const getOrganizationsPaginatedByEmail = async (
+  _: any,
+  {
+    email = '',
+    page = 1,
+    pageSize = 25,
+  }: {
+    email: string
+    page: number
+    pageSize: number
+  },
+  ctx: Context
+) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  try {
+    const data: GetOrganizationsPaginatedByEmailResponse =
+      await masterdata.searchDocumentsWithPaginationInfo({
+        dataEntity: config.name,
+        fields: ['clId', 'costId', 'id', 'orgId', 'roleId'],
+        pagination: { page, pageSize },
+        schema: config.version,
+        where: `email = "${email}"`,
+      })
+
+    return data
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'getOrganizationsPaginatedByEmail-error',
+    })
+
+    throw new Error(error)
   }
 }
 
