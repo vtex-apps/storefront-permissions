@@ -294,7 +294,7 @@ export const Routes = {
       )
     ) {
       try {
-        const costId = await getCostIdFromOrganizationWithValidCostCenter(email, 50, ctx);
+        const costId = await getCostIdFromOrganizationWithValidCostCenter(email, ctx);
 
         user.costId = costId ?? user.costId;
       } catch (error) {
@@ -310,7 +310,7 @@ export const Routes = {
     // prevent login if org is inactive
     if (organization.status === 'inactive') {
       const validOrganization = await
-        getOrganizationWithStatusNotInactive(email, 50, ctx)
+        getOrganizationWithStatusNotInactive(email, ctx)
         .catch((error) => {
           logger.error({
             error,

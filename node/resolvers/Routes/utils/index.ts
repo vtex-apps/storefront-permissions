@@ -1,3 +1,4 @@
+import { GetOrganizationByEmailBase } from '../../../typings/custom'
 import { getUserById } from '../../Queries/Users'
 
 export class ErrorResponse extends Error {
@@ -173,9 +174,13 @@ export const generateClUser = async ({
  * @param ctx - The request context containing the organization client.
  * @returns The `costId` if found, otherwise `null`.
  */
-export const getCostIdFromOrganizationWithValidCostCenter = async (email: string, pageSize: number = 50, ctx: Context) => {
+export const getCostIdFromOrganizationWithValidCostCenter = async (
+  email: string,
+  ctx: Context,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<string | null> => {
   const { organizations } = ctx.clients;
-  let page = 1;
 
   while (true) {
     const response = await organizations.getOrganizationsPaginatedByEmail(email, page, pageSize);
@@ -209,9 +214,13 @@ export const getCostIdFromOrganizationWithValidCostCenter = async (email: string
  * @param ctx - The request context containing the organization client.
  * @returns The organization if found, otherwise `null`.
  */
-export const getOrganizationWithStatusNotInactive = async (email: string, pageSize: number = 50, ctx: Context) => {
+export const getOrganizationWithStatusNotInactive = async (
+  email: string,
+  ctx: Context,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<GetOrganizationByEmailBase | null> => {
   const { organizations } = ctx.clients;
-  let page = 1;
 
   while (true) {
     const response = await organizations.getOrganizationsPaginatedByEmail(email, page, pageSize);
