@@ -3,12 +3,8 @@ import { json } from 'co-body'
 
 import { getRole } from '../Queries/Roles'
 import { getSessionWatcher } from '../Queries/Settings'
-import {
-  getActiveUserByEmail,
-  getUserByEmail,
-  getB2BUserById,
-} from '../Queries/Users'
-import { generateClUser } from './utils'
+import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
+import { generateClUser, getCostIdFromOrganizationWithValidCostCenter, getOrganizationWithStatusNotInactive } from './utils'
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
 import { toHash } from '../../utils'
 
@@ -298,14 +294,9 @@ export const Routes = {
       )
     ) {
       try {
-        const usersByEmail = await organizations.getOrganizationsByEmail(email)
+        const costId = await getCostIdFromOrganizationWithValidCostCenter(email, 50, ctx);
 
-        // when cost center comes without a name, it's because the cost center is deleted
-        const usersData = usersByEmail.data.getOrganizationsByEmail.find(
-          (userByEmail) => userByEmail.costCenterName !== null
-        )
-
-        user.costId = usersData?.costId ?? user.costId
+        user.costId = costId ?? user.costId;
       } catch (error) {
         logger.error({
           error,
@@ -318,9 +309,8 @@ export const Routes = {
 
     // prevent login if org is inactive
     if (organization.status === 'inactive') {
-      // try to find a valid organization
-      const organizationsByUserResponse: any = await organizations
-        .getOrganizationsByEmail(email)
+      const validOrganization = await
+        getOrganizationWithStatusNotInactive(email, 50, ctx)
         .catch((error) => {
           logger.error({
             error,
@@ -328,32 +318,24 @@ export const Routes = {
           })
         })
 
-      const organizationsByUser =
-        organizationsByUserResponse?.data?.getOrganizationsByEmail
+      if (validOrganization) {
+        organization = (await getOrganization(validOrganization.id))?.data?.getOrganizationById;
 
-      if (organizationsByUser?.length) {
-        const organizationList = organizationsByUser.find(
-          (org: any) => org.organizationStatus !== 'inactive'
-        )
-
-        if (organizationList) {
-          organization = await getOrganization(organizationList.id)
-          await setActiveUserByOrganization(
-            null,
-            {
-              costId: organizationList.costId,
-              email,
-              orgId: organizationList.orgId,
-              userId: organizationList.id,
-            },
-            ctx
-          ).catch((error) => {
-            logger.warn({
-              error,
-              message: 'setProfile.setActiveUserByOrganizationError',
-            })
-          })
-        }
+        await setActiveUserByOrganization(
+          null,
+          {
+            costId: validOrganization.costId,
+            email,
+            orgId: validOrganization.orgId,
+            userId: validOrganization.id,
+          },
+          ctx
+        ).catch((error) => {
+          logger.warn({
+            error,
+            message: 'setProfile.setActiveUserByOrganizationError',
+          });
+        });
       } else {
         logger.warn({
           message: `setProfile-organizationInactive`,

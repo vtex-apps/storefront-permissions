@@ -196,7 +196,7 @@ export interface GetOrganizationByEmailBase {
   organizationStatus: string
   orgId: string
   costId: string
-  costCenterName: string
+  costCenterName: string | null
 }
 
 export interface GetOrganizationsByEmailResponse {
