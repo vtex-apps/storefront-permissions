@@ -6,6 +6,7 @@ import { getTokenToHeader } from './index'
 import type {
   GetCostCenterType,
   GetOrganizationsByEmailResponse,
+  GetOrganizationsPaginatedByEmailResponse,
 } from '../typings/custom'
 
 const getPersistedQuery = () => {
@@ -66,6 +67,22 @@ export class OrganizationsGraphQLClient extends AppGraphQLClient {
       query: QUERIES.getOrganizationsByEmail,
       variables: { email },
     }) as Promise<GetOrganizationsByEmailResponse>
+  }
+
+  public getOrganizationsPaginatedByEmail = async (
+    email: string,
+    page: number,
+    pageSize: number
+  ) => {
+    return this.query({
+      extensions: getPersistedQuery(),
+      query: QUERIES.getOrganizationsPaginatedByEmail,
+      variables: {
+        email,
+        page,
+        pageSize,
+      },
+    }) as Promise<{ data: { getOrganizationsPaginatedByEmail:  GetOrganizationsPaginatedByEmailResponse }}>
   }
 
   private query = async (param: {
