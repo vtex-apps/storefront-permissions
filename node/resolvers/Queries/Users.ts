@@ -66,32 +66,46 @@ export const getAllUsers = async ({
     const totalItems = initialResp.pagination.total
     const totalPages = Math.ceil(totalItems / PAGINATION.pageSize)
 
-    const requests = Array.from({ length: totalPages }, (_, i) =>
-      masterdata.searchDocumentsWithPaginationInfo({
-        dataEntity: config.name,
-        fields: [
-          'id',
-          'roleId',
-          'clId',
-          'email',
-          'name',
-          'orgId',
-          'costId',
-          'userId',
-          'canImpersonate',
-          'active',
-          'selectedPriceTable',
-        ],
-        pagination: { page: i + 1, pageSize: PAGINATION.pageSize },
-        schema: config.version,
-        sort: 'id asc',
-        ...(where ? { where } : {}),
-      })
+    const requests = Array.from(
+      { length: totalPages },
+      (_, i) => async () =>
+        masterdata.searchDocumentsWithPaginationInfo({
+          dataEntity: config.name,
+          fields: [
+            'id',
+            'roleId',
+            'clId',
+            'email',
+            'name',
+            'orgId',
+            'costId',
+            'userId',
+            'canImpersonate',
+            'active',
+          ],
+          pagination: { page: i + 1, pageSize: PAGINATION.pageSize },
+          schema: config.version,
+          sort: 'id asc',
+          ...(where ? { where } : {}),
+        })
     )
 
-    const responses = await Promise.all(requests)
+    const maxConcurrency = 30
+    const chunks: Array<Promise<any>> = []
 
-    const users = responses.flatMap((resp) => resp.data)
+    for (let i = 0; i < requests.length; i += maxConcurrency) {
+      const chunk = requests.slice(i, i + maxConcurrency)
+
+      chunks.push(Promise.all(chunk))
+    }
+
+    const responses = await Promise.all(chunks)
+
+    const users = responses.reduce((acc: any[], resp: { data: any }) => {
+      acc.push(...resp.data)
+
+      return acc
+    }, [])
 
     return users
   } catch (error) {
