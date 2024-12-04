@@ -55,12 +55,19 @@ export const getAllUsers = async ({
   where?: string
 }) => {
   try {
-    let currentPage = PAGINATION.page
-    let hasMore = true
-    const users = [] as any[]
+    const initialResp = await masterdata.searchDocumentsWithPaginationInfo({
+      dataEntity: config.name,
+      fields: ['id'],
+      pagination: { page: 1, pageSize: PAGINATION.pageSize },
+      schema: config.version,
+      ...(where ? { where } : {}),
+    })
 
-    const scrollMasterData = async () => {
-      const resp = await masterdata.searchDocumentsWithPaginationInfo({
+    const totalItems = initialResp.pagination.total
+    const totalPages = Math.ceil(totalItems / PAGINATION.pageSize)
+
+    const requests = Array.from({ length: totalPages }, (_, i) =>
+      masterdata.searchDocumentsWithPaginationInfo({
         dataEntity: config.name,
         fields: [
           'id',
@@ -75,37 +82,16 @@ export const getAllUsers = async ({
           'active',
           'selectedPriceTable',
         ],
-        pagination: {
-          page: currentPage,
-          pageSize: PAGINATION.pageSize,
-        },
+        pagination: { page: i + 1, pageSize: PAGINATION.pageSize },
         schema: config.version,
         sort: 'id asc',
         ...(where ? { where } : {}),
       })
+    )
 
-      const { data, pagination } = resp as unknown as {
-        pagination: {
-          total: number
-        }
-        data: any
-      }
+    const responses = await Promise.all(requests)
 
-      const totalPages = Math.ceil(pagination.total / PAGINATION.pageSize)
-
-      if (currentPage >= totalPages) {
-        hasMore = false
-      }
-
-      users.push(...data)
-
-      if (hasMore) {
-        currentPage += 1
-        await scrollMasterData()
-      }
-    }
-
-    await scrollMasterData()
+    const users = responses.flatMap((resp) => resp.data)
 
     return users
   } catch (error) {
