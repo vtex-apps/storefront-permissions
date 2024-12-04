@@ -1,3 +1,4 @@
+import { GetOrganizationByEmailBase } from '../../../typings/custom'
 import { getUserById } from '../../Queries/Users'
 
 export class ErrorResponse extends Error {
@@ -81,6 +82,26 @@ export const QUERIES = {
           costCenterName
        }
   }`,
+  getOrganizationsPaginatedByEmail: `query OrganizationsPaginated($email: String!, $page: Int, $pageSize: Int) {
+    getOrganizationsPaginatedByEmail(
+      email: $email
+      page: $page
+      pageSize: $pageSize
+    ) {
+      data {
+        id
+        organizationStatus
+        costId
+        orgId
+        costCenterName
+      }
+      pagination {
+        page
+        pageSize
+        total
+      }
+    }
+  }`,
 }
 
 export const generateClUser = async ({
@@ -143,3 +164,83 @@ export const generateClUser = async ({
 
   return clUser
 }
+
+/**
+ * Retrieves the `costId` of an organization with a valid cost center for a given email.
+ * Performs a paginated search and returns the first `costId` found.
+ *
+ * @param email - The email associated with the organizations.
+ * @param pageSize - The number of records per page (default is 50).
+ * @param ctx - The request context containing the organization client.
+ * @returns The `costId` if found, otherwise `null`.
+ */
+export const getCostIdFromOrganizationWithValidCostCenter = async (
+  email: string,
+  ctx: Context,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<string | null> => {
+  const { organizations } = ctx.clients;
+
+  while (true) {
+    const response = await organizations.getOrganizationsPaginatedByEmail(email, page, pageSize);
+    const { data, pagination } = response?.data?.getOrganizationsPaginatedByEmail || {};
+    if (!data?.length) {
+      return null;
+    }
+
+    const organization = data.find(org => org.costCenterName !== null);
+    if (organization) {
+      return organization.costId;
+    }
+
+    const totalPages = Math.ceil((pagination?.total || 0) / pageSize);
+    if (page >= totalPages) {
+      break; // Stop iteration if all pages are processed
+    }
+
+    page++;
+  }
+
+  return null;
+};
+
+/**
+ * Retrieves an organization with a status that is not 'inactive' for a given email.
+ * Performs a paginated search and returns the first matching organization.
+ *
+ * @param email - The email associated with the organizations.
+ * @param pageSize - The number of records per page (default is 50).
+ * @param ctx - The request context containing the organization client.
+ * @returns The organization if found, otherwise `null`.
+ */
+export const getOrganizationWithStatusNotInactive = async (
+  email: string,
+  ctx: Context,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<GetOrganizationByEmailBase | null> => {
+  const { organizations } = ctx.clients;
+
+  while (true) {
+    const response = await organizations.getOrganizationsPaginatedByEmail(email, page, pageSize);
+    const { data, pagination } = response?.data?.getOrganizationsPaginatedByEmail || {};
+    if (!data?.length) {
+      return null;
+    }
+
+    const organization = data.find(org => org.organizationStatus !== 'inactive');
+    if (organization) {
+      return organization;
+    }
+
+    const totalPages = Math.ceil((pagination?.total || 0) / pageSize);
+    if (page >= totalPages) {
+      break; // Stop iteration if all pages are processed
+    }
+
+    page++;
+  }
+
+  return null;
+};
