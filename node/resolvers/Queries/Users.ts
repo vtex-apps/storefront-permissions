@@ -45,6 +45,25 @@ export const isUserPartOfBuyerOrg = async (email: string, ctx: Context) => {
   return false
 }
 
+async function processChunks(
+  requests: Array<() => Promise<any>>,
+  index = 0,
+  responses: any[] = [],
+  maxConcurrency = 30
+): Promise<any[]> {
+  if (index >= requests.length) {
+    return responses
+  }
+
+  const chunk = requests.slice(index, index + maxConcurrency)
+  const chunkResponses = await Promise.all(chunk.map((fn) => fn()))
+
+  return processChunks(requests, index + maxConcurrency, [
+    ...responses,
+    ...chunkResponses,
+  ])
+}
+
 export const getAllUsers = async ({
   masterdata,
   logger,
@@ -90,16 +109,7 @@ export const getAllUsers = async ({
         })
     )
 
-    const maxConcurrency = 30
-    const chunks: Array<Promise<any>> = []
-
-    for (let i = 0; i < requests.length; i += maxConcurrency) {
-      const chunk = requests.slice(i, i + maxConcurrency)
-
-      chunks.push(Promise.all(chunk))
-    }
-
-    const responses = await Promise.all(chunks)
+    const responses = await processChunks(requests)
 
     const users = responses.reduce((acc: any[], resp: { data: any }) => {
       acc.push(...resp.data)
