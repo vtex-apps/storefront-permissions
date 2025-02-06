@@ -6,6 +6,7 @@ import { getSessionWatcher } from '../Queries/Settings'
 import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
 import { generateClUser } from './utils'
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
+import { toHash } from '../../utils'
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
@@ -131,6 +132,9 @@ export const Routes = {
         userId: {
           value: '',
         },
+        hash: {
+          value: '',
+        },
       },
     }
 
@@ -250,6 +254,11 @@ export const Routes = {
         })
       })
     }
+
+    const hash = toHash(`${user.orgId}|${user.costId}`)
+    const changed = body?.['storefront-permissions']?.hash?.value !== hash
+
+    response['storefront-permissions'].hash.value = hash
 
     const [
       organizationResponse,
@@ -449,7 +458,7 @@ export const Routes = {
       response.public.sc.value = salesChannel.toString()
     }
 
-    if (orderFormId) {
+    if (changed && orderFormId) {
       try {
         const {
           uiSettings: { clearCart },
