@@ -256,7 +256,7 @@ export const Routes = {
     }
 
     const hash = toHash(`${user.orgId}|${user.costId}`)
-    const changed = body?.['storefront-permissions']?.hash?.value !== hash
+    const hashChanged = body?.['storefront-permissions']?.hash?.value !== hash
 
     response['storefront-permissions'].hash.value = hash
 
@@ -458,7 +458,7 @@ export const Routes = {
       response.public.sc.value = salesChannel.toString()
     }
 
-    if (changed && orderFormId) {
+    if (hashChanged && orderFormId) {
       try {
         const {
           uiSettings: { clearCart },

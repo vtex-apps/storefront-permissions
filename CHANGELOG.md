@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Clear cart only changed Hash (OrgId+CostId)
+
 ## [1.45.1] - 2024-10-28
 
 ### Fixed
