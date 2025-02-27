@@ -5,6 +5,7 @@ metadata:
   annotations:
     github.com/project-slug: vtex-apps/storefront-permissions
     backstage.io/techdocs-ref: dir:./
+    vtex.com/application-id: WPR387HG
 spec:
   system: b2b-suite
   type: backend-api
