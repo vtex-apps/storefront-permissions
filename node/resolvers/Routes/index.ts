@@ -3,7 +3,7 @@ import { json } from 'co-body'
 
 import { getRole } from '../Queries/Roles'
 import { getSessionWatcher } from '../Queries/Settings'
-import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
+import { getActiveOrFirstUserByEmail, getUserByEmail } from '../Queries/Users'
 import { generateClUser } from './utils'
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
 import { toHash } from '../../utils'
@@ -223,7 +223,7 @@ export const Routes = {
     }
 
     if (user === null) {
-      user = (await getActiveUserByEmail(null, { email }, ctx).catch(
+      user = (await getActiveOrFirstUserByEmail(null, { email }, ctx).catch(
         (error) => {
           logger.warn({ message: 'setProfile.getUserByEmailError', error })
         }

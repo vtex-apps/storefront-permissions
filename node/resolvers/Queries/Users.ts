@@ -115,6 +115,58 @@ export const getAllUsers = async ({
   }
 }
 
+
+export const getFirstUser = async ({
+  masterdata,
+  logger,
+  where,
+}: {
+  masterdata: any
+  logger: any
+  where?: string
+}) => {
+  try {
+    const users = [] as any[]
+
+    const resp = await masterdata.searchDocuments({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'clId',
+        'email',
+        'name',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+        'active',
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 1,
+      },
+      schema: config.version,
+      sort: 'id asc',
+      ...(where ? { where } : {}),
+    })
+
+    const { data } = resp as unknown as {
+      data: any
+    }
+
+    users.push(...data)
+
+    return users
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getFirstUser-error',
+    })
+    throw new Error(error)
+  }
+}
+
 export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const {
     clients: { masterdata },
@@ -124,6 +176,48 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
   const { email, orgId, costId } = params
 
   let where = `email=${email}`
+
+  if (orgId) {
+    where += ` AND orgId=${orgId}`
+  }
+
+  if (costId) {
+    where += ` AND costId=${costId}`
+  }
+
+  return getAllUsers({ masterdata, logger, where })
+}
+
+export const getFirstUserByEmail = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { email, orgId, costId } = params
+
+  let where = `email=${email}`
+
+  if (orgId) {
+    where += ` AND orgId=${orgId}`
+  }
+
+  if (costId) {
+    where += ` AND costId=${costId}`
+  }
+
+  return getFirstUser({ masterdata, logger, where })
+}
+
+export const getActiveUsersByEmail = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  const { email, orgId, costId } = params
+
+  let where = `email=${email} AND active=true`
 
   if (orgId) {
     where += ` AND orgId=${orgId}`
@@ -167,6 +261,49 @@ export const getActiveUserByEmail = async (
     logger.error({
       error,
       message: `getActiveUserByEmail-error`,
+    })
+
+    return { message: error, status: 'error' }
+  }
+}
+
+
+export const getActiveOrFirstUserByEmail = async (
+  _: any,
+  params: any,
+  ctx: Context
+) => {
+  const {
+    vtex: { logger },
+  } = ctx
+
+  try {
+    let firstUser = []
+    const activeUsers = await getActiveUsersByEmail(null, params, ctx)
+
+    if (!activeUsers[0]) {
+      firstUser = await getFirstUserByEmail(null, params, ctx)
+    }
+    const activeUser = activeUsers[0]
+
+    const userFound = activeUser || firstUser[0]
+
+    if (!userFound) {
+      logger.warn({
+        email: params.email,
+        message: `getActiveOrFirstUserByEmail-userNotFound`,
+      })
+    }
+
+    return {
+      ...userFound,
+      email: userFound?.email || '',
+      name: userFound?.name || '',
+    }
+  } catch (error) {
+    logger.error({
+      error,
+      message: `getActiveOrFirstUserByEmail-error`,
     })
 
     return { message: error, status: 'error' }
