@@ -1643,25 +1643,17 @@ vary@^1.1.2:
   resolved "https://registry.yarnpkg.com/vary/-/vary-1.1.2.tgz#2299f02c6ded30d4a5961b0b9f74524a18f634fc"
   integrity sha1-IpnwLG3tMNSllhsLn3RSShj2NPw=
 
-"vtex.graphql-server@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.67.6/public/_types/react":
+"vtex.graphql-server@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.69.0/public/_types/react":
   version "0.0.0"
-  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.67.6/public/_types/react#fa7a0347e046eab3dd768998fc9252b2c0dd5aef"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.graphql-server@1.69.0/public/_types/react#fa7a0347e046eab3dd768998fc9252b2c0dd5aef"
 
-"vtex.profile-session@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.profile-session@0.8.5/public/_types/react":
+"vtex.profile-session@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.profile-session@0.8.6/public/_types/react":
   version "0.0.0"
-  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.profile-session@0.8.5/public/_types/react#fa7a0347e046eab3dd768998fc9252b2c0dd5aef"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.profile-session@0.8.6/public/_types/react#fa7a0347e046eab3dd768998fc9252b2c0dd5aef"
 
-"vtex.search-session@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.search-session@0.2.10/public/_types/react":
-  version "0.0.0"
-  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.search-session@0.2.10/public/_types/react#fa7a0347e046eab3dd768998fc9252b2c0dd5aef"
-
-"vtex.storefront-permissions@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.storefront-permissions@1.29.8/public/@types/vtex.storefront-permissions":
-  version "1.29.8"
-  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.storefront-permissions@1.29.8/public/@types/vtex.storefront-permissions#c9d23b0ef52b493030a91e41dc1f1536fa4cbb7b"
-
-"vtex.styleguide@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.146.3/public/@types/vtex.styleguide":
-  version "9.146.3"
-  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.146.3/public/@types/vtex.styleguide#05558160f29cd8f4aefe419844a4bd66e2b3fdbb"
+"vtex.styleguide@http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.146.13/public/@types/vtex.styleguide":
+  version "9.146.13"
+  resolved "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.146.13/public/@types/vtex.styleguide#f4ccbc54621bf5114ddd115b6032ae320f2eba55"
 
 wrappy@1:
   version "1.0.2"

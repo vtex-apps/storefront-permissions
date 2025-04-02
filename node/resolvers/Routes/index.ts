@@ -100,6 +100,24 @@ export const Routes = {
       req,
       vtex: { logger },
     } = ctx
+    // Timing utility
+    const startTime = Date.now()
+    const timeLog = new Map<string, number>()
+
+    const logTime = (label: string) => {
+      const now = Date.now()
+      timeLog.set(label, now)
+      return now
+    }
+
+    const getDuration = (label: string) => {
+      const end = Date.now()
+      const start = timeLog.get(label)
+      return start ? end - start : 0
+    }
+
+    // Start total execution timer
+    logTime('total')
 
     const response: any = {
       public: {
@@ -142,7 +160,11 @@ export const Routes = {
     ctx.set('Cache-Control', 'no-cache, no-store')
 
     const isWatchActive = await getSessionWatcher(null, null, ctx)
-
+    logTime('getSessionWatcher')
+    logger.debug({
+      message: 'getSessionWatcher completed',
+      processingTime: getDuration('getSessionWatcher'),
+    })
     if (!isWatchActive) {
       ctx.response.body = response
       ctx.response.status = 200
@@ -152,6 +174,11 @@ export const Routes = {
 
     const promises = [] as Array<Promise<any>>
     const body: any = await json(req)
+    logTime('jsonParse')
+    logger.debug({
+      message: 'JSON parsing completed',
+      processingTime: getDuration('jsonParse'),
+    })
 
     const b2bImpersonate = body?.public?.impersonate?.value
     const telemarketingImpersonate = body?.impersonate?.storeUserId?.value
@@ -178,6 +205,7 @@ export const Routes = {
 
     if (email && b2bImpersonate) {
       try {
+        logTime('getUser')
         user = (await getUser({
           masterdata,
           params: { userId: b2bImpersonate },
@@ -192,12 +220,20 @@ export const Routes = {
         }
         email = user.email
         let { userId } = user
-
+        logger.debug({
+          message: 'getUser completed',
+          processingTime: getDuration('getUser'),
+        })
         if (!userId) {
+          logTime('createUser')
           userId = await profileSystem.createRegisterOnProfileSystem(
             email,
             user.name
           )
+          logger.debug({
+            message: 'createUser completed',
+            processingTime: getDuration('createUser'),
+          })
         }
 
         response['storefront-permissions'].storeUserId.value = userId
@@ -223,6 +259,7 @@ export const Routes = {
     }
 
     if (user === null) {
+      logTime('getActiveUserByEmail')
       user = (await getActiveUserByEmail(null, { email }, ctx).catch(
         (error) => {
           logger.warn({ message: 'setProfile.getUserByEmailError', error })
@@ -233,6 +270,10 @@ export const Routes = {
         clId: string
         id: string
       }
+      logger.debug({
+        message: 'getActiveUserByEmail completed',
+        processingTime: getDuration('getActiveUserByEmail'),
+      })
     }
 
     response['storefront-permissions'].userId.value = user?.id
@@ -246,6 +287,7 @@ export const Routes = {
 
     response['storefront-permissions'].organization.value = user.orgId
 
+    logTime('getOrganizationById')
     const getOrganization = async (orgId: any): Promise<any> => {
       return organizations.getOrganizationById(orgId).catch((error) => {
         logger.error({
@@ -254,12 +296,18 @@ export const Routes = {
         })
       })
     }
+    logger.debug({
+      message: 'getOrganizationById completed',
+      processingTime: getDuration('getOrganizationById'),
+    })
 
     const hash = toHash(`${user.orgId}|${user.costId}`)
     const hashChanged = body?.['storefront-permissions']?.hash?.value !== hash
 
     response['storefront-permissions'].hash.value = hash
 
+    // Time the Promise.all block
+    logTime('promiseAllMain')
     const [
       organizationResponse,
       costCenterResponse,
@@ -275,6 +323,10 @@ export const Routes = {
       organizations.getMarketingTags(user.costId),
       organizations.getB2BSettings(),
     ])
+    logger.debug({
+      message: 'Main Promise.all completed',
+      processingTime: getDuration('promiseAllMain'),
+    })
 
     // in case the cost center is not found, we need to find a valid cost center for the user
     if (
@@ -283,8 +335,12 @@ export const Routes = {
       )
     ) {
       try {
+        logTime('getOrganizationsByEmail')
         const usersByEmail = await organizations.getOrganizationsByEmail(email)
-
+        logger.debug({
+          message: 'getOrganizationsByEmail completed',
+          processingTime: getDuration('getOrganizationsByEmail'),
+        })
         // when cost center comes without a name, it's because the cost center is deleted
         const usersData = usersByEmail.data.getOrganizationsByEmail.find(
           (userByEmail) => userByEmail.costCenterName !== null
@@ -304,6 +360,7 @@ export const Routes = {
     // prevent login if org is inactive
     if (organization.status === 'inactive') {
       // try to find a valid organization
+      logTime('getInactiveOrganizationsByEmail')
       const organizationsByUserResponse: any = await organizations
         .getOrganizationsByEmail(email)
         .catch((error) => {
@@ -312,7 +369,10 @@ export const Routes = {
             message: 'setProfile.graphqlGetOrganizationById',
           })
         })
-
+      logger.debug({
+        message: 'getInactiveOrganizationsByEmail completed',
+        processingTime: getDuration('getInactiveOrganizationsByEmail'),
+      })
       const organizationsByUser =
         organizationsByUserResponse?.data?.getOrganizationsByEmail
 
@@ -322,8 +382,15 @@ export const Routes = {
         )
 
         if (organizationList) {
+          logTime('getInactiveOrganizationsById')
           organization = (await getOrganization(organizationList.id))?.data
             ?.getOrganizationById
+            logger.debug({
+              message: 'getInactiveOrganizationsById completed',
+              processingTime: getDuration('getInactiveOrganizationsById'),
+            })
+
+          logTime('setActiveUserByOrganization')
           await setActiveUserByOrganization(
             null,
             {
@@ -338,6 +405,10 @@ export const Routes = {
               error,
               message: 'setProfile.setActiveUserByOrganizationError',
             })
+          })
+          logger.debug({
+            message: 'setActiveUserByOrganization completed',
+            processingTime: getDuration('setActiveUserByOrganization'),
           })
         }
       } else {
@@ -377,8 +448,13 @@ export const Routes = {
         costCenterResponse?.data?.getCostCenterById?.sellers ??
         organization.sellers
 
+      logTime('getAppSettings')
       const { disableSellersNameFacets, disablePrivateSellersFacets } =
         await Routes.appSettings(ctx)
+      logger.debug({
+        message: 'getAppSettings completed',
+        processingTime: getDuration('getAppSettings'),
+      })
 
       if (!disableSellersNameFacets) {
         const sellersName = sellersList.map(
@@ -444,6 +520,7 @@ export const Routes = {
 
     const salesChannelPromise = []
 
+    logTime('updateSalesChannel')
     if (salesChannel) {
       salesChannelPromise.push(
         checkout
@@ -468,7 +545,12 @@ export const Routes = {
 
         if (clearCart) {
           await Promise.all(salesChannelPromise)
+          logTime('clearCart')
           await checkout.clearCart(orderFormId)
+          logger.debug({
+            message: 'clearCart completed',
+            processingTime: getDuration('clearCart'),
+          })
         }
       } catch (error) {
         logger.error({
@@ -477,6 +559,11 @@ export const Routes = {
         })
       }
     }
+    logger.debug({
+      message: 'updateSalesChannel completed',
+      processingTime: getDuration('updateSalesChannel'),
+    })
+
 
     if (
       costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
@@ -486,7 +573,7 @@ export const Routes = {
 
       const marketingTags: any =
         marketingTagsResponse?.data?.getMarketingTags?.tags
-
+      logTime('getRegionId')
       try {
         const [regionId] = await checkout.getRegionId(
           address.country,
@@ -506,7 +593,12 @@ export const Routes = {
           message: 'setProfile.getRegionId',
         })
       }
+      logger.debug({
+        message: 'getRegionId completed',
+        processingTime: getDuration('getRegionId'),
+      })
 
+      logTime('updateOrderFormMarketingDataShippingClientProfile')
       promises.push(
         checkout
           .updateOrderFormMarketingData(orderFormId, {
@@ -542,6 +634,7 @@ export const Routes = {
       )
     }
 
+    logTime('generateClUser')
     const clUser = await generateClUser({
       businessDocument,
       businessName,
@@ -552,7 +645,10 @@ export const Routes = {
       tradeName,
       isCorporate,
     })
-
+    logger.debug({
+      message: 'generateClUser completed',
+      processingTime: getDuration('generateClUser'),
+    })
     if (clUser && orderFormId) {
       const phoneNumberFormatted =
         phoneNumber || clUser.phone || clUser.homePhone || `+1${'0'.repeat(10)}`
@@ -579,11 +675,30 @@ export const Routes = {
     // Don't await promises, to avoid session timeout
     Promise.all(promises)
 
+    logger.debug({
+      message: 'updateOrderFormMarketingDataShippingClientProfile completed',
+      processingTime: getDuration('updateOrderFormMarketingDataShippingClientProfile'),
+    })
+
     logger.info({
       'setProfile.body': JSON.stringify(body),
       'setProfile.output': JSON.stringify(response),
     })
 
+
+    // Log total execution time
+    const totalTime = getDuration('total')
+    logger.debug({
+      message: 'setProfile total execution',
+      processingTime: totalTime,
+      breakdown: (() => {
+        const obj: { [key: string]: number } = {}
+        timeLog.forEach((value, key) => {
+          obj[key] = value
+        })
+        return obj
+      })(),
+    })
     ctx.response.body = response
     ctx.response.status = 200
   },
