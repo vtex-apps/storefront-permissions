@@ -101,7 +101,6 @@ export const Routes = {
       vtex: { logger },
     } = ctx
     // Timing utility
-    const startTime = Date.now()
     const timeLog = new Map<string, number>()
 
     const logTime = (label: string) => {
@@ -520,8 +519,9 @@ export const Routes = {
 
     const salesChannelPromise = []
 
-    logTime('updateSalesChannel')
+    logTime('updateSalesChannelStart') // Mark the start of this block
     if (salesChannel) {
+      logTime('updateSalesChannelPromise') // Before creating the promise
       salesChannelPromise.push(
         checkout
           .updateSalesChannel(orderFormId, salesChannel)
@@ -532,20 +532,36 @@ export const Routes = {
             })
           })
       )
+      logger.debug({
+        message: 'updateSalesChannel promise created',
+        processingTime: getDuration('updateSalesChannelPromise'),
+      })
       response.public.sc.value = salesChannel.toString()
     }
 
+    logTime('clearCartCheckStart') // Before the clearCart conditional block
     if (hashChanged && orderFormId) {
       try {
+        logTime('b2bSettingsAccess') // Accessing B2B settings
         const {
           uiSettings: { clearCart },
         } = b2bSettingsResponse?.data?.getB2BSettings ?? {
           uiSettings: { clearCart: null },
         }
+        logger.debug({
+          message: 'B2B settings accessed',
+          processingTime: getDuration('b2bSettingsAccess'),
+        })
 
         if (clearCart) {
+          logTime('awaitSalesChannel') // Before awaiting the sales channel promise
           await Promise.all(salesChannelPromise)
-          logTime('clearCart')
+          logger.debug({
+            message: 'salesChannelPromise resolved',
+            processingTime: getDuration('awaitSalesChannel'),
+          })
+
+          logTime('clearCart') // Before clearing the cart
           await checkout.clearCart(orderFormId)
           logger.debug({
             message: 'clearCart completed',
@@ -560,8 +576,8 @@ export const Routes = {
       }
     }
     logger.debug({
-      message: 'updateSalesChannel completed',
-      processingTime: getDuration('updateSalesChannel'),
+      message: 'updateSalesChannel block completed',
+      processingTime: getDuration('updateSalesChannelStart'), // Duration of entire block
     })
 
 
