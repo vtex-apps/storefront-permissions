@@ -93,6 +93,7 @@ export const Routes = {
       clients: {
         organizations,
         masterdata,
+        masterDataExtended,
         checkout,
         profileSystem,
         salesChannel: salesChannelClient,
@@ -288,13 +289,26 @@ export const Routes = {
 
     logTime('getOrganizationById')
     const getOrganization = async (orgId: any): Promise<any> => {
-      return organizations.getOrganizationById(orgId).catch((error) => {
+      return masterDataExtended.getDocumentById(
+        'organizations',
+        orgId,
+        [
+          'name',
+          'tradeName',
+          'status',
+          'priceTables',
+          'salesChannel',
+          'collections',
+          'sellers'
+        ],
+      ).catch((error) => {
         logger.error({
           error,
           message: 'setProfile.graphqlGetOrganizationById',
         })
       })
     }
+
     logger.debug({
       message: 'getOrganizationById completed',
       processingTime: getDuration('getOrganizationById'),
@@ -354,7 +368,7 @@ export const Routes = {
       }
     }
 
-    let organization = organizationResponse?.data?.getOrganizationById
+    let organization: any = organizationResponse//?.data?.getOrganizationById
 
     // prevent login if org is inactive
     if (organization.status === 'inactive') {
@@ -382,8 +396,7 @@ export const Routes = {
 
         if (organizationList) {
           logTime('getInactiveOrganizationsById')
-          organization = (await getOrganization(organizationList.id))?.data
-            ?.getOrganizationById
+          organization = await getOrganization(organizationList.id)
             logger.debug({
               message: 'getInactiveOrganizationsById completed',
               processingTime: getDuration('getInactiveOrganizationsById'),
