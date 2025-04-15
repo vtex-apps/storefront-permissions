@@ -93,6 +93,7 @@ export const Routes = {
       clients: {
         organizations,
         masterdata,
+        masterDataExtended,
         checkout,
         profileSystem,
         salesChannel: salesChannelClient,
@@ -247,7 +248,19 @@ export const Routes = {
     response['storefront-permissions'].organization.value = user.orgId
 
     const getOrganization = async (orgId: any): Promise<any> => {
-      return organizations.getOrganizationById(orgId).catch((error) => {
+      return masterDataExtended.getDocumentById(
+        'organizations',
+        orgId,
+        [
+          'name',
+          'tradeName',
+          'status',
+          'priceTables',
+          'salesChannel',
+          'collections',
+          'sellers'
+        ],
+      ).catch((error) => {
         logger.error({
           error,
           message: 'setProfile.graphqlGetOrganizationById',
@@ -299,7 +312,7 @@ export const Routes = {
       }
     }
 
-    let organization = organizationResponse?.data?.getOrganizationById
+    let organization: any = organizationResponse
 
     // prevent login if org is inactive
     if (organization.status === 'inactive') {
@@ -322,8 +335,7 @@ export const Routes = {
         )
 
         if (organizationList) {
-          organization = (await getOrganization(organizationList.id))?.data
-            ?.getOrganizationById
+          organization = await getOrganization(organizationList.id)
           await setActiveUserByOrganization(
             null,
             {

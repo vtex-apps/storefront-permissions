@@ -10,6 +10,7 @@ import { OrganizationsGraphQLClient } from './Organizations'
 import { SalesChannel } from './salesChannel'
 import { Schema } from './schema'
 import VtexId from './vtexId'
+import { MasterDataExtended } from './masterDataExtended'
 
 export const getTokenToHeader = (ctx: IOContext) => {
   const adminToken = ctx.authToken
@@ -68,5 +69,9 @@ export class Clients extends IOClients {
 
   public get fullSessions() {
     return this.getOrSet('fullSessions', FullSessions)
+  }
+
+  public get masterDataExtended() {
+    return this.getOrSet('masterDataExtended', MasterDataExtended)
   }
 }
