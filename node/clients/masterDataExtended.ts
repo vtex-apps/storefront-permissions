@@ -1,6 +1,11 @@
 import type { InstanceOptions, IOContext } from '@vtex/api'
 import { JanusClient } from '@vtex/api'
 
+/*
+  The default Master Data client was causing higher response times compared
+  to calling Master Data directly from the app using this custom client.
+*/
+
 export class MasterDataExtended extends JanusClient {
   constructor(context: IOContext, options?: InstanceOptions) {
     super(context, {
