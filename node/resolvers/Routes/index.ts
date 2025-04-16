@@ -249,9 +249,7 @@ export const Routes = {
 
     const getOrganization = async (orgId: any): Promise<any> => {
       return masterDataExtended
-        .getDocumentById(
-          'organizations',
-          orgId,
+        .getDocumentById('organizations', orgId,
           [
             'name',
             'tradeName',
@@ -259,7 +257,7 @@ export const Routes = {
             'priceTables',
             'salesChannel',
             'collections',
-            'sellers'
+            'sellers',
           ],
         )
         .catch((error) => {
