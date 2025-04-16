@@ -248,24 +248,26 @@ export const Routes = {
     response['storefront-permissions'].organization.value = user.orgId
 
     const getOrganization = async (orgId: any): Promise<any> => {
-      return masterDataExtended.getDocumentById(
-        'organizations',
-        orgId,
-        [
-          'name',
-          'tradeName',
-          'status',
-          'priceTables',
-          'salesChannel',
-          'collections',
-          'sellers'
-        ],
-      ).catch((error) => {
-        logger.error({
-          error,
-          message: 'setProfile.graphqlGetOrganizationById',
+      return masterDataExtended
+        .getDocumentById(
+          'organizations',
+          orgId,
+          [
+            'name',
+            'tradeName',
+            'status',
+            'priceTables',
+            'salesChannel',
+            'collections',
+            'sellers'
+          ],
+        )
+        .catch((error) => {
+          logger.error({
+            error,
+            message: 'setProfile.graphqlGetOrganizationById',
+          })
         })
-      })
     }
 
     const hash = toHash(`${user.orgId}|${user.costId}`)

@@ -17,12 +17,13 @@ export class MasterDataExtended extends JanusClient {
   }
 
   public getDocumentById = async (
-    dataEntity: String,
-    id: String,
-    fields: String[]
-  ) => 
-    await this.http.get<any>(
-      `/api/dataentities/${dataEntity}/documents/${id}?_fields=${fields.join(',')}`
+    dataEntity: string,
+    id: string,
+    fields: string[]
+  ) =>
+    this.http.get<any>(
+      `/api/dataentities/${dataEntity}/documents/${id}?_fields=${fields.join(
+        ','
+      )}`
     )
-  
 }

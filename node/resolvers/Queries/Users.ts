@@ -211,7 +211,7 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
         'stateInscription',
         'corporatePhone',
         'isCorporate',
-      ],
+      ]
     )
 
     return cl ?? null
