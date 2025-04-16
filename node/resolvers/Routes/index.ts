@@ -249,17 +249,15 @@ export const Routes = {
 
     const getOrganization = async (orgId: any): Promise<any> => {
       return masterDataExtended
-        .getDocumentById('organizations', orgId,
-          [
-            'name',
-            'tradeName',
-            'status',
-            'priceTables',
-            'salesChannel',
-            'collections',
-            'sellers',
-          ],
-        )
+        .getDocumentById('organizations', orgId, [
+          'name',
+          'tradeName',
+          'status',
+          'priceTables',
+          'salesChannel',
+          'collections',
+          'sellers',
+        ])
         .catch((error) => {
           logger.error({
             error,
