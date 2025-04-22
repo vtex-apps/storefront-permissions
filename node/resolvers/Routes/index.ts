@@ -54,6 +54,7 @@ export const Routes = {
       clients: {
         organizations,
         masterdata,
+        masterDataExtended,
         checkout,
         profileSystem,
         salesChannel: salesChannelClient,
@@ -161,13 +162,28 @@ export const Routes = {
     response['storefront-permissions'].userId.value = user?.id
     response['storefront-permissions'].organization.value = user.orgId
 
-    logTime('getOrganization')
-    const getOrganization = async (orgId: string): Promise<any> => {
-      return organizations.getOrganizationById(orgId).catch(error => {
-        logger.error({ error, message: 'setProfile.graphqlGetOrganizationById' })
-        return null
+    logTime('getOrganizationById')
+    const getOrganization = async (orgId: any): Promise<any> => {
+      return masterDataExtended.getDocumentById(
+        'organizations',
+        orgId,
+        [
+          'name',
+          'tradeName',
+          'status',
+          'priceTables',
+          'salesChannel',
+          'collections',
+          'sellers'
+        ],
+      ).catch((error) => {
+        logger.error({
+          error,
+          message: 'setProfile.graphqlGetOrganizationById',
+        })
       })
     }
+
     logger.debug({
       message: 'getOrganization completed',
       processingTime: getDuration('getOrganization'),
@@ -207,27 +223,53 @@ export const Routes = {
       user.costId = validUserData?.costId ?? user.costId
     }
 
-    logTime('orgProcessingStart')
-    let organization = organizationResponse?.data?.getOrganizationById
-    // TODO: Transport this logic to a trigger to update users once the organization is disabled
-    if (organization?.status === 'inactive') {
+    let organization: any = organizationResponse//?.data?.getOrganizationById
+
+    // prevent login if org is inactive
+    if (organization.status === 'inactive') {
+      // try to find a valid organization
       logTime('getInactiveOrganizationsByEmail')
       const organizationsByUserResponse = await organizations.getOrganizationsByEmail(email).catch(error => {
         logger.error({ error, message: 'setProfile.graphqlGetOrganizationById' })
         return { data: { getOrganizationsByEmail: [] } }
       })
-      logger.debug({ message: 'getInactiveOrganizationsByEmail completed', processingTime: getDuration('getInactiveOrganizationsByEmail') })
+      const organizationsByUser =
+        organizationsByUserResponse?.data?.getOrganizationsByEmail
 
-      const activeOrg = organizationsByUserResponse.data.getOrganizationsByEmail.find(org => org.organizationStatus !== 'inactive')
-      if (activeOrg) {
-        logTime('getInactiveOrganizationsById')
-        organization = (await getOrganization(activeOrg.id))?.data?.getOrganizationById
-        logger.debug({ message: 'getInactiveOrganizationsById completed', processingTime: getDuration('getInactiveOrganizationsById') })
+      if (organizationsByUser?.length) {
+        const organizationList = organizationsByUser.find(
+          (org: any) => org.organizationStatus !== 'inactive'
+        )
 
-        logTime('setActiveUserByOrganization')
-        await setActiveUserByOrganization(null, { costId: activeOrg.costId, email, orgId: activeOrg.orgId, userId: activeOrg.id }, ctx)
-          .catch(error => logger.warn({ error, message: 'setProfile.setActiveUserByOrganizationError' }))
-        logger.debug({ message: 'setActiveUserByOrganization completed', processingTime: getDuration('setActiveUserByOrganization') })
+        if (organizationList) {
+          logTime('getInactiveOrganizationsById')
+          organization = await getOrganization(organizationList.id)
+            logger.debug({
+              message: 'getInactiveOrganizationsById completed',
+              processingTime: getDuration('getInactiveOrganizationsById'),
+            })
+
+          logTime('setActiveUserByOrganization')
+          await setActiveUserByOrganization(
+            null,
+            {
+              costId: organizationList.costId,
+              email,
+              orgId: organizationList.orgId,
+              userId: organizationList.id,
+            },
+            ctx
+          ).catch((error) => {
+            logger.warn({
+              error,
+              message: 'setProfile.setActiveUserByOrganizationError',
+            })
+          })
+          logger.debug({
+            message: 'setActiveUserByOrganization completed',
+            processingTime: getDuration('setActiveUserByOrganization'),
+          })
+        }
       } else {
         logger.warn({ message: 'setProfile-organizationInactive', organizationData: organization, organizationId: user.orgId })
         throw new ForbiddenError('Organization is inactive')
