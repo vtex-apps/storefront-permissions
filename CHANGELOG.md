@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- Change the way to retrieve the customer from Master Data using custom client
+- Change the way to retrieve the organization by id from Master Data using custom client
+
 ## [1.45.2] - 2025-02-06
 
 ### Fixed
