@@ -52,7 +52,7 @@ export default [
   },
   {
     name: 'b2b_users',
-    version: 'v0.1.2',
+    version: 'v0.1.3',
     body: {
       properties: {
         roleId: {
@@ -91,6 +91,10 @@ export default [
           type: 'boolean',
           title: 'Current Profile active',
         },
+        selectedPriceTable: {
+          type: ['null', 'string'],
+          title: 'Selected Price Table',
+        },
       },
       'v-immediate-indexing': true,
       'v-indexed': [
@@ -102,6 +106,7 @@ export default [
         'email',
         'canImpersonate',
         'active',
+        'selectedPriceTable',
       ],
       'v-cache': false,
     },

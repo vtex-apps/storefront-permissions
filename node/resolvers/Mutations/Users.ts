@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { currentSchema } from '../../utils'
+import { currentSchema, toHash } from '../../utils'
 import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
 import type { ChangeTeamParams } from '../../utils/metrics/changeTeam'
 import { sendChangeTeamMetric } from '../../utils/metrics/changeTeam'
@@ -120,6 +120,7 @@ export const getUser = async ({
         'roleId',
         'userId',
         'active',
+        'selectedPriceTable',
       ],
       pagination: {
         page: 1,
@@ -611,6 +612,7 @@ export const setCurrentOrganization = async (
 ) => {
   const {
     vtex: { logger },
+    clients: { masterdata },
     cookies,
     request,
   } = ctx
@@ -659,6 +661,13 @@ export const setCurrentOrganization = async (
       ctx
     )
 
+    // Reset selected price table when changing organization
+    await updateUserFields({
+      masterdata,
+      fields: { selectedPriceTable: null },
+      id: user.id,
+    })
+
     const metricParams: ChangeTeamParams = {
       account: sessionData?.namespaces?.account?.accountName.value,
       userId: user.id,
@@ -684,6 +693,89 @@ export const setCurrentOrganization = async (
       message: 'updateCurrentOrganization.error',
     })
 
+    return { status: 'error', message: error }
+  }
+}
+
+// node/resolvers/Mutations/Users.ts
+
+export const setCurrentPriceTable = async (
+  _: any,
+  params: { priceTable: string | null },
+  ctx: Context
+) => {
+  const {
+    vtex: { logger },
+    cookies,
+    request,
+    clients: { masterdata },
+  } = ctx
+  const { sessionData } = ctx.vtex as any
+  const sessionCookie = cookies.get('vtex_session') ?? request.header?.sessiontoken
+
+  try {
+    const { priceTable } = params
+
+    // Get current user's organization
+    const {
+      'storefront-permissions': {
+        organization: { value: orgId },
+        userId: { value: userId },
+      }
+    } = sessionData.namespaces
+
+    if (!orgId || !userId) {
+      const error = 'User not properly authenticated with organization context'
+      logger.error({
+        error,
+        message: 'setCurrentPriceTable.error.noOrgContext',
+      })
+      return { status: 'error', message: error }
+    }
+
+    // Get organization data to validate price table
+    const organization = await ctx.clients.masterDataExtended.getDocumentById(
+      'organizations',
+      orgId,
+      ['priceTables']
+    )
+
+    if (!organization?.priceTables?.includes(priceTable)) {
+      const error = 'Price table not allowed for this organization'
+      logger.error({
+        error,
+        message: 'setCurrentPriceTable.error.invalidPriceTable',
+        priceTable,
+        orgId,
+      })
+      return { status: 'error', message: error }
+    }
+
+    // Update user's selected price table
+    await updateUserFields({
+      masterdata,
+      fields: { selectedPriceTable: priceTable },
+      id: userId,
+    })
+
+    // Generate new hash to trigger session update
+    const currentCostCenter = sessionData.namespaces['storefront-permissions'].costcenter.value
+    const newHash = toHash(`${orgId}|${currentCostCenter}|${priceTable ?? ''}`)
+
+    // Update session with new hash
+    await setChangeSession({
+      context: ctx,
+      publicKey: 'hash',
+      value: newHash,
+      sessionCookie,
+    })
+
+    return { status: 'success', message: '' }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'setCurrentPriceTable.error',
+    })
     return { status: 'error', message: error }
   }
 }

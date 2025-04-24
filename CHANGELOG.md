@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- New mutation `setCurrentPriceTable` to allow users to select a specific price table from their organization's available price tables
+- New field `selectedPriceTable` to `b2b_users` schema to persist user's price table preference
+- Enhanced price table handling in `setProfile` to prioritize user's selected price table in the response
+
+### Changed
+- Updated `b2b_users` schema version to v0.1.3
+- Modified `setCurrentOrganization` to reset user's selected price table when changing organizations
+- Enhanced session hash generation to include selected price table information
+
 ## [1.45.3] - 2025-04-22
 
 ### Changed

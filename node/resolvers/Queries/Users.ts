@@ -795,7 +795,6 @@ export const getOrganizationsByEmail = async (
   } = ctx
 
   const { email } = params
-
   try {
     return (await getAllUsersByEmail(null, { email }, ctx)).map(
       (user: any) => ({
