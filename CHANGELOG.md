@@ -14,8 +14,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 - Updated `b2b_users` schema version to v0.1.3
-- Modified `setCurrentOrganization` to reset user's selected price table when changing organizations
-- Enhanced session hash generation to include selected price table information
 
 ## [1.45.3] - 2025-04-22
 
