@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { currentSchema, toHash } from '../../utils'
+import { currentSchema } from '../../utils'
 import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
 import type { ChangeTeamParams } from '../../utils/metrics/changeTeam'
 import { sendChangeTeamMetric } from '../../utils/metrics/changeTeam'
@@ -138,6 +138,31 @@ export const getUser = async ({
 const updateUserFields = async ({ masterdata, fields, id }: any) => {
   const { DocumentId } = await masterdata
     .createOrUpdateEntireDocument({
+      dataEntity: config.name,
+      fields,
+      id,
+      schema: config.version,
+    })
+    .then((response: { DocumentId: string }) => {
+      return response
+    })
+    .catch((error: any) => {
+      if (error.response.status < 400) {
+        return {
+          DocumentId: id,
+        }
+      }
+
+      throw error
+    })
+
+  return DocumentId
+}
+
+const addSelectedPriceTableToB2bUser = async ({ masterdata, fields, id }: any) => {
+  
+  const { DocumentId } = await masterdata
+    .createOrUpdatePartialDocument({
       dataEntity: config.name,
       fields,
       id,
@@ -612,7 +637,6 @@ export const setCurrentOrganization = async (
 ) => {
   const {
     vtex: { logger },
-    clients: { masterdata },
     cookies,
     request,
   } = ctx
@@ -661,13 +685,6 @@ export const setCurrentOrganization = async (
       ctx
     )
 
-    // Reset selected price table when changing organization
-    await updateUserFields({
-      masterdata,
-      fields: { selectedPriceTable: null },
-      id: user.id,
-    })
-
     const metricParams: ChangeTeamParams = {
       account: sessionData?.namespaces?.account?.accountName.value,
       userId: user.id,
@@ -706,12 +723,9 @@ export const setCurrentPriceTable = async (
 ) => {
   const {
     vtex: { logger },
-    cookies,
-    request,
     clients: { masterdata },
   } = ctx
   const { sessionData } = ctx.vtex as any
-  const sessionCookie = cookies.get('vtex_session') ?? request.header?.sessiontoken
 
   try {
     const { priceTable } = params
@@ -752,22 +766,10 @@ export const setCurrentPriceTable = async (
     }
 
     // Update user's selected price table
-    await updateUserFields({
+    await addSelectedPriceTableToB2bUser({
       masterdata,
       fields: { selectedPriceTable: priceTable },
       id: userId,
-    })
-
-    // Generate new hash to trigger session update
-    const currentCostCenter = sessionData.namespaces['storefront-permissions'].costcenter.value
-    const newHash = toHash(`${orgId}|${currentCostCenter}|${priceTable ?? ''}`)
-
-    // Update session with new hash
-    await setChangeSession({
-      context: ctx,
-      publicKey: 'hash',
-      value: newHash,
-      sessionCookie,
     })
 
     return { status: 'success', message: '' }
