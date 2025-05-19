@@ -714,8 +714,6 @@ export const setCurrentOrganization = async (
   }
 }
 
-// node/resolvers/Mutations/Users.ts
-
 export const setCurrentPriceTable = async (
   _: any,
   params: { priceTable: string | null },
