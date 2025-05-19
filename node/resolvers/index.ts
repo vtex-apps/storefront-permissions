@@ -14,7 +14,7 @@ import {
   setActiveUserByOrganization,
   setCurrentOrganization,
   updateUser,
-  setCurrentPriceTable
+  setCurrentPriceTable,
 } from './Mutations/Users'
 import { getFeaturesByModule, listFeatures } from './Queries/Features'
 import { getRole, hasUsers, listRoles } from './Queries/Roles'
@@ -50,7 +50,7 @@ export const resolvers = {
     setActiveUserByOrganization,
     setCurrentOrganization,
     updateUser,
-    setCurrentPriceTable
+    setCurrentPriceTable,
   },
   Query: {
     checkCustomerSchema,

@@ -269,7 +269,7 @@ export const getB2BUserById = async (_: any, params: any, ctx: Context) => {
         'costId',
         'userId',
         'canImpersonate',
-        'selectedPriceTable'
+        'selectedPriceTable',
       ],
       id,
     })
@@ -797,6 +797,7 @@ export const getOrganizationsByEmail = async (
   } = ctx
 
   const { email } = params
+
   try {
     return (await getAllUsersByEmail(null, { email }, ctx)).map(
       (user: any) => ({

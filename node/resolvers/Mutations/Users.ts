@@ -159,8 +159,11 @@ const updateUserFields = async ({ masterdata, fields, id }: any) => {
   return DocumentId
 }
 
-const addSelectedPriceTableToB2bUser = async ({ masterdata, fields, id }: any) => {
-  
+const addSelectedPriceTableToB2bUser = async ({
+  masterdata,
+  fields,
+  id,
+}: any) => {
   const { DocumentId } = await masterdata
     .createOrUpdatePartialDocument({
       dataEntity: config.name,
@@ -723,6 +726,7 @@ export const setCurrentPriceTable = async (
     vtex: { logger },
     clients: { masterdata },
   } = ctx
+
   const { sessionData } = ctx.vtex as any
 
   try {
@@ -733,15 +737,17 @@ export const setCurrentPriceTable = async (
       'storefront-permissions': {
         organization: { value: orgId },
         userId: { value: userId },
-      }
+      },
     } = sessionData.namespaces
 
     if (!orgId || !userId) {
       const error = 'User not properly authenticated with organization context'
+
       logger.error({
         error,
         message: 'setCurrentPriceTable.error.noOrgContext',
       })
+
       return { status: 'error', message: error }
     }
 
@@ -754,12 +760,14 @@ export const setCurrentPriceTable = async (
 
     if (!organization?.priceTables?.includes(priceTable)) {
       const error = 'Price table not allowed for this organization'
+
       logger.error({
         error,
         message: 'setCurrentPriceTable.error.invalidPriceTable',
         priceTable,
         orgId,
       })
+
       return { status: 'error', message: error }
     }
 
@@ -776,6 +784,7 @@ export const setCurrentPriceTable = async (
       error,
       message: 'setCurrentPriceTable.error',
     })
+
     return { status: 'error', message: error }
   }
 }
