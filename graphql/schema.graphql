@@ -173,6 +173,7 @@ type Mutation {
     @withSession
     @cacheControl(scope: PRIVATE)
     @withSender
+    @validateStoreUserAccess
 }
 
 type UserImpersonation {
