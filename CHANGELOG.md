@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Enhanced price table handling in `setProfile` to prioritize user's selected price table in the response
 
 ### Changed
-- Updated `b2b_users` schema version to v0.1.3
+- Add `selectedPriceTable` to `b2b_users` schema
 
 ## [1.45.3] - 2025-04-22
 
