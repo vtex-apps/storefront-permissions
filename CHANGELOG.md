@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Add new setCurrentPriceTable mutation that allows a specific price table to be selected for the user
+
 ## [2.0.0] - 2025-05-27
 
 ### Changed

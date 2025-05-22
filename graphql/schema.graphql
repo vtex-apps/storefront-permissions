@@ -168,6 +168,12 @@ type Mutation {
   ignoreB2BSessionData(enabled: Boolean!): MutationResponse
     @withSession
     @cacheControl(scope: PRIVATE)
+
+  setCurrentPriceTable(priceTable: String): MutationResponse
+    @withSession
+    @cacheControl(scope: PRIVATE)
+    @withSender
+    @validateStoreUserAccess
 }
 
 type UserImpersonation {
@@ -205,6 +211,7 @@ type User {
   email: String!
   canImpersonate: Boolean
   active: Boolean
+  selectedPriceTable: String
 }
 
 type Organization {
