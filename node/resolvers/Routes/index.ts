@@ -3,11 +3,7 @@ import { json } from 'co-body'
 
 import { getRole } from '../Queries/Roles'
 import { getSessionWatcher } from '../Queries/Settings'
-import {
-  getActiveUserByEmail,
-  getUserByEmail,
-  getB2BUserById,
-} from '../Queries/Users'
+import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
 import { generateClUser } from './utils'
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
 import { toHash } from '../../utils'
@@ -367,22 +363,10 @@ export const Routes = {
     businessName = organization.name
     tradeName = organization.tradeName
 
-    // Get the selectedPriceTable from B2B_USER
-
-    const userWithPriceTable = (await getB2BUserById(
-      null,
-      { id: user.id },
-      ctx
-    )) as { selectedPriceTable: string }
-
-    const selectedPriceTable = userWithPriceTable?.selectedPriceTable
-      ? userWithPriceTable?.selectedPriceTable
-      : organization.priceTables.join(',')
-
-    if (selectedPriceTable || organization.priceTables?.length) {
+    if (organization.priceTables?.length) {
       response[
         'storefront-permissions'
-      ].priceTables.value = `${selectedPriceTable}`
+      ].priceTables.value = `${organization.priceTables.join(',')}`
     }
 
     let facets = [] as any

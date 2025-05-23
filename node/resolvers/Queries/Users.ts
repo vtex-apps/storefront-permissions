@@ -72,7 +72,6 @@ export const getAllUsers = async ({
           'userId',
           'canImpersonate',
           'active',
-          'selectedPriceTable',
         ],
         pagination: {
           page: currentPage,
@@ -269,7 +268,6 @@ export const getB2BUserById = async (_: any, params: any, ctx: Context) => {
         'costId',
         'userId',
         'canImpersonate',
-        'selectedPriceTable',
       ],
       id,
     })

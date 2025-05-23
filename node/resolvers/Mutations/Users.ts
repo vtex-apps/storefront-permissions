@@ -120,7 +120,6 @@ export const getUser = async ({
         'roleId',
         'userId',
         'active',
-        'selectedPriceTable',
       ],
       pagination: {
         page: 1,
@@ -138,34 +137,6 @@ export const getUser = async ({
 const updateUserFields = async ({ masterdata, fields, id }: any) => {
   const { DocumentId } = await masterdata
     .createOrUpdateEntireDocument({
-      dataEntity: config.name,
-      fields,
-      id,
-      schema: config.version,
-    })
-    .then((response: { DocumentId: string }) => {
-      return response
-    })
-    .catch((error: any) => {
-      if (error.response.status < 400) {
-        return {
-          DocumentId: id,
-        }
-      }
-
-      throw error
-    })
-
-  return DocumentId
-}
-
-const addSelectedPriceTableToB2bUser = async ({
-  masterdata,
-  fields,
-  id,
-}: any) => {
-  const { DocumentId } = await masterdata
-    .createOrUpdatePartialDocument({
       dataEntity: config.name,
       fields,
       id,
@@ -711,78 +682,6 @@ export const setCurrentOrganization = async (
     logger.error({
       error,
       message: 'updateCurrentOrganization.error',
-    })
-
-    return { status: 'error', message: error }
-  }
-}
-
-export const setCurrentPriceTable = async (
-  _: any,
-  params: { priceTable: string | null },
-  ctx: Context
-) => {
-  const {
-    vtex: { logger },
-    clients: { masterdata },
-  } = ctx
-
-  const { sessionData } = ctx.vtex as any
-
-  try {
-    const { priceTable } = params
-
-    // Get current user's organization
-    const {
-      'storefront-permissions': {
-        organization: { value: orgId },
-        userId: { value: userId },
-      },
-    } = sessionData.namespaces
-
-    if (!orgId || !userId) {
-      const error = 'User not properly authenticated with organization context'
-
-      logger.error({
-        error,
-        message: 'setCurrentPriceTable.error.noOrgContext',
-      })
-
-      return { status: 'error', message: error }
-    }
-
-    // Get organization data to validate price table
-    const organization = await ctx.clients.masterDataExtended.getDocumentById(
-      'organizations',
-      orgId,
-      ['priceTables']
-    )
-
-    if (!organization?.priceTables?.includes(priceTable)) {
-      const error = 'Price table not allowed for this organization'
-
-      logger.error({
-        error,
-        message: 'setCurrentPriceTable.error.invalidPriceTable',
-        priceTable,
-        orgId,
-      })
-
-      return { status: 'error', message: error }
-    }
-
-    // Update user's selected price table
-    await addSelectedPriceTableToB2bUser({
-      masterdata,
-      fields: { selectedPriceTable: priceTable },
-      id: userId,
-    })
-
-    return { status: 'success', message: '' }
-  } catch (error) {
-    logger.error({
-      error,
-      message: 'setCurrentPriceTable.error',
     })
 
     return { status: 'error', message: error }
