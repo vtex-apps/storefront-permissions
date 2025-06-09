@@ -377,7 +377,7 @@ export const Routes = {
 
     const selectedPriceTable = userWithPriceTable?.selectedPriceTable
       ? userWithPriceTable?.selectedPriceTable
-      : organization.priceTables.join(',')
+      : organization.priceTables?.join(',') || ''
 
     if (selectedPriceTable || organization.priceTables?.length) {
       response[
