@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.47.0-hkignore] - 2025-08-26
+
+### Changed
+- Freeze latest 1.45.3 version (as 1.46.0 was deprecated)
+
 ## [1.45.3] - 2025-04-22
 
 ### Changed
