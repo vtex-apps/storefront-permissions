@@ -598,15 +598,10 @@
     "@types/mime" "^1"
     "@types/node" "*"
 
-"@types/shimmer@^1.2.0":
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/@types/shimmer/-/shimmer-1.2.0.tgz#9b706af96fa06416828842397a70dfbbf1c14ded"
-  integrity sha512-UE7oxhQLLd9gub6JKIAhDq06T0F6FnztwMNRvYgjeQSBeMc1ZG/tA47EwfduvkuQS8apbkM/lpLpWsaCeYsXVg==
-
-"@vtex/api@6.49.7":
-  version "6.49.7"
-  resolved "https://registry.yarnpkg.com/@vtex/api/-/api-6.49.7.tgz#c3428436f9a250b8f8dfbd19e46754c65988a8a8"
-  integrity sha512-+EfBAA1v1E+cNNHnlzOxj1SN73vxL2SQq1r3BjwhK9cqqJVA6xIqo20INYGiCxgrIfxIHKN2jrSJw3dHYJ2ZWQ==
+"@vtex/api@6.48.0":
+  version "6.48.0"
+  resolved "https://registry.yarnpkg.com/@vtex/api/-/api-6.48.0.tgz#67f9f11d197d543d4f854b057d31a8d6999241e9"
+  integrity sha512-mAdT7gbV0/BwiuqUkNH1E7KZqTUczT5NbBBZcPJq5kmTr73PUjbR9wh//70ryJo2EAdHlqIgqgwsCVpozenlhg==
   dependencies:
     "@types/koa" "^2.11.0"
     "@types/koa-compose" "^3.2.3"
@@ -2052,7 +2047,7 @@ sprintf-js@~1.0.2:
   resolved "https://registry.yarnpkg.com/sprintf-js/-/sprintf-js-1.0.3.tgz#04e6926f662895354f3dd015203633b857297e2c"
   integrity sha1-BOaSb2YolTVPPdAVIDYzuFcpfiw=
 
-"stats-lite@github:vtex/node-stats-lite#dist":
+stats-lite@vtex/node-stats-lite#dist:
   version "2.2.0"
   resolved "https://codeload.github.com/vtex/node-stats-lite/tar.gz/1b0d39cc41ef7aaecfd541191f877887a2044797"
   dependencies:

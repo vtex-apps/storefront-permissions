@@ -3,9 +3,18 @@ import { json } from 'co-body'
 
 import { getRole } from '../Queries/Roles'
 import { getSessionWatcher } from '../Queries/Settings'
-import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
-import { generateClUser, getCostIdFromOrganizationWithValidCostCenter, getOrganizationWithStatusNotInactive } from './utils'
+import {
+  generateClUser,
+  getCostIdFromOrganizationWithValidCostCenter,
+  getOrganizationWithStatusNotInactive,
+} from './utils'
+import {
+  getActiveUserByEmail,
+  getUserByEmail,
+  getB2BUserById,
+} from '../Queries/Users'
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
+import { toHash } from '../../utils'
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
@@ -92,6 +101,7 @@ export const Routes = {
       clients: {
         organizations,
         masterdata,
+        masterDataExtended,
         checkout,
         profileSystem,
         salesChannel: salesChannelClient,
@@ -129,6 +139,9 @@ export const Routes = {
           value: '',
         },
         userId: {
+          value: '',
+        },
+        hash: {
           value: '',
         },
       },
@@ -243,13 +256,28 @@ export const Routes = {
     response['storefront-permissions'].organization.value = user.orgId
 
     const getOrganization = async (orgId: any): Promise<any> => {
-      return organizations.getOrganizationById(orgId).catch((error) => {
-        logger.error({
-          error,
-          message: 'setProfile.graphqlGetOrganizationById',
+      return masterDataExtended
+        .getDocumentById('organizations', orgId, [
+          'name',
+          'tradeName',
+          'status',
+          'priceTables',
+          'salesChannel',
+          'collections',
+          'sellers',
+        ])
+        .catch((error) => {
+          logger.error({
+            error,
+            message: 'setProfile.graphqlGetOrganizationById',
+          })
         })
-      })
     }
+
+    const hash = toHash(`${user.orgId}|${user.costId}`)
+    const hashChanged = body?.['storefront-permissions']?.hash?.value !== hash
+
+    response['storefront-permissions'].hash.value = hash
 
     const [
       organizationResponse,
@@ -274,9 +302,12 @@ export const Routes = {
       )
     ) {
       try {
-        const costId = await getCostIdFromOrganizationWithValidCostCenter(email, ctx);
+        const costId = await getCostIdFromOrganizationWithValidCostCenter(
+          email,
+          ctx
+        )
 
-        user.costId = costId ?? user.costId;
+        user.costId = costId ?? user.costId
       } catch (error) {
         logger.error({
           error,
@@ -285,21 +316,23 @@ export const Routes = {
       }
     }
 
-    let organization = organizationResponse?.data?.getOrganizationById
+    let organization: any = organizationResponse
 
     // prevent login if org is inactive
     if (organization.status === 'inactive') {
-      const validOrganization = await
-        getOrganizationWithStatusNotInactive(email, ctx)
-        .catch((error) => {
-          logger.error({
-            error,
-            message: 'setProfile.graphqlGetOrganizationById',
-          })
+      const validOrganization = await getOrganizationWithStatusNotInactive(
+        email,
+        ctx
+      ).catch((error) => {
+        logger.error({
+          error,
+          message: 'setProfile.graphqlGetOrganizationById',
         })
+      })
 
       if (validOrganization) {
-        organization = (await getOrganization(validOrganization.id))?.data?.getOrganizationById;
+        organization = (await getOrganization(validOrganization.id))?.data
+          ?.getOrganizationById
 
         await setActiveUserByOrganization(
           null,
@@ -314,8 +347,8 @@ export const Routes = {
           logger.warn({
             error,
             message: 'setProfile.setActiveUserByOrganizationError',
-          });
-        });
+          })
+        })
       } else {
         logger.warn({
           message: `setProfile-organizationInactive`,
@@ -330,9 +363,19 @@ export const Routes = {
     tradeName = organization.tradeName
 
     if (organization.priceTables?.length) {
+      const userWithPriceTable = (await getB2BUserById(
+        null,
+        { id: user.id },
+        ctx
+      )) as { selectedPriceTable: string }
+
+      const selectedPriceTable = userWithPriceTable?.selectedPriceTable
+        ? userWithPriceTable.selectedPriceTable
+        : organization.priceTables.join(',')
+
       response[
         'storefront-permissions'
-      ].priceTables.value = `${organization.priceTables.join(',')}`
+      ].priceTables.value = `${selectedPriceTable}`
     }
 
     let facets = [] as any
@@ -434,7 +477,7 @@ export const Routes = {
       response.public.sc.value = salesChannel.toString()
     }
 
-    if (orderFormId) {
+    if (hashChanged && orderFormId) {
       try {
         const {
           uiSettings: { clearCart },

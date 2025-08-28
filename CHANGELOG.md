@@ -10,6 +10,54 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Introduced the getOrganizationsPaginatedByEmail function to retrieve organizations with pagination, preventing timeouts.
 
+## [2.1.0] - 2025-07-17
+
+### Added
+- Add new setCurrentPriceTable mutation that allows a specific price table to be selected for the user
+
+## [2.0.0] - 2025-05-27
+
+### Changed
+- Update dependency major version. If you are updating to this major version, make sure to update the following apps (if you have then installed) to the following major versions:
+    - vtex.b2b-admin-customers@1.x
+    - vtex.b2b-checkout-settings@2.x
+    - vtex.b2b-my-account@1.x
+    - vtex.b2b-orders-history@1.x
+    - vtex.b2b-organizations@2.x
+    - vtex.b2b-organizations-graphql@1.x
+    - vtex.b2b-quotes@2.x
+    - vtex.b2b-quotes-graphql@3.x
+    - vtex.b2b-suite@1.x
+    - vtex.b2b-theme@4.x
+    - vtex.storefront-permissions-components@1.x
+    - vtex.storefront-permissions-ui@2.x
+
+### Removed
+- Reverted version 1.46.0
+
+## [1.46.0] - 2025-05-22
+
+### Added
+- New mutation `setCurrentPriceTable` to allow users to select a specific price table from their organization's available price tables
+- New field `selectedPriceTable` to `b2b_users` schema to persist user's price table preference
+- Enhanced price table handling in `setProfile` to prioritize user's selected price table in the response
+
+### Changed
+- Add `selectedPriceTable` to `b2b_users` schema
+
+## [1.45.3] - 2025-04-22
+
+### Changed
+
+- Change the way to retrieve the customer from Master Data using custom client
+- Change the way to retrieve the organization by id from Master Data using custom client
+
+## [1.45.2] - 2025-02-06
+
+### Fixed
+
+- Clear cart only changed Hash (OrgId+CostId)
+
 ## [1.45.1] - 2024-10-28
 
 ### Fixed

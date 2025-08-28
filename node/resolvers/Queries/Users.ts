@@ -199,16 +199,17 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
 
 export const getUserById = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata },
+    clients: { masterDataExtended },
     vtex: { logger },
   } = ctx
 
   try {
     const { id } = params
 
-    const cl: any = await masterdata.getDocument({
-      dataEntity: CUSTOMER_SCHEMA_NAME,
-      fields: [
+    const cl: any = await masterDataExtended.getDocumentById(
+      CUSTOMER_SCHEMA_NAME,
+      id,
+      [
         'email',
         'firstName',
         'lastName',
@@ -222,9 +223,8 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
         'stateInscription',
         'corporatePhone',
         'isCorporate',
-      ],
-      id,
-    })
+      ]
+    )
 
     return cl ?? null
   } catch (error) {
@@ -280,6 +280,7 @@ export const getB2BUserById = async (_: any, params: any, ctx: Context) => {
         'costId',
         'userId',
         'canImpersonate',
+        'selectedPriceTable',
       ],
       id,
     })
