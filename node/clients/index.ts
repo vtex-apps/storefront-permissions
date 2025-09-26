@@ -11,6 +11,7 @@ import { SalesChannel } from './salesChannel'
 import { Schema } from './schema'
 import VtexId from './vtexId'
 import { MasterDataExtended } from './masterDataExtended'
+import { LocalSessionClient } from './session'
 
 export const getTokenToHeader = (ctx: IOContext) => {
   const adminToken = ctx.authToken
@@ -73,5 +74,9 @@ export class Clients extends IOClients {
 
   public get masterDataExtended() {
     return this.getOrSet('masterDataExtended', MasterDataExtended)
+  }
+
+  public get localSessionClient() {
+    return this.getOrSet('localSessionClient', LocalSessionClient)
   }
 }

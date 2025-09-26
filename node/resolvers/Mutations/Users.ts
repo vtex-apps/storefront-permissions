@@ -22,7 +22,7 @@ const setChangeSession = async (
 ): Promise<void> => {
   const {
     context: {
-      clients: { session },
+      clients: { localSessionClient },
       vtex: { logger },
     },
     publicKey,
@@ -31,7 +31,7 @@ const setChangeSession = async (
   } = sessionParameters
 
   try {
-    await session.updateSession(publicKey, value, [], sessionCookie)
+    await localSessionClient.updateSession(publicKey, value, [], sessionCookie)
   } catch (error) {
     logger.error({
       error,

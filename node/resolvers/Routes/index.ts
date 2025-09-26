@@ -147,6 +147,7 @@ export const Routes = {
       },
     }
 
+    console.log('setProfile - AQUI')
     ctx.set('Content-Type', 'application/json')
     ctx.set('Cache-Control', 'no-cache, no-store')
 
