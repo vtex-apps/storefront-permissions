@@ -6,7 +6,7 @@ import { statusToError, toUUID } from './index'
 import {
   B2B_ORGANIZATIONS_PRODUCT_ID,
   BUYER_ORGANIZATION_VIEW_ROLE,
-  BUYER_ORGANIZATION_EDIT_ROLE
+  BUYER_ORGANIZATION_EDIT_ROLE,
 } from './constants'
 
 export class LMClient extends ExternalClient {
@@ -103,18 +103,36 @@ export class LMClient extends ExternalClient {
     })
   }
 
-  public hasBuyerOrganizationViewRole = async (account: string, userEmail: string) => {
+  public hasBuyerOrganizationViewRole = async (
+    account: string,
+    userEmail: string
+  ) => {
     try {
-      const hasRole = await this.checkUserSpecificRole(account, userEmail, B2B_ORGANIZATIONS_PRODUCT_ID, BUYER_ORGANIZATION_VIEW_ROLE)
+      const hasRole = await this.checkUserSpecificRole(
+        account,
+        userEmail,
+        B2B_ORGANIZATIONS_PRODUCT_ID,
+        BUYER_ORGANIZATION_VIEW_ROLE
+      )
+
       return hasRole === true
     } catch (error) {
       return false
     }
   }
 
-  public hasBuyerOrganizationEditRole = async (account: string, userEmail: string) => {
+  public hasBuyerOrganizationEditRole = async (
+    account: string,
+    userEmail: string
+  ) => {
     try {
-      const hasRole = await this.checkUserSpecificRole(account, userEmail, B2B_ORGANIZATIONS_PRODUCT_ID, BUYER_ORGANIZATION_EDIT_ROLE)
+      const hasRole = await this.checkUserSpecificRole(
+        account,
+        userEmail,
+        B2B_ORGANIZATIONS_PRODUCT_ID,
+        BUYER_ORGANIZATION_EDIT_ROLE
+      )
+
       return hasRole === true
     } catch (error) {
       return false
