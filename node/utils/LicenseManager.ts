@@ -81,6 +81,41 @@ export class LMClient extends ExternalClient {
     )
   }
 
+  public checkUserSpecificRole = async (
+    account: string,
+    userEmail: string,
+    productCode: number,
+    resourceCode: string
+  ) => {
+    return this.get(
+      `/api/license-manager/pvt/accounts/${encodeURI(
+        account
+      )}/products/${productCode}/logins/${encodeURI(
+        userEmail
+      )}/resources/${encodeURI(resourceCode)}/granted`
+    ).then((res: any) => {
+      return res
+    })
+  }
+
+  public hasBuyerOrganizationViewRole = async (account: string, userEmail: string) => {
+    try {
+      const hasRole = await this.checkUserSpecificRole(account, userEmail, 97, 'buyer_organization_view')
+      return hasRole === true
+    } catch (error) {
+      return false
+    }
+  }
+
+  public hasBuyerOrganizationEditRole = async (account: string, userEmail: string) => {
+    try {
+      const hasRole = await this.checkUserSpecificRole(account, userEmail, 97, 'buyer_organization_edit')
+      return hasRole === true
+    } catch (error) {
+      return false
+    }
+  }
+
   protected get = <T>(url: string) => {
     return this.http.get<T>(url).catch(statusToError)
   }

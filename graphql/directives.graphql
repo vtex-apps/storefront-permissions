@@ -2,6 +2,7 @@ directive @checkUserAccess on FIELD | FIELD_DEFINITION
 directive @validateStoreUserAccess on FIELD | FIELD_DEFINITION
 directive @checkAdminAccess on FIELD | FIELD_DEFINITION
 directive @validateAdminUserAccess on FIELD | FIELD_DEFINITION
+directive @validateAdminUserAccessForMutations on FIELD | FIELD_DEFINITION
 directive @withSession on FIELD_DEFINITION
 directive @withSender on FIELD_DEFINITION
 directive @withUserPermissions on FIELD_DEFINITION

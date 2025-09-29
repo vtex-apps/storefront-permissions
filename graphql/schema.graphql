@@ -112,7 +112,7 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccessForMutations @cacheControl(scope: PRIVATE)
 
   updateUser(
     id: ID
@@ -124,7 +124,7 @@ type Mutation {
     canImpersonate: Boolean = false
     email: String
     name: String
-  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccessForMutations @cacheControl(scope: PRIVATE)
 
   addUser(
     id: ID
@@ -135,7 +135,7 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccessForMutations @cacheControl(scope: PRIVATE)
 
   addCostCenterToUser(costId: ID!, userId: ID!): MutationResponse
     @validateStoreUserAccess
@@ -146,7 +146,7 @@ type Mutation {
     userId: ID!
     costId: ID!
     roleId: ID
-  ): MutationResponse @validateAdminUserAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse @validateAdminUserAccessForMutations @cacheControl(scope: PRIVATE)
 
   setActiveUserByOrganization(userId: ID): MutationResponse
     @validateStoreUserAccess
@@ -157,7 +157,7 @@ type Mutation {
     @cacheControl(scope: PRIVATE)
 
   deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
-    @validateAdminUserAccess
+    @validateAdminUserAccessForMutations
     @cacheControl(scope: PRIVATE)
 
   setCurrentOrganization(orgId: ID!, costId: ID!): MutationResponse
