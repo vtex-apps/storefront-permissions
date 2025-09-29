@@ -3,6 +3,11 @@ import type { InstanceOptions, IOContext } from '@vtex/api'
 import { ExternalClient } from '@vtex/api'
 
 import { statusToError, toUUID } from './index'
+import {
+  B2B_ORGANIZATIONS_PRODUCT_ID,
+  BUYER_ORGANIZATION_VIEW_ROLE,
+  BUYER_ORGANIZATION_EDIT_ROLE
+} from './constants'
 
 export class LMClient extends ExternalClient {
   constructor(ctx: IOContext, options?: InstanceOptions) {
@@ -100,7 +105,7 @@ export class LMClient extends ExternalClient {
 
   public hasBuyerOrganizationViewRole = async (account: string, userEmail: string) => {
     try {
-      const hasRole = await this.checkUserSpecificRole(account, userEmail, 97, 'buyer_organization_view')
+      const hasRole = await this.checkUserSpecificRole(account, userEmail, B2B_ORGANIZATIONS_PRODUCT_ID, BUYER_ORGANIZATION_VIEW_ROLE)
       return hasRole === true
     } catch (error) {
       return false
@@ -109,7 +114,7 @@ export class LMClient extends ExternalClient {
 
   public hasBuyerOrganizationEditRole = async (account: string, userEmail: string) => {
     try {
-      const hasRole = await this.checkUserSpecificRole(account, userEmail, 97, 'buyer_organization_edit')
+      const hasRole = await this.checkUserSpecificRole(account, userEmail, B2B_ORGANIZATIONS_PRODUCT_ID, BUYER_ORGANIZATION_EDIT_ROLE)
       return hasRole === true
     } catch (error) {
       return false
