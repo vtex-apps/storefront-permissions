@@ -9,11 +9,14 @@ import {
   validateAdminToken,
   validateAdminTokenOnHeader,
   validateApiToken,
+  validateAdminTokenForMutations,
+  validateApiTokenForMutations,
 } from './helper'
 
 export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
     const { resolve = defaultFieldResolver } = field
+    const { role } = this.args
 
     field.resolve = async (
       root: any,
@@ -41,7 +44,12 @@ export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
         userAgent,
       }
 
-      const { hasAdminToken, hasValidAdminToken } = await validateAdminToken(
+      // Choose validation function based on role parameter
+      const isMutation = role === 'B2B_ORGANIZATIONS_EDIT'
+      const validateAdminFn = isMutation ? validateAdminTokenForMutations : validateAdminToken
+      const validateApiFn = isMutation ? validateApiTokenForMutations : validateApiToken
+
+      const { hasAdminToken, hasValidAdminToken } = await validateAdminFn(
         context,
         adminUserAuthToken as string,
         metricFields
@@ -93,7 +101,7 @@ export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
         return resolve(root, args, context, info)
       }
 
-      const { hasApiToken, hasValidApiToken } = await validateApiToken(
+      const { hasApiToken, hasValidApiToken } = await validateApiFn(
         context,
         metricFields
       )
