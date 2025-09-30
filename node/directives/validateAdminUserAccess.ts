@@ -15,7 +15,7 @@ import { LICENSE_MANAGER_ROLES } from '../utils/constants'
 export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
     const { resolve = defaultFieldResolver } = field
-    const { role } = this.args
+    const { adminPermission } = this.args
 
     field.resolve = async (
       root: any,
@@ -45,7 +45,7 @@ export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
 
       // Choose role based on parameter
       const requiredRole =
-        role === 'B2B_ORGANIZATIONS_EDIT'
+        adminPermission === 'B2B_ORGANIZATIONS_EDIT'
           ? LICENSE_MANAGER_ROLES.B2B_ORGANIZATIONS_EDIT
           : LICENSE_MANAGER_ROLES.B2B_ORGANIZATIONS_VIEW
 
