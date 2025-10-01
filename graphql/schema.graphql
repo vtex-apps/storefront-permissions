@@ -112,7 +112,9 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @validateAdminUserAccess(role: "B2B_ORGANIZATIONS_EDIT") @cacheControl(scope: PRIVATE)
+  ): MutationResponse
+    @validateAdminUserAccess(adminPermission: "B2B_ORGANIZATIONS_EDIT")
+    @cacheControl(scope: PRIVATE)
 
   updateUser(
     id: ID
@@ -124,7 +126,9 @@ type Mutation {
     canImpersonate: Boolean = false
     email: String
     name: String
-  ): MutationResponse @validateAdminUserAccess(role: "B2B_ORGANIZATIONS_EDIT") @cacheControl(scope: PRIVATE)
+  ): MutationResponse
+    @validateAdminUserAccess(adminPermission: "B2B_ORGANIZATIONS_EDIT")
+    @cacheControl(scope: PRIVATE)
 
   addUser(
     id: ID
@@ -135,7 +139,9 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @validateAdminUserAccess(role: "B2B_ORGANIZATIONS_EDIT") @cacheControl(scope: PRIVATE)
+  ): MutationResponse
+    @validateAdminUserAccess(adminPermission: "B2B_ORGANIZATIONS_EDIT")
+    @cacheControl(scope: PRIVATE)
 
   addCostCenterToUser(costId: ID!, userId: ID!): MutationResponse
     @validateStoreUserAccess
@@ -146,7 +152,9 @@ type Mutation {
     userId: ID!
     costId: ID!
     roleId: ID
-  ): MutationResponse @validateAdminUserAccess(role: "B2B_ORGANIZATIONS_EDIT") @cacheControl(scope: PRIVATE)
+  ): MutationResponse
+    @validateAdminUserAccess(adminPermission: "B2B_ORGANIZATIONS_EDIT")
+    @cacheControl(scope: PRIVATE)
 
   setActiveUserByOrganization(userId: ID): MutationResponse
     @validateStoreUserAccess
@@ -157,7 +165,7 @@ type Mutation {
     @cacheControl(scope: PRIVATE)
 
   deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
-    @validateAdminUserAccess(role: "B2B_ORGANIZATIONS_EDIT")
+    @validateAdminUserAccess(adminPermission: "B2B_ORGANIZATIONS_EDIT")
     @cacheControl(scope: PRIVATE)
 
   setCurrentOrganization(orgId: ID!, costId: ID!): MutationResponse
