@@ -868,11 +868,24 @@ export const getOrganizationsPaginatedByEmail = async (
   }
 }
 
+type UserByEmail = {
+  id: string
+  roleId: string
+  clId: string | null
+  email: string | null
+  name: string | null
+  orgId: string | null
+  costId: string | null
+  userId: string | null
+  canImpersonate: boolean
+  active: boolean
+}
+
 export const getUserByEmailOrgIdAndCostId = async (
   _: any,
   params: any,
   ctx: Context
-) => {
+): Promise<UserByEmail | null> => {
   const {
     clients: { masterdata },
     vtex: { logger },
@@ -900,7 +913,7 @@ export const getUserByEmailOrgIdAndCostId = async (
       where: `email = "${email}" AND costId = "${costId}" AND orgId = "${orgId}"`,
     })
 
-    return user[0] || null
+    return (user[0] as UserByEmail) || null
   } catch (error) {
     logger.error({
       error,

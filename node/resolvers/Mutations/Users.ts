@@ -655,15 +655,11 @@ export const setCurrentOrganization = async (
     email: { value: email },
   } = sessionData.namespaces.profile
 
-  const organizationList = (await getOrganizationsByEmail(
+  const user = await getUserByEmailOrgIdAndCostId(
     _,
-    { email },
+    { email, orgId, costId },
     ctx
-  )) as any[]
-
-  const user = organizationList.find((orgUser: any) => {
-    return orgUser.orgId === orgId && orgUser.costId === costId
-  })
+  )
 
   if (!user) {
     const error =
