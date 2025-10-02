@@ -1,5 +1,8 @@
-import { GetOrganizationByEmailBase } from '../../../typings/custom'
+import type { GetOrganizationByEmailBase } from '../../../typings/custom'
 import { getUserById } from '../../Queries/Users'
+
+// Simple in-memory cache with TTL
+const organizationsCache = new Map<string, { data: any; timestamp: number }>()
 
 export class ErrorResponse extends Error {
   public response: {
@@ -166,81 +169,142 @@ export const generateClUser = async ({
 }
 
 /**
- * Retrieves the `costId` of an organization with a valid cost center for a given email.
- * Performs a paginated search and returns the first `costId` found.
+ * Unified method to get user organizations data with caching.
+ * Fetches all organizations for an email and returns relevant data for different validations.
  *
  * @param email - The email associated with the organizations.
- * @param pageSize - The number of records per page (default is 50).
  * @param ctx - The request context containing the organization client.
- * @returns The `costId` if found, otherwise `null`.
+ * @param useCache - Whether to use cache (default: true)
+ * @returns Object containing validCostCenterId and activeOrganization, or null values if not found.
  */
-export const getCostIdFromOrganizationWithValidCostCenter = async (
+export const getUserOrganizationsData = async (
   email: string,
   ctx: Context,
-  page: number = 1,
-  pageSize: number = 50
-): Promise<string | null> => {
-  const { organizations } = ctx.clients;
+  useCache = true
+): Promise<{
+  validCostCenterId: string | null
+  activeOrganization: GetOrganizationByEmailBase | null
+}> => {
+  const CACHE_TTL = 1 * 60 * 1000 // 1 minutes cache
+  const cacheKey = `orgs-${email}`
 
-  while (true) {
-    const response = await organizations.getOrganizationsPaginatedByEmail(email, page, pageSize);
-    const { data, pagination } = response?.data?.getOrganizationsPaginatedByEmail || {};
-    if (!data?.length) {
-      return null;
+  // Check cache first
+  if (useCache) {
+    const cached = organizationsCache.get(cacheKey)
+
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      const { validCostCenterId, activeOrganization } = cached.data
+
+      return { validCostCenterId, activeOrganization }
     }
-
-    const organization = data.find(org => org.costCenterName !== null);
-    if (organization) {
-      return organization.costId;
-    }
-
-    const totalPages = Math.ceil((pagination?.total || 0) / pageSize);
-    if (page >= totalPages) {
-      break; // Stop iteration if all pages are processed
-    }
-
-    page++;
   }
 
-  return null;
-};
+  const { organizations } = ctx.clients
+  const {
+    vtex: { logger },
+  } = ctx
 
-/**
- * Retrieves an organization with a status that is not 'inactive' for a given email.
- * Performs a paginated search and returns the first matching organization.
- *
- * @param email - The email associated with the organizations.
- * @param pageSize - The number of records per page (default is 50).
- * @param ctx - The request context containing the organization client.
- * @returns The organization if found, otherwise `null`.
- */
-export const getOrganizationWithStatusNotInactive = async (
-  email: string,
-  ctx: Context,
-  page: number = 1,
-  pageSize: number = 50
-): Promise<GetOrganizationByEmailBase | null> => {
-  const { organizations } = ctx.clients;
+  try {
+    const firstResponse = await organizations.getOrganizationsPaginatedByEmail(
+      email,
+      1,
+      200 // Most users have < 200 orgs, this usually gets everything in one call
+    )
 
-  while (true) {
-    const response = await organizations.getOrganizationsPaginatedByEmail(email, page, pageSize);
-    const { data, pagination } = response?.data?.getOrganizationsPaginatedByEmail || {};
-    if (!data?.length) {
-      return null;
+    const { data: firstPageData, pagination } =
+      firstResponse?.data?.getOrganizationsPaginatedByEmail || {}
+
+    if (!firstPageData?.length) {
+      return { validCostCenterId: null, activeOrganization: null }
     }
 
-    const organization = data.find(org => org.organizationStatus !== 'inactive');
-    if (organization) {
-      return organization;
+    const allOrganizations = [...firstPageData]
+
+    // Only paginate if there are more pages and we haven't found both values
+    const totalPages = Math.ceil((pagination?.total || 0) / 200)
+
+    if (totalPages > 1) {
+      // Check if we already have what we need from first page
+      const hasValidCostCenter = firstPageData.some(
+        (org) => org.costCenterName !== null
+      )
+
+      const hasActiveOrg = firstPageData.some(
+        (org) => org.organizationStatus !== 'inactive'
+      )
+
+      // Only fetch more pages if we're missing data
+      if (!hasValidCostCenter || !hasActiveOrg) {
+        // Fetch remaining pages in parallel for better performance
+        const remainingPages = Array.from(
+          { length: Math.min(totalPages - 1, 4) }, // Limit to 5 total pages max
+          (_, i) => i + 2
+        )
+
+        const additionalResponses = await Promise.all(
+          remainingPages.map((page) =>
+            organizations
+              .getOrganizationsPaginatedByEmail(email, page, 200)
+              .catch((error) => {
+                logger.warn({ error, message: 'Failed to fetch page', page })
+
+                return null
+              })
+          )
+        )
+
+        // Combine all results
+        for (const response of additionalResponses) {
+          if (response?.data?.getOrganizationsPaginatedByEmail?.data) {
+            allOrganizations.push(
+              ...response.data.getOrganizationsPaginatedByEmail.data
+            )
+          }
+        }
+      }
     }
 
-    const totalPages = Math.ceil((pagination?.total || 0) / pageSize);
-    if (page >= totalPages) {
-      break; // Stop iteration if all pages are processed
+    // Find required values from all organizations
+    const validCostCenterOrg = allOrganizations.find(
+      (org) => org.costCenterName !== null
+    )
+
+    const activeOrg = allOrganizations.find(
+      (org) => org.organizationStatus !== 'inactive'
+    )
+
+    const result = {
+      validCostCenterId: validCostCenterOrg?.costId || null,
+      activeOrganization: activeOrg || null,
     }
 
-    page++;
+    // Cache the result
+    if (useCache) {
+      organizationsCache.set(cacheKey, {
+        data: result,
+        timestamp: Date.now(),
+      })
+
+      // Clean old cache entries periodically (simple strategy)
+      if (organizationsCache.size > 100) {
+        const now = Date.now()
+
+        for (const [key, value] of organizationsCache.entries()) {
+          if (now - value.timestamp > CACHE_TTL) {
+            organizationsCache.delete(key)
+          }
+        }
+      }
+    }
+
+    return result
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'getUserOrganizationsData.error',
+      email,
+    })
+
+    return { validCostCenterId: null, activeOrganization: null }
   }
-
-  return null;
-};
+}
