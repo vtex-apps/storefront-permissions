@@ -3,12 +3,12 @@ import { json } from 'co-body'
 
 import { getRole } from '../Queries/Roles'
 import { getSessionWatcher } from '../Queries/Settings'
+import { generateClUser, getUserOrganizationsData } from './utils'
 import {
   getActiveUserByEmail,
   getUserByEmail,
   getB2BUserById,
 } from '../Queries/Users'
-import { generateClUser } from './utils'
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
 import { toHash } from '../../utils'
 
@@ -291,69 +291,60 @@ export const Routes = {
       organizations.getB2BSettings(),
     ])
 
-    // in case the cost center is not found, we need to find a valid cost center for the user
-    if (
-      Object.values(costCenterResponse.data.getCostCenterById).every(
-        (value) => value === null
-      )
-    ) {
-      try {
-        const usersByEmail = await organizations.getOrganizationsByEmail(email)
-
-        // when cost center comes without a name, it's because the cost center is deleted
-        const usersData = usersByEmail.data.getOrganizationsByEmail.find(
-          (userByEmail) => userByEmail.costCenterName !== null
-        )
-
-        user.costId = usersData?.costId ?? user.costId
-      } catch (error) {
-        logger.error({
-          error,
-          message: 'setProfile.graphqlGetOrganizationById',
-        })
-      }
-    }
+    // Cost center validation is now handled together with organization status below
 
     let organization: any = organizationResponse
+    let userOrgsData: any = null
 
-    // prevent login if org is inactive
-    if (organization.status === 'inactive') {
-      // try to find a valid organization
-      const organizationsByUserResponse: any = await organizations
-        .getOrganizationsByEmail(email)
-        .catch((error) => {
+    // Check if we need to fetch user organizations (for inactive org or invalid cost center)
+    const costCenterInvalid = Object.values(
+      costCenterResponse.data.getCostCenterById
+    ).every((value) => value === null)
+
+    const organizationInactive = organization.status === 'inactive'
+    const needsOrgData = organizationInactive || costCenterInvalid
+
+    if (needsOrgData) {
+      userOrgsData = await getUserOrganizationsData(email, ctx).catch(
+        (error) => {
           logger.error({
             error,
-            message: 'setProfile.graphqlGetOrganizationById',
+            message: 'setProfile.getUserOrganizationsData',
+          })
+
+          return { validCostCenterId: null, activeOrganization: null }
+        }
+      )
+    }
+
+    // Handle invalid cost center first
+    if (costCenterInvalid && userOrgsData?.validCostCenterId) {
+      user.costId = userOrgsData.validCostCenterId
+    }
+
+    // Handle inactive organization
+    if (organizationInactive) {
+      const validOrganization = userOrgsData?.activeOrganization
+
+      if (validOrganization) {
+        organization = (await getOrganization(validOrganization.id))?.data
+          ?.getOrganizationById
+
+        await setActiveUserByOrganization(
+          null,
+          {
+            costId: validOrganization.costId,
+            email,
+            orgId: validOrganization.orgId,
+            userId: validOrganization.id,
+          },
+          ctx
+        ).catch((error) => {
+          logger.warn({
+            error,
+            message: 'setProfile.setActiveUserByOrganizationError',
           })
         })
-
-      const organizationsByUser =
-        organizationsByUserResponse?.data?.getOrganizationsByEmail
-
-      if (organizationsByUser?.length) {
-        const organizationList = organizationsByUser.find(
-          (org: any) => org.organizationStatus !== 'inactive'
-        )
-
-        if (organizationList) {
-          organization = await getOrganization(organizationList.id)
-          await setActiveUserByOrganization(
-            null,
-            {
-              costId: organizationList.costId,
-              email,
-              orgId: organizationList.orgId,
-              userId: organizationList.id,
-            },
-            ctx
-          ).catch((error) => {
-            logger.warn({
-              error,
-              message: 'setProfile.setActiveUserByOrganizationError',
-            })
-          })
-        }
       } else {
         logger.warn({
           message: `setProfile-organizationInactive`,
