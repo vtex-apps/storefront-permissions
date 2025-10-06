@@ -133,7 +133,7 @@ export class LMClient extends ExternalClient {
         BUYER_ORGANIZATION_EDIT_ROLE
       )
 
-      return hasRole === true
+      return hasRole
     } catch (error) {
       return false
     }
