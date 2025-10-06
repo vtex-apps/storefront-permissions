@@ -115,7 +115,7 @@ export class LMClient extends ExternalClient {
         BUYER_ORGANIZATION_VIEW_ROLE
       )
 
-      return hasRole === true
+      return hasRole
     } catch (error) {
       return false
     }
