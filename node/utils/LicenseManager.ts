@@ -3,6 +3,11 @@ import type { InstanceOptions, IOContext } from '@vtex/api'
 import { ExternalClient } from '@vtex/api'
 
 import { statusToError, toUUID } from './index'
+import {
+  B2B_ORGANIZATIONS_PRODUCT_ID,
+  BUYER_ORGANIZATION_VIEW_ROLE,
+  BUYER_ORGANIZATION_EDIT_ROLE,
+} from './constants'
 
 export class LMClient extends ExternalClient {
   constructor(ctx: IOContext, options?: InstanceOptions) {
@@ -79,6 +84,59 @@ export class LMClient extends ExternalClient {
         return res
       }
     )
+  }
+
+  public checkUserSpecificRole = async (
+    account: string,
+    userEmail: string,
+    productCode: number,
+    resourceCode: string
+  ) => {
+    return this.get(
+      `/api/license-manager/pvt/accounts/${encodeURI(
+        account
+      )}/products/${productCode}/logins/${encodeURI(
+        userEmail
+      )}/resources/${encodeURI(resourceCode)}/granted`
+    ).then((res: any) => {
+      return res
+    })
+  }
+
+  public hasBuyerOrganizationViewRole = async (
+    account: string,
+    userEmail: string
+  ) => {
+    try {
+      const hasRole = await this.checkUserSpecificRole(
+        account,
+        userEmail,
+        B2B_ORGANIZATIONS_PRODUCT_ID,
+        BUYER_ORGANIZATION_VIEW_ROLE
+      )
+
+      return hasRole
+    } catch (error) {
+      return false
+    }
+  }
+
+  public hasBuyerOrganizationEditRole = async (
+    account: string,
+    userEmail: string
+  ) => {
+    try {
+      const hasRole = await this.checkUserSpecificRole(
+        account,
+        userEmail,
+        B2B_ORGANIZATIONS_PRODUCT_ID,
+        BUYER_ORGANIZATION_EDIT_ROLE
+      )
+
+      return hasRole
+    } catch (error) {
+      return false
+    }
   }
 
   protected get = <T>(url: string) => {

@@ -121,6 +121,12 @@
         "host": "rc.vtex.com",
         "path": "/api/analytics/schemaless-events"
       }
+    },
+    {
+      "name": "buyer_organization_view"
+    },
+    {
+      "name": "buyer_organization_edit"
     }
   ],
   "settingsSchema": {

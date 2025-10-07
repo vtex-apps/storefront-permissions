@@ -10,10 +10,12 @@ import {
   validateAdminTokenOnHeader,
   validateApiToken,
 } from './helper'
+import { LICENSE_MANAGER_ROLES } from '../utils/constants'
 
 export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
     const { resolve = defaultFieldResolver } = field
+    const { adminPermission } = this.args
 
     field.resolve = async (
       root: any,
@@ -41,10 +43,17 @@ export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
         userAgent,
       }
 
+      // Choose role based on parameter
+      const requiredRole =
+        adminPermission === 'B2B_ORGANIZATIONS_EDIT'
+          ? LICENSE_MANAGER_ROLES.B2B_ORGANIZATIONS_EDIT
+          : LICENSE_MANAGER_ROLES.B2B_ORGANIZATIONS_VIEW
+
       const { hasAdminToken, hasValidAdminToken } = await validateAdminToken(
         context,
         adminUserAuthToken as string,
-        metricFields
+        metricFields,
+        requiredRole
       )
 
       // add admin token metrics
@@ -70,7 +79,7 @@ export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
 
       // If there's no valid admin token on context, search for it on header
       const { hasAdminTokenOnHeader, hasValidAdminTokenOnHeader } =
-        await validateAdminTokenOnHeader(context, metricFields)
+        await validateAdminTokenOnHeader(context, metricFields, requiredRole)
 
       // add admin header token metrics
       metricFields = {
@@ -95,7 +104,8 @@ export class ValidateAdminUserAccess extends SchemaDirectiveVisitor {
 
       const { hasApiToken, hasValidApiToken } = await validateApiToken(
         context,
-        metricFields
+        metricFields,
+        requiredRole
       )
 
       // add API token metrics
