@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { removeVersionFromAppId } from '@vtex/api'
 
+import type { GetOrganizationsPaginatedByEmailResponse } from '../../typings/custom'
 import { currentSchema } from '../../utils'
 import {
   CUSTOMER_REQUIRED_FIELDS,
@@ -44,6 +45,25 @@ export const isUserPartOfBuyerOrg = async (email: string, ctx: Context) => {
   return false
 }
 
+async function processChunks(
+  requests: Array<() => Promise<any>>,
+  index = 0,
+  responses: any[] = [],
+  maxConcurrency = 30
+): Promise<any[]> {
+  if (index >= requests.length) {
+    return responses
+  }
+
+  const chunk = requests.slice(index, index + maxConcurrency)
+  const chunkResponses = await Promise.all(chunk.map((fn) => fn()))
+
+  return processChunks(requests, index + maxConcurrency, [
+    ...responses,
+    ...chunkResponses,
+  ])
+}
+
 export const getAllUsers = async ({
   masterdata,
   logger,
@@ -54,57 +74,48 @@ export const getAllUsers = async ({
   where?: string
 }) => {
   try {
-    let currentPage = PAGINATION.page
-    let hasMore = true
-    const users = [] as any[]
+    const initialResp = await masterdata.searchDocumentsWithPaginationInfo({
+      dataEntity: config.name,
+      fields: ['id'],
+      pagination: { page: 1, pageSize: PAGINATION.pageSize },
+      schema: config.version,
+      ...(where ? { where } : {}),
+    })
 
-    const scrollMasterData = async () => {
-      const resp = await masterdata.searchDocumentsWithPaginationInfo({
-        dataEntity: config.name,
-        fields: [
-          'id',
-          'roleId',
-          'clId',
-          'email',
-          'name',
-          'orgId',
-          'costId',
-          'userId',
-          'canImpersonate',
-          'active',
-          'selectedPriceTable',
-        ],
-        pagination: {
-          page: currentPage,
-          pageSize: PAGINATION.pageSize,
-        },
-        schema: config.version,
-        sort: 'id asc',
-        ...(where ? { where } : {}),
-      })
+    const totalItems = initialResp.pagination.total
+    const totalPages = Math.ceil(totalItems / PAGINATION.pageSize)
 
-      const { data, pagination } = resp as unknown as {
-        pagination: {
-          total: number
-        }
-        data: any
-      }
+    const requests = Array.from(
+      { length: totalPages },
+      (_, i) => async () =>
+        masterdata.searchDocumentsWithPaginationInfo({
+          dataEntity: config.name,
+          fields: [
+            'id',
+            'roleId',
+            'clId',
+            'email',
+            'name',
+            'orgId',
+            'costId',
+            'userId',
+            'canImpersonate',
+            'active',
+          ],
+          pagination: { page: i + 1, pageSize: PAGINATION.pageSize },
+          schema: config.version,
+          sort: 'id asc',
+          ...(where ? { where } : {}),
+        })
+    )
 
-      const totalPages = Math.ceil(pagination.total / PAGINATION.pageSize)
+    const responses = await processChunks(requests)
 
-      if (currentPage >= totalPages) {
-        hasMore = false
-      }
+    const users = responses.reduce((acc: any[], resp: { data: any }) => {
+      acc.push(...resp.data)
 
-      users.push(...data)
-
-      if (hasMore) {
-        currentPage += 1
-        await scrollMasterData()
-      }
-    }
-
-    await scrollMasterData()
+      return acc
+    }, [])
 
     return users
   } catch (error) {
@@ -818,11 +829,63 @@ export const getOrganizationsByEmail = async (
   }
 }
 
+export const getOrganizationsPaginatedByEmail = async (
+  _: any,
+  {
+    email = '',
+    page = 1,
+    pageSize = 25,
+  }: {
+    email: string
+    page: number
+    pageSize: number
+  },
+  ctx: Context
+) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  try {
+    const data: GetOrganizationsPaginatedByEmailResponse =
+      await masterdata.searchDocumentsWithPaginationInfo({
+        dataEntity: config.name,
+        fields: ['clId', 'costId', 'id', 'orgId', 'roleId'],
+        pagination: { page, pageSize },
+        schema: config.version,
+        where: `email = "${email}"`,
+      })
+
+    return data
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'getOrganizationsPaginatedByEmail-error',
+    })
+
+    throw new Error(error)
+  }
+}
+
+type UserByEmail = {
+  id: string
+  roleId: string
+  clId: string | null
+  email: string | null
+  name: string | null
+  orgId: string | null
+  costId: string | null
+  userId: string | null
+  canImpersonate: boolean
+  active: boolean
+}
+
 export const getUserByEmailOrgIdAndCostId = async (
   _: any,
   params: any,
   ctx: Context
-) => {
+): Promise<UserByEmail | null> => {
   const {
     clients: { masterdata },
     vtex: { logger },
@@ -850,7 +913,7 @@ export const getUserByEmailOrgIdAndCostId = async (
       where: `email = "${email}" AND costId = "${costId}" AND orgId = "${orgId}"`,
     })
 
-    return user[0] || null
+    return (user[0] as UserByEmail) || null
   } catch (error) {
     logger.error({
       error,

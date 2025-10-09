@@ -271,6 +271,63 @@ Sample response:
 }
 ```
 
+#### getOrganizationsPaginatedByEmail
+
+This query allows you to retrieve a paginated list of organizations associated with a specific email. The response includes the organization data along with pagination details such as the current page, page size, and total number of results.
+
+Sample query:
+
+```graphql
+query OrganizationsPaginated($email: String!, $page: Int, $pageSize: Int) {
+  getOrganizationsPaginatedByEmail(
+    email: $email
+    page: $page
+    pageSize: $pageSize
+  ) {
+    data {
+      id
+      organizationStatus
+      costId
+      orgId
+      costCenterName
+    }
+    pagination {
+      page
+      pageSize
+      total
+    }
+  }
+}
+```
+
+Sample response:
+
+{
+  "data": {
+    "getOrganizationsPaginatedByEmail": {
+      "data": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "clId": "00000000-0000-0000-0000-000000000000",
+          "costId": "00000000-0000-0000-0000-000000000000",
+          "orgId": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "clId": "00000000-0000-0000-0000-000000000000",
+          "costId": "00000000-0000-0000-0000-000000000000",
+          "orgId": "00000000-0000-0000-0000-000000000000"
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "pageSize": 25,
+        "total": 2
+      }
+    }
+  }
+}
+
 
 
 ### GraphQL mutation

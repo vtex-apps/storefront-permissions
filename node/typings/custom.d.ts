@@ -191,16 +191,25 @@ export interface DeliveryId {
   courierName: string | null
   quantity: number | null
 }
+export interface GetOrganizationByEmailBase {
+  id: string
+  organizationStatus: string
+  orgId: string
+  costId: string
+  costCenterName: string | null
+}
 
 export interface GetOrganizationsByEmailResponse {
   data: {
-    getOrganizationsByEmail: Array<{
-      id: string
-      organizationStatus: string
-      orgId: string
-      costId: string
-      costCenterName: string
-    }>
+    getOrganizationsByEmail: GetOrganizationByEmailBase[]
+  }
+}
+export interface GetOrganizationsPaginatedByEmailResponse {
+  data: GetOrganizationByEmailBase[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
   }
 }
 export interface GetCostCenterType {
