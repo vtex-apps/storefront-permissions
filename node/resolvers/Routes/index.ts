@@ -327,7 +327,8 @@ export const Routes = {
       const validOrganization = userOrgsData?.activeOrganization
 
       if (validOrganization) {
-        organization = (await getOrganization(validOrganization.id))?.data?.getOrganizationById;
+        organization = (await getOrganization(validOrganization.id))?.data
+          ?.getOrganizationById
 
         await setActiveUserByOrganization(
           null,
@@ -342,8 +343,8 @@ export const Routes = {
           logger.warn({
             error,
             message: 'setProfile.setActiveUserByOrganizationError',
-          });
-        });
+          })
+        })
       } else {
         logger.warn({
           message: `setProfile-organizationInactive`,

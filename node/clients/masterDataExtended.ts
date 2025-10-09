@@ -21,7 +21,7 @@ export class MasterDataExtended extends JanusClient {
     id: string,
     fields: string[]
   ) =>
-    this.http.get<any>(
+    this.http.get(
       `/api/dataentities/${dataEntity}/documents/${id}?_fields=${fields.join(
         ','
       )}`

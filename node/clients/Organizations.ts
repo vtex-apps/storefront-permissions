@@ -82,7 +82,11 @@ export class OrganizationsGraphQLClient extends AppGraphQLClient {
         page,
         pageSize,
       },
-    }) as Promise<{ data: { getOrganizationsPaginatedByEmail:  GetOrganizationsPaginatedByEmailResponse }}>
+    }) as Promise<{
+      data: {
+        getOrganizationsPaginatedByEmail: GetOrganizationsPaginatedByEmailResponse
+      }
+    }>
   }
 
   private query = async (param: {
