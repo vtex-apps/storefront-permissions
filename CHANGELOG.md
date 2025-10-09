@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.2.0] - 2025-10-09
+
 ### Added
 - Introduced the getOrganizationsPaginatedByEmail function to retrieve organizations with pagination, preventing timeouts.
 
