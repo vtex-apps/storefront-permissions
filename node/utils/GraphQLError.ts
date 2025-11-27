@@ -3,6 +3,10 @@ export default class GraphQLError extends Error {
 
   constructor(message: string, details?: any) {
     super(message)
-    this.extensions = { message, ...details }
+    this.extensions = {
+      message,
+      ...details,
+      skipLogging: details?.skipLogging ?? false,
+    }
   }
 }
