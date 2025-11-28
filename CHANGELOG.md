@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Changed
-- Change checkUserPermissions errors log on the graphql framework to warn
+- Change checkUserPermission error logs on the graphql framework to warn level
 
 ## [3.2.0] - 2025-10-09
 
