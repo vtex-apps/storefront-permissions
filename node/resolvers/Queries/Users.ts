@@ -7,6 +7,7 @@ import {
   CUSTOMER_REQUIRED_FIELDS,
   CUSTOMER_SCHEMA_NAME,
 } from '../../utils/constants'
+import GraphQLError from '../../utils/GraphQLError'
 import { getRole } from './Roles'
 
 const config: any = currentSchema('b2b_users')
@@ -638,15 +639,24 @@ export const checkUserPermission = async (
     logger.warn({
       message: `checkUserPermission-userNotAuthenticated`,
     })
-    throw new Error('User not authenticated, make sure the query is private')
+    throw new GraphQLError(
+      'User not authenticated, make sure the query is private',
+      {
+        logLevel: 'warn',
+      }
+    )
   }
 
   if (!sender && !skipError) {
     logger.warn({
       message: `checkUserPermission-senderNotFound`,
     })
-
-    throw new Error('Sender not available, make sure the query is private')
+    throw new GraphQLError(
+      'Sender not available, make sure the query is private',
+      {
+        logLevel: 'warn',
+      }
+    )
   }
 
   const authEmail =
