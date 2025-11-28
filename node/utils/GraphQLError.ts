@@ -6,7 +6,11 @@ export default class GraphQLError extends Error {
     this.extensions = {
       message,
       ...details,
-      skipLogging: details?.skipLogging ?? false,
+      exception: {
+        ...details?.exception,
+        // vtex-node-api checks err?.extensions?.exception?.level before logging
+        level: details?.logLevel || 'error',
+      },
     }
   }
 }

@@ -642,7 +642,7 @@ export const checkUserPermission = async (
     throw new GraphQLError(
       'User not authenticated, make sure the query is private',
       {
-        skipLogging: true,
+        logLevel: 'warn',
       }
     )
   }
@@ -654,7 +654,7 @@ export const checkUserPermission = async (
     throw new GraphQLError(
       'Sender not available, make sure the query is private',
       {
-        skipLogging: true,
+        logLevel: 'warn',
       }
     )
   }
