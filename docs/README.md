@@ -14,6 +14,7 @@ Within an organization, each user can have different roles, such as a profession
 
 The **Storefront Permissions** app stores a predefined set of roles and app permissions related to what B2B users can access and do in your storefront, making this information available for other integrated apps to check. This is useful for stores who want to set specific app permissions for users with different roles in an organization.
 
+> ⚠️ This specification applies to B2B Suite only.
 
 ## Available storefront roles
 
