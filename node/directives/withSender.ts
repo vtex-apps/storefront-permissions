@@ -12,6 +12,7 @@ export class WithSender extends SchemaDirectiveVisitor {
       context.vtex.sender =
         context?.graphql?.query?.senderApp ??
         context?.graphql?.query?.extensions?.persistedQuery?.sender ??
+        context?.request?.header['x-b2b-senderapp'] ??
         null
 
       return resolve(root, args, context, info)

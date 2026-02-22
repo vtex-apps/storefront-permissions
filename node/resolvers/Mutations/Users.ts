@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
+import type { ChangeTeamParams } from '../../utils/metrics/changeTeam'
+import { sendChangeTeamMetric } from '../../utils/metrics/changeTeam'
 import {
   getAllUsersByEmail,
   getOrganizationsByEmail,
@@ -8,6 +10,48 @@ import {
 } from '../Queries/Users'
 
 const config: any = currentSchema('b2b_users')
+
+const MAX_RETRY = 5
+const RETRY_BACKOFF_FACTOR_MS = 100
+const MAX_BACKOFF_MS = 1000
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const setChangeSession = async (
+  sessionParameters: any,
+  countRetry = 0
+): Promise<void> => {
+  const {
+    context: {
+      clients: { session },
+      vtex: { logger },
+    },
+    publicKey,
+    value,
+    sessionCookie,
+  } = sessionParameters
+
+  try {
+    await session.updateSession(publicKey, value, [], sessionCookie)
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'setChangeSession.error',
+      attempt: countRetry,
+    })
+
+    if (countRetry < MAX_RETRY) {
+      countRetry++
+      const backoff = Math.min(
+        2 ** (countRetry - 1) * RETRY_BACKOFF_FACTOR_MS,
+        MAX_BACKOFF_MS
+      )
+
+      await delay(backoff)
+
+      return setChangeSession(sessionParameters, countRetry)
+    }
+  }
+}
 
 const addUserToMasterdata = async ({
   masterdata,
@@ -56,7 +100,10 @@ const addUserToMasterdata = async ({
   return DocumentId
 }
 
-const getUser = async ({ masterdata, params: { email, id, userId } }: any) => {
+export const getUser = async ({
+  masterdata,
+  params: { email, id, userId },
+}: any) => {
   const where = id || userId ? `id=${id || userId}` : `email=${email}`
 
   return masterdata
@@ -73,6 +120,7 @@ const getUser = async ({ masterdata, params: { email, id, userId } }: any) => {
         'roleId',
         'userId',
         'active',
+        'selectedPriceTable',
       ],
       pagination: {
         page: 1,
@@ -111,7 +159,35 @@ const updateUserFields = async ({ masterdata, fields, id }: any) => {
   return DocumentId
 }
 
-const createPermission = async ({ masterdata, vbase, params }: any) => {
+const addSelectedPriceTableToB2bUser = async ({
+  masterdata,
+  fields,
+  id,
+}: any) => {
+  const { DocumentId } = await masterdata
+    .createOrUpdatePartialDocument({
+      dataEntity: config.name,
+      fields,
+      id,
+      schema: config.version,
+    })
+    .then((response: { DocumentId: string }) => {
+      return response
+    })
+    .catch((error: any) => {
+      if (error.response.status < 400) {
+        return {
+          DocumentId: id,
+        }
+      }
+
+      throw error
+    })
+
+  return DocumentId
+}
+
+const createPermission = async ({ masterdata, params }: any) => {
   const {
     roleId,
     canImpersonate,
@@ -124,7 +200,7 @@ const createPermission = async ({ masterdata, vbase, params }: any) => {
     id,
   } = params
 
-  const { DocumentId } = await masterdata
+  await masterdata
     .createOrUpdateEntireDocument({
       dataEntity: config.name,
       fields: {
@@ -152,29 +228,29 @@ const createPermission = async ({ masterdata, vbase, params }: any) => {
 
       throw error
     })
-
-  if (DocumentId) {
-    await vbase.saveJSON('b2b_users', email, {
-      canImpersonate,
-      clId,
-      costId,
-      email,
-      id: DocumentId,
-      name,
-      orgId,
-      roleId,
-      userId,
-    })
-  }
 }
 
 export const addUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, lm, vbase },
+    clients: { masterdata, lm },
     vtex: { logger },
   } = ctx
 
   try {
+    const costCenter = await ctx.clients.organizations.getCostCenterById(
+      params.costId
+    )
+
+    // before adding an user to a cost center we check if the cost
+    // center exists and if it has a valid name, otherwise both
+    // login and UI might break.
+    if (
+      !costCenter?.data?.getCostCenterById?.name ||
+      params.orgId !== costCenter?.data?.getCostCenterById?.organization
+    ) {
+      throw new Error(`Invalid cost center`)
+    }
+
     const cId = await addUserToMasterdata({ masterdata, params })
 
     const organizations = await getOrganizationsByEmail(
@@ -190,9 +266,10 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
         (org: any) => org.orgId === params.orgId && org.costId === params.costId
       )
     ) {
-      throw new Error(
-        `User with email ${params.email} already exists in the organization and cost center`
-      )
+      return {
+        message: `Email already exists in the organization and cost center`,
+        status: 'duplicated-organization',
+      }
     }
 
     await createPermission({
@@ -202,7 +279,6 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
         ...params,
         clId: cId,
       },
-      vbase,
     })
 
     return { status: 'success', message: '', id: cId }
@@ -218,7 +294,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
 
 export const updateUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, lm, vbase },
+    clients: { masterdata, lm },
     vtex: { logger },
   } = ctx
 
@@ -232,7 +308,6 @@ export const updateUser = async (_: any, params: any, ctx: Context) => {
       lm,
       masterdata,
       params,
-      vbase,
     })
 
     return { status: 'success', message: '', id: params.clId }
@@ -304,15 +379,13 @@ export const deleteUserProfile = async (_: any, params: any, ctx: Context) => {
 
 export const deleteUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata, vbase },
+    clients: { masterdata },
     vtex: { logger },
   } = ctx
 
-  const { id, email } = params
+  const { id } = params
 
   try {
-    await vbase.deleteFile('b2b_users', email).catch(() => null)
-
     await masterdata.deleteDocument({
       dataEntity: config.name,
       id,
@@ -331,19 +404,18 @@ export const deleteUser = async (_: any, params: any, ctx: Context) => {
 
 export const impersonateUser = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { session },
-    cookies,
-    request,
-    vtex: { logger },
+    vtex: { logger, sessionToken },
   } = ctx
 
   const { userId } = params
 
-  const sessionCookie =
-    cookies.get('vtex_session') ?? request.header?.sessiontoken
-
   try {
-    await session.updateSession('impersonate', userId, [], sessionCookie)
+    await setChangeSession({
+      context: ctx,
+      publicKey: 'impersonate',
+      value: userId,
+      sessionCookie: sessionToken,
+    })
 
     return { status: 'success', message: '' }
   } catch (error) {
@@ -567,11 +639,13 @@ export const setCurrentOrganization = async (
   ctx: Context
 ) => {
   const {
+    vtex: { logger },
     cookies,
     request,
-    vtex: { logger },
-    clients: { session },
   } = ctx
+
+  const sessionCookie =
+    cookies.get('vtex_session') ?? request.header?.sessiontoken
 
   const { sessionData } = ctx.vtex as any
 
@@ -581,15 +655,11 @@ export const setCurrentOrganization = async (
     email: { value: email },
   } = sessionData.namespaces.profile
 
-  const organizationList = (await getOrganizationsByEmail(
+  const user = await getUserByEmailOrgIdAndCostId(
     _,
-    { email },
+    { email, orgId, costId },
     ctx
-  )) as any[]
-
-  const user = organizationList.find((orgUser: any) => {
-    return orgUser.orgId === orgId && orgUser.costId === costId
-  })
+  )
 
   if (!user) {
     const error =
@@ -603,11 +673,7 @@ export const setCurrentOrganization = async (
     return { status: 'error', message: error }
   }
 
-  const sessionCookie =
-    cookies.get('vtex_session') ?? request.header?.sessiontoken
-
   try {
-    await session.updateSession('', null, [], sessionCookie)
     await setActiveUserByOrganization(
       _,
       {
@@ -618,11 +684,140 @@ export const setCurrentOrganization = async (
       ctx
     )
 
+    const metricParams: ChangeTeamParams = {
+      account: sessionData?.namespaces?.account?.accountName.value,
+      userId: user.id,
+      userEmail: email,
+      orgId,
+      costCenterId: costId,
+      userRole: user.roleId,
+    }
+
+    sendChangeTeamMetric(metricParams)
+
+    await setChangeSession({
+      context: ctx,
+      publicKey: 'b2bCurrentCostCenter',
+      value: costId,
+      sessionCookie,
+    })
+
     return { status: 'success', message: '' }
   } catch (error) {
     logger.error({
       error,
       message: 'updateCurrentOrganization.error',
+    })
+
+    return { status: 'error', message: error }
+  }
+}
+
+export const setCurrentPriceTable = async (
+  _: any,
+  params: { priceTable: string | null },
+  ctx: Context
+) => {
+  const {
+    vtex: { logger },
+    clients: { masterdata },
+  } = ctx
+
+  const { sessionData } = ctx.vtex as any
+
+  try {
+    let { priceTable } = params
+
+    // allow setting user priceTable back to null
+    if (priceTable === undefined) priceTable = null
+
+    // Get current user's organization
+    const {
+      'storefront-permissions': {
+        organization: { value: orgId },
+        userId: { value: userId },
+      },
+    } = sessionData.namespaces
+
+    if (!orgId || !userId) {
+      const error = 'User not properly authenticated with organization context'
+
+      logger.error({
+        error,
+        message: 'setCurrentPriceTable.error.noOrgContext',
+      })
+
+      return { status: 'error', message: error }
+    }
+
+    // Get organization data to validate price table
+    const organization = await ctx.clients.masterDataExtended.getDocumentById(
+      'organizations',
+      orgId,
+      ['priceTables']
+    )
+
+    if (
+      priceTable != null &&
+      !organization?.priceTables?.includes(priceTable)
+    ) {
+      const error = 'Price table not allowed for this organization'
+
+      logger.error({
+        error,
+        message: 'setCurrentPriceTable.error.invalidPriceTable',
+        priceTable,
+        orgId,
+      })
+
+      return { status: 'error', message: error }
+    }
+
+    // Update user's selected price table
+    await addSelectedPriceTableToB2bUser({
+      masterdata,
+      fields: { selectedPriceTable: priceTable },
+      id: userId,
+    })
+
+    return { status: 'success', message: '' }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'setCurrentPriceTable.error',
+    })
+
+    return { status: 'error', message: error }
+  }
+}
+
+export const ignoreB2BSessionData = async (
+  _: void,
+  { enabled }: { enabled: boolean },
+  ctx: Context
+) => {
+  const {
+    cookies,
+    request,
+    vtex: { logger },
+  } = ctx
+
+  const sessionCookie =
+    cookies.get('vtex_session') ?? request.header?.sessiontoken
+
+  try {
+    await setChangeSession({
+      context: ctx,
+      publicKey: 'removeB2B',
+      value: enabled,
+      sessionCookie,
+    })
+
+    return { status: 'success', message: '' }
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'removeB2BSessionData.error',
     })
 
     return { status: 'error', message: error }

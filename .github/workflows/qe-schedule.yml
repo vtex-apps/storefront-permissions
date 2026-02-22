@@ -2,11 +2,11 @@ name: '[SCH] Quality Engineering'
 
 on:
   schedule:
-    - cron: '30 3 * * MON-FRI'
+    - cron: '30 3 * * SAT'
 jobs:
   quality-engineering:
     name: QE
-    uses: vtex-apps/usqa/.github/workflows/quality-engineering.yml@v2
+    uses: vtex-apps/usqa/.github/workflows/quality-engineering.yml@v3.1.0
     with:
       cypress: true
       cyRunnerTimeOut: 45

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentRoleNames, currentSchema } from '../../utils'
 import { ROLES_VBASE_ID } from '../../utils/constants'
-import { syncRoles } from '../Mutations/Roles'
 import { getUserByRole } from './Users'
 
 const sorting = (a: any, b: any) => (a.name > b.name ? 1 : -1)
@@ -106,8 +105,6 @@ export const listRoles = async (_: any, __: any, ctx: Context) => {
   } = ctx
 
   try {
-    await syncRoles(ctx)
-
     return await searchRoles(null, ctx)
   } catch (e) {
     logger.error({

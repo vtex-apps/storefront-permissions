@@ -11,6 +11,457 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Crowdin configuration file
 
+## [3.2.2] - 2026-01-29
+
+### Changed
+
+- Updated GitHub Actions quality-engineering workflow to v3.1.0
+
+## [3.2.1] - 2025-12-02
+
+### Changed
+- Change checkUserPermission error logs on the graphql framework to warn level
+
+## [3.2.0] - 2025-10-09
+
+### Added
+- Introduced the getOrganizationsPaginatedByEmail function to retrieve organizations with pagination, preventing timeouts.
+
+## [3.1.0] - 2025-10-07
+
+## [3.0.1] - 2025-10-07
+### Feature
+- Added license manager checks to certain queries and all mutations so only users with b2b organizations view and edit are able to interact with the information from the organizations.
+
+## [3.0.0] - 2025-09-24
+
+### Changed
+- Update dependency major version. If you are updating to this major version, make sure to update the following apps (if you have then installed) to the following major versions:
+    - vtex.b2b-admin-customers@2.x
+    - vtex.b2b-checkout-settings@3.x
+    - vtex.b2b-my-account@2.x
+    - vtex.b2b-orders-history@2.x
+    - vtex.b2b-organizations@3.x
+    - vtex.b2b-organizations-graphql@2.x
+    - vtex.b2b-quotes@3.x
+    - vtex.b2b-quotes-graphql@4.x
+    - vtex.b2b-suite@2.x
+    - vtex.b2b-theme@5.x
+    - vtex.storefront-permissions-components@2.x
+    - vtex.storefront-permissions-ui@1.x
+    
+
+## [2.1.0] - 2025-07-17
+
+### Added
+- Add new setCurrentPriceTable mutation that allows a specific price table to be selected for the user
+
+## [2.0.0] - 2025-05-27
+
+### Changed
+- Update dependency major version. If you are updating to this major version, make sure to update the following apps (if you have then installed) to the following major versions:
+    - vtex.b2b-admin-customers@1.x
+    - vtex.b2b-checkout-settings@2.x
+    - vtex.b2b-my-account@1.x
+    - vtex.b2b-orders-history@1.x
+    - vtex.b2b-organizations@2.x
+    - vtex.b2b-organizations-graphql@1.x
+    - vtex.b2b-quotes@2.x
+    - vtex.b2b-quotes-graphql@3.x
+    - vtex.b2b-suite@1.x
+    - vtex.b2b-theme@4.x
+    - vtex.storefront-permissions-components@1.x
+    - vtex.storefront-permissions-ui@2.x
+
+### Removed
+- Reverted version 1.46.0
+
+## [1.46.0] - 2025-05-22
+
+### Added
+- New mutation `setCurrentPriceTable` to allow users to select a specific price table from their organization's available price tables
+- New field `selectedPriceTable` to `b2b_users` schema to persist user's price table preference
+- Enhanced price table handling in `setProfile` to prioritize user's selected price table in the response
+
+### Changed
+- Add `selectedPriceTable` to `b2b_users` schema
+
+## [1.45.3] - 2025-04-22
+
+### Changed
+
+- Change the way to retrieve the customer from Master Data using custom client
+- Change the way to retrieve the organization by id from Master Data using custom client
+
+## [1.45.2] - 2025-02-06
+
+### Fixed
+
+- Clear cart only changed Hash (OrgId+CostId)
+
+## [1.45.1] - 2024-10-28
+
+### Fixed
+
+- Change the way to check if the cost center is valid
+
+## [1.45.0] - 2024-10-28
+
+### Changed
+
+- Changed the token validation directive of the getUserByEmail operation
+
+## [1.44.13] - 2024-10-15
+
+### Fixed
+- Force setProfile to use a valid cost center
+- Increase timeout to 45 seconds
+
+## [1.44.12] - 2024-10-14
+
+### Added
+
+- getRegionId now includes geographic coordinates in parameters when available
+
+## [1.44.11] - 2024-10-10
+
+### Fixed
+
+- Error changing Cost Center after placing order
+
+## [1.44.10] - 2024-10-07
+
+### Fixed
+
+- Use return instead of throwing a duplicate email error.
+
+## [1.44.9] - 2024-10-03
+
+### Fixed
+
+- Adjust session provider early return logic
+
+## [1.44.8] - 2024-10-02
+
+### Fixed
+
+- In session provider, return early if storeUserEmail is not populated
+
+## [1.44.7] - 2024-09-25
+
+### Fixed
+
+- Remove unnecessary b2b_users storage on vbase
+
+## [1.44.6] - 2024-09-05
+
+### Fixed
+
+- Add await to requests to properly handle inactive organizations on login
+
+## [1.44.5] - 2024-09-04
+
+### Fixed
+
+- Provide app token on calls to b2b-organizations-graphql app
+
+## [1.44.4] - 2024-09-03
+
+### Fixed
+
+- Add sort to searchDocumentsWithPaginationInfo at getAllUsers
+
+## [1.44.3] - 2024-08-22
+
+### Fixed
+
+- add new auth metric field
+
+## [1.44.2] - 2024-08-21
+
+### Fixed
+
+- addUser function to not accept invalid cost center
+
+## [1.44.1] - 2024-08-19
+
+### Added
+
+- Session audit metrics
+
+## [1.44.0] - 2024-08-14
+
+### Changed
+
+- Changed the token validation directive of some operations
+
+## [1.43.5] - 2024-08-08
+
+### Fixed
+
+- Storefront considers the active organizations when setting the user's profile
+
+## [1.43.4] - 2024-08-07
+
+### Changed
+
+- Changed the token validation directive of some operations
+
+## [1.43.3] - 2024-07-31
+
+### Changed
+
+- Changed the token validation directive of some operations
+
+## [1.43.2] - 2024-07-29
+
+### Added
+
+- Add enforcement of new validation for admin and api tokens
+- Add more details to admin and api token validation metric
+
+## [1.43.1] - 2024-07-24
+
+### Changed
+
+- Changed the token validation directive of some operations
+
+## [1.43.0] - 2024-07-23
+
+### Added
+
+- Add admin validation directive
+
+## [1.42.0] - 2024-07-17
+
+### Fixed
+
+- Get tokens from headers when necessary
+
+## [1.41.1] - 2024-07-15
+
+### Added
+
+- Add validation metrics for admin and api tokens
+
+## [1.41.0] - 2024-07-01
+
+### Added
+
+- Add token validation directive
+
+## [1.40.7] - 2024-06-11
+
+### Fixed
+
+- Provide correct tokens to clients
+
+## [1.40.6] - 2024-05-28
+
+### Changed
+
+- Check user is part of buyer org instead of "active" on checkUserAccess directive
+
+## [1.40.5] - 2024-05-22
+
+### Changed
+
+- Improved metrics and logging for checkUserAccess and checkAdminAccess directives
+
+## [1.40.4] - 2024-04-29
+
+### Added
+
+- Add token validation logs
+
+### Removed
+
+- Reverted changes from versions 1.40.3, 1.40.2 and 1.40.1
+
+## [1.40.3] - 2024-04-24
+
+### Fixed
+
+- Provide correct auth tokens to clients
+
+## [1.40.2] - 2024-04-19
+
+### Fixed
+
+- Fix auth issue by adding additional admin token check to checkUserAccess and checkAdminAccess
+
+## [1.40.1] - 2024-04-18
+
+### Fixed
+
+- Fix auth issue by adding role check to checkUserAccess directive
+
+## [1.40.0] - 2024-03-20
+
+### Changed
+
+- Changed getUsersByEmail to filter OrgId and CostId
+
+## [1.39.4] - 2024-03-14
+
+### Changed
+
+- Changed to remove space instead of character
+
+## [1.39.3] - 2024-02-27
+
+### Fixed
+
+- Adjust b2b-organizations-graphql integration
+
+## [1.39.2] - 2024-02-26
+
+### Changed
+
+- Add intro description about Session Watcher
+
+## [1.39.1] - 2024-02-09
+
+### Fixed
+
+- Fix IsCorporate in SetProfile
+
+## [1.39.0] - 2024-02-06
+
+### Added
+
+- New `ignoreB2BSessionData` mutation to allow a user to leave/resume the B2B context
+
+## [1.38.0] - 2023-12-14
+
+### Added
+
+- add directive to validate auth token for some operations
+
+## [1.37.3] - 2023-12-07
+
+### Fixed
+
+- Add 'isDisposable' property to create address requests, indicating whether the address is disposable to prevent duplicates.
+
+## [1.37.2] - 2023-11-10
+
+### Fixed
+
+- Reduce sync roles, remove from checkUserPermissions and listRoles
+
+## [1.37.1] - 2023-11-09
+
+### Fixed
+
+- Remove get permissions from access audit metrics
+
+## [1.37.0] - 2023-11-06
+
+### Added
+
+- add an authentication metric to check if the access is authenticated
+
+## [1.36.0] - 2023-08-09
+
+### Added
+
+- Change Team action metrics
+
+## [1.35.3] - 2023-07-19
+
+### Fixed
+
+- Fix on check impersonation query
+
+## [1.35.2] - 2023-07-13
+
+### Changed
+
+- Edited README.md file
+
+## [1.35.1] - 2023-06-29
+
+### Fixed
+
+- Removing the document on orderform in case of business/corporate profile data
+- Removing all the non digits from the business document to prevent checkout errors
+
+## [1.35.0] - 2023-05-31
+
+### Added
+
+- Added sellers by cost center feature
+
+## [1.34.1] - 2023-05-12
+
+### Fixed
+
+- Fix error when accessing undefined "cl" variable
+
+## [1.34.0] - 2023-05-11
+
+### Added
+
+- Added the settings to allow the admin disable the facets on session
+
+## [1.33.4] - 2023-05-11
+
+### Fixed
+
+- Fixed some issues around phone number order form
+
+## [1.33.3] - 2023-05-08
+
+### Fixed
+
+- Fixed issue where `documentType` is always set to cpf
+
+## [1.33.2] - 2023-05-03
+
+### Fixed
+
+- geoCoordinates empty
+
+## [1.33.1] - 2023-04-21
+
+### Fixed
+
+- Fixed impersonation user
+
+## [1.33.0] - 2023-04-20
+
+### Fixed
+
+- Fix on impersonation user
+
+## [1.32.0] - 2023-04-19
+
+### Added
+
+- Added the x-b2b-senderapp header to fix problems with the new B2B API
+
+## [1.31.5] - 2023-04-11
+
+### Fixed
+
+- Fixed clear call async calls
+
+### Removed
+
+- [ENGINEERS-1247] - Disable cypress tests in PR level
+
+### Changed
+
+- Run schedule job only on saturday
+
+## [1.31.4] - 2023-03-17
+
+### Fixed
+
+- Fixed the `setProfile` to clear the cart properly
+- Improved calls on set profile in order to get faster response
+
 ## [1.31.3] - 2023-03-01
 
 ### Fixed
@@ -20,6 +471,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [1.31.2] - 2023-02-27
 
 ### Fixed
+
 - `setProfile` adding sku 1 to the cart to set sales channel when the cart is empty
 - `setProfile` losing item attachments after login
 
@@ -34,7 +486,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - Added a feature when the user logs in or changes the current organization.
-
 
 ## [1.30.0] - 2023-02-09
 
@@ -99,7 +550,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - getOrganizationsByEmail is returning all users instead of only first 50 records
 
-
 ## [1.29.2] - 2022-11-28
 
 ### Fixed
@@ -118,7 +568,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.29.0] - 2022-11-08
 
-
 ### Added
 
 - Added the functionality to the storefront permissions to change the sales channel according to the Organization
@@ -134,7 +583,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - Force the business document and state registration on setProfile method
-
 
 ## [1.27.0] - 2022-10-19
 
@@ -172,7 +620,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
- - Changed the validation of the add user
+- Changed the validation of the add user
 
 ### Added
 

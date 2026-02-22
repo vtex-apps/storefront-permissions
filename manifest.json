@@ -1,7 +1,7 @@
 {
   "name": "storefront-permissions",
   "vendor": "vtex",
-  "version": "1.31.3",
+  "version": "3.2.2",
   "title": "Storefront Permissions",
   "description": "Manage User's permissions on apps that relates to this app",
   "mustUpdateAt": "2022-08-28",
@@ -114,7 +114,38 @@
         "host": "{{account}}.vtexcommercestable.com.br",
         "path": "/api/scheduler/master/vtex.gmc-keep-alive"
       }
+    },
+    {
+      "name": "outbound-access",
+      "attrs": {
+        "host": "rc.vtex.com",
+        "path": "/api/analytics/schemaless-events"
+      }
+    },
+    {
+      "name": "buyer_organization_view"
+    },
+    {
+      "name": "buyer_organization_edit"
     }
   ],
+  "settingsSchema": {
+    "title": "Storefront Permissions Settings",
+    "type": "object",
+    "properties": {
+      "disableSellersNameFacets": {
+        "title": "Disable Sellers Name Facets",
+        "description": "When enabled, the sellers name facets will be disabled",
+        "type": "boolean",
+        "default": false
+      },
+      "disablePrivateSellersFacets": {
+        "title": "Disable Private Sellers Facets",
+        "description": "When enabled, the private sellers facets will be disabled",
+        "type": "boolean",
+        "default": false
+      }
+    }
+  },
   "$schema": "https://raw.githubusercontent.com/vtex/node-vtex-api/master/gen/manifest.schema"
 }

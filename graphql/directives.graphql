@@ -1,5 +1,12 @@
 directive @checkUserAccess on FIELD | FIELD_DEFINITION
+directive @validateStoreUserAccess(
+  adminPermission: String
+) on FIELD | FIELD_DEFINITION
 directive @checkAdminAccess on FIELD | FIELD_DEFINITION
+directive @validateAdminUserAccess(
+  adminPermission: String
+) on FIELD | FIELD_DEFINITION
 directive @withSession on FIELD_DEFINITION
 directive @withSender on FIELD_DEFINITION
 directive @withUserPermissions on FIELD_DEFINITION
+directive @auditAccess on FIELD | FIELD_DEFINITION

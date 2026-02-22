@@ -2,19 +2,31 @@ import { ForbiddenError } from '@vtex/api'
 import { json } from 'co-body'
 
 import { getRole } from '../Queries/Roles'
-import { getAppSettings, getSessionWatcher } from '../Queries/Settings'
-import { getActiveUserByEmail, getUserByEmail } from '../Queries/Users'
-import { generateClUser, QUERIES } from './utils'
-import { setActiveUserByOrganization } from '../Mutations/Users'
+import { getSessionWatcher } from '../Queries/Settings'
+import { generateClUser, getUserOrganizationsData } from './utils'
+import {
+  getActiveUserByEmail,
+  getUserByEmail,
+  getB2BUserById,
+} from '../Queries/Users'
+import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
+import { toHash } from '../../utils'
 
 export const Routes = {
+  PROFILE_DOCUMENT_TYPE: 'cpf',
+  appSettings: async (ctx: Context) => {
+    const appId = process.env.VTEX_APP_ID ? process.env.VTEX_APP_ID : ''
+    const { disableSellersNameFacets, disablePrivateSellersFacets } =
+      await ctx.clients.apps.getAppSettings(appId)
+
+    return { disableSellersNameFacets, disablePrivateSellersFacets }
+  },
   checkPermissions: async (ctx: Context) => {
     const {
       vtex: { logger },
     } = ctx
 
     ctx.set('Content-Type', 'application/json')
-    await getAppSettings(null, null, ctx)
 
     const params: any = await json(ctx.req)
 
@@ -83,7 +95,9 @@ export const Routes = {
   setProfile: async (ctx: Context) => {
     const {
       clients: {
-        graphqlServer,
+        organizations,
+        masterdata,
+        masterDataExtended,
         checkout,
         profileSystem,
         salesChannel: salesChannelClient,
@@ -123,6 +137,9 @@ export const Routes = {
         userId: {
           value: '',
         },
+        hash: {
+          value: '',
+        },
       },
     }
 
@@ -142,29 +159,57 @@ export const Routes = {
     const body: any = await json(req)
 
     const b2bImpersonate = body?.public?.impersonate?.value
-
     const telemarketingImpersonate = body?.impersonate?.storeUserId?.value
+    const orderFormId = body?.checkout?.orderFormId?.value
+    const isCorporate = true
 
     let email = body?.authentication?.storeUserEmail?.value
-    const orderFormId = body?.checkout?.orderFormId?.value
     let businessName = null
     let businessDocument = null
+    let documentType = null
     let phoneNumber = null
     let tradeName = null
     let stateRegistration = null
+    let user = null
 
-    if (b2bImpersonate) {
-      await profileSystem
-        .getProfileInfo(b2bImpersonate)
-        .then((profile: any) => {
-          response['storefront-permissions'].storeUserId.value = profile.userId
-          response['storefront-permissions'].storeUserEmail.value =
-            profile.email
-          email = profile.email
-        })
-        .catch((error) => {
-          logger.error({ message: 'setProfile.getProfileInfoError', error })
-        })
+    const ignoreB2B = body?.public?.removeB2B?.value
+
+    if (ignoreB2B) {
+      ctx.response.body = response
+      ctx.response.status = 200
+
+      return
+    }
+
+    if (email && b2bImpersonate) {
+      try {
+        user = (await getUser({
+          masterdata,
+          params: { userId: b2bImpersonate },
+        })) as {
+          orgId: string
+          costId: string
+          clId: string
+          id: string
+          email: string
+          userId: string
+          name: string
+        }
+        email = user.email
+        let { userId } = user
+
+        if (!userId) {
+          userId = await profileSystem.createRegisterOnProfileSystem(
+            email,
+            user.name
+          )
+        }
+
+        response['storefront-permissions'].storeUserId.value = userId
+        response['storefront-permissions'].storeUserEmail.value = user.email
+      } catch (error) {
+        logger.error({ message: 'setProfile.getUserError', error })
+      }
     } else if (telemarketingImpersonate) {
       const telemarketingEmail = body?.impersonate?.storeUserEmail?.value
 
@@ -182,15 +227,17 @@ export const Routes = {
       return
     }
 
-    const user = (await getActiveUserByEmail(null, { email }, ctx).catch(
-      (error) => {
-        logger.warn({ message: 'setProfile.getUserByEmailError', error })
+    if (user === null) {
+      user = (await getActiveUserByEmail(null, { email }, ctx).catch(
+        (error) => {
+          logger.warn({ message: 'setProfile.getUserByEmailError', error })
+        }
+      )) as {
+        orgId: string
+        costId: string
+        clId: string
+        id: string
       }
-    )) as {
-      orgId: string
-      costId: string
-      clId: string
-      id: string
     }
 
     response['storefront-permissions'].userId.value = user?.id
@@ -205,17 +252,16 @@ export const Routes = {
     response['storefront-permissions'].organization.value = user.orgId
 
     const getOrganization = async (orgId: any): Promise<any> => {
-      return graphqlServer
-        .query(
-          QUERIES.getOrganizationById,
-          { id: orgId },
-          {
-            persistedQuery: {
-              provider: 'vtex.b2b-organizations-graphql@0.x',
-              sender: 'vtex.storefront-permissions@1.x',
-            },
-          }
-        )
+      return masterDataExtended
+        .getDocumentById('organizations', orgId, [
+          'name',
+          'tradeName',
+          'status',
+          'priceTables',
+          'salesChannel',
+          'collections',
+          'sellers',
+        ])
         .catch((error) => {
           logger.error({
             error,
@@ -224,56 +270,81 @@ export const Routes = {
         })
     }
 
-    let organization = (await getOrganization(user.orgId))?.data
-      ?.getOrganizationById
+    const hash = toHash(`${user.orgId}|${user.costId}`)
+    const hashChanged = body?.['storefront-permissions']?.hash?.value !== hash
 
-    // prevent login if org is inactive
-    if (organization.status === 'inactive') {
-      // try to find a valid organization
-      const organizationsByUserResponse: any = await graphqlServer
-        .query(
-          QUERIES.getOrganizationsByEmail,
-          { email },
-          {
-            provider: 'vtex.b2b-organizations-graphql@0.x',
-            sender: 'vtex.storefront-permissions@1.x',
-          }
-        )
-        .catch((error) => {
+    response['storefront-permissions'].hash.value = hash
+
+    const [
+      organizationResponse,
+      costCenterResponse,
+      salesChannels,
+      marketingTagsResponse,
+      b2bSettingsResponse,
+    ]: Array<{
+      data: any
+    }> = await Promise.all([
+      getOrganization(user.orgId),
+      organizations.getCostCenterById(user.costId),
+      salesChannelClient.getSalesChannel(),
+      organizations.getMarketingTags(user.costId),
+      organizations.getB2BSettings(),
+    ])
+
+    // Cost center validation is now handled together with organization status below
+
+    let organization: any = organizationResponse
+    let userOrgsData: any = null
+
+    // Check if we need to fetch user organizations (for inactive org or invalid cost center)
+    const costCenterInvalid = Object.values(
+      costCenterResponse.data.getCostCenterById
+    ).every((value) => value === null)
+
+    const organizationInactive = organization.status === 'inactive'
+    const needsOrgData = organizationInactive || costCenterInvalid
+
+    if (needsOrgData) {
+      userOrgsData = await getUserOrganizationsData(email, ctx).catch(
+        (error) => {
           logger.error({
             error,
-            message: 'setProfile.graphqlGetOrganizationById',
+            message: 'setProfile.getUserOrganizationsData',
+          })
+
+          return { validCostCenterId: null, activeOrganization: null }
+        }
+      )
+    }
+
+    // Handle invalid cost center first
+    if (costCenterInvalid && userOrgsData?.validCostCenterId) {
+      user.costId = userOrgsData.validCostCenterId
+    }
+
+    // Handle inactive organization
+    if (organizationInactive) {
+      const validOrganization = userOrgsData?.activeOrganization
+
+      if (validOrganization) {
+        organization = (await getOrganization(validOrganization.id))?.data
+          ?.getOrganizationById
+
+        await setActiveUserByOrganization(
+          null,
+          {
+            costId: validOrganization.costId,
+            email,
+            orgId: validOrganization.orgId,
+            userId: validOrganization.id,
+          },
+          ctx
+        ).catch((error) => {
+          logger.warn({
+            error,
+            message: 'setProfile.setActiveUserByOrganizationError',
           })
         })
-
-      const organizationsByUser =
-        organizationsByUserResponse?.data?.getOrganizationsByEmail
-
-      if (organizationsByUser?.length) {
-        const organizationList = organizationsByUser.find(
-          (org: any) => org.organizationStatus !== 'inactive'
-        )
-
-        if (organizationList) {
-          organization = (await getOrganization(organizationList.id))?.data
-            ?.getOrganizationById
-
-          setActiveUserByOrganization(
-            null,
-            {
-              costId: organizationList.costId,
-              email,
-              orgId: organizationList.orgId,
-              userId: organizationList.id,
-            },
-            ctx
-          ).catch((error) => {
-            logger.warn({
-              error,
-              message: 'setProfile.setActiveUserByOrganizationError',
-            })
-          })
-        }
       } else {
         logger.warn({
           message: `setProfile-organizationInactive`,
@@ -288,9 +359,19 @@ export const Routes = {
     tradeName = organization.tradeName
 
     if (organization.priceTables?.length) {
+      const userWithPriceTable = (await getB2BUserById(
+        null,
+        { id: user.id },
+        ctx
+      )) as { selectedPriceTable: string }
+
+      const selectedPriceTable = userWithPriceTable?.selectedPriceTable
+        ? userWithPriceTable.selectedPriceTable
+        : organization.priceTables.join(',')
+
       response[
         'storefront-permissions'
-      ].priceTables.value = `${organization.priceTables.join(',')}`
+      ].priceTables.value = `${selectedPriceTable}`
     }
 
     let facets = [] as any
@@ -303,51 +384,64 @@ export const Routes = {
       facets = [...facets, ...collections]
     }
 
-    if (organization.sellers?.length) {
-      const sellersName = organization.sellers.map(
-        (seller: any) => `sellername=${seller.name}`
-      )
+    if (
+      organization.sellers?.length ||
+      costCenterResponse?.data?.getCostCenterById?.sellers?.length
+    ) {
+      const sellersList =
+        costCenterResponse?.data?.getCostCenterById?.sellers ??
+        organization.sellers
 
-      const sellersId = organization.sellers.map(
-        (seller: any) => `private-seller=${seller.id}`
-      )
+      const { disableSellersNameFacets, disablePrivateSellersFacets } =
+        await Routes.appSettings(ctx)
 
-      facets = [...facets, ...sellersName, ...sellersId]
+      if (!disableSellersNameFacets) {
+        const sellersName = sellersList.map(
+          (seller: any) =>
+            `sellername=${seller.name
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')}`
+        )
+
+        facets = [...facets, ...sellersName]
+      }
+
+      if (!disablePrivateSellersFacets) {
+        const sellersId = sellersList.map(
+          (seller: any) => `private-seller=${seller.id}`
+        )
+
+        facets = [...facets, ...sellersId]
+      }
     }
 
     response.public.facets.value = facets ? `${facets.join(';')};` : null
 
     response['storefront-permissions'].costcenter.value = user.costId
-    const costCenterResponse: any = await graphqlServer
-      .query(
-        QUERIES.getCostCenterById,
-        { id: user.costId },
-        {
-          persistedQuery: {
-            provider: 'vtex.b2b-organizations-graphql@0.x',
-            sender: 'vtex.storefront-permissions@1.x',
-          },
-        }
-      )
-      .catch((error) => {
-        logger.error({
-          error,
-          message: 'setProfile.graphqlGetCostCenterById',
-        })
-      })
-
-    phoneNumber = costCenterResponse.data.getCostCenterById.phoneNumber
+    phoneNumber = costCenterResponse?.data?.getCostCenterById?.phoneNumber
 
     businessDocument =
-      costCenterResponse.data.getCostCenterById.businessDocument
+      costCenterResponse.data.getCostCenterById.businessDocument?.replace(
+        /[^a-zA-Z0-9]*/,
+        ''
+      )
 
     stateRegistration =
       costCenterResponse.data.getCostCenterById.stateRegistration
 
+    // Only require CPF if cost center contains an address in Brazil
+    // This is a workaround to avoid setting CPF as documentType for countries other than Brazil
+    if (
+      costCenterResponse?.data?.getCostCenterById?.addresses?.some(
+        (address: { country: string }) => address.country === 'BRA'
+      )
+    ) {
+      documentType = Routes.PROFILE_DOCUMENT_TYPE
+    }
+
     let { salesChannel } = organization
 
-    const salesChannels = (await salesChannelClient.getSalesChannel()) as any
-    const validChannels = salesChannels.filter(
+    const validChannels = salesChannels.data.filter(
       (channel: any) => channel.IsActive
     )
 
@@ -363,65 +457,32 @@ export const Routes = {
       }
     }
 
+    const salesChannelPromise = []
+
     if (salesChannel) {
-      checkout.updateSalesChannel(orderFormId, salesChannel).catch((error) => {
-        console.error(error)
-        logger.error({
-          error,
-          message: 'setProfile.updateSalesChannel',
-        })
-      })
-      response.public.sc.value = salesChannel.toString()
-    }
-
-    if (
-      costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
-      orderFormId
-    ) {
-      const [address] = costCenterResponse.data.getCostCenterById.addresses
-
-      const marketingTagsResponse: any = await graphqlServer
-        .query(
-          QUERIES.getMarketingTags,
-          {
-            costId: user.costId,
-          },
-          {
-            persistedQuery: {
-              provider: 'vtex.b2b-organizations-graphql@0.x',
-              sender: 'vtex.storefront-permissions@1.x',
-            },
-          }
-        )
-        .catch((error) => {
-          logger.error({
-            error,
-            message: 'setProfile.getMarketingTags',
-          })
-        })
-
-      try {
-        const b2bSettingsResponse: any = await graphqlServer
-          .query(
-            QUERIES.getB2BSettings,
-            {},
-            {
-              persistedQuery: {
-                provider: 'vtex.b2b-organizations-graphql@0.x',
-                sender: 'vtex.storefront-permissions@1.x',
-              },
-            }
-          )
+      salesChannelPromise.push(
+        checkout
+          .updateSalesChannel(orderFormId, salesChannel)
           .catch((error) => {
             logger.error({
               error,
-              message: 'setProfile.getB2BSettings',
+              message: 'setProfile.updateSalesChannel',
             })
           })
+      )
+      response.public.sc.value = salesChannel.toString()
+    }
 
-        const { clearCart } = b2bSettingsResponse?.data?.getB2BSettings
+    if (hashChanged && orderFormId) {
+      try {
+        const {
+          uiSettings: { clearCart },
+        } = b2bSettingsResponse?.data?.getB2BSettings ?? {
+          uiSettings: { clearCart: null },
+        }
 
         if (clearCart) {
+          await Promise.all(salesChannelPromise)
           await checkout.clearCart(orderFormId)
         }
       } catch (error) {
@@ -430,6 +491,13 @@ export const Routes = {
           message: 'setProfile.clearCart',
         })
       }
+    }
+
+    if (
+      costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
+      orderFormId
+    ) {
+      const [address] = costCenterResponse.data.getCostCenterById.addresses
 
       const marketingTags: any =
         marketingTagsResponse?.data?.getMarketingTags?.tags
@@ -438,7 +506,8 @@ export const Routes = {
         const [regionId] = await checkout.getRegionId(
           address.country,
           address.postalCode,
-          salesChannel.toString()
+          salesChannel.toString(),
+          address.geoCoordinates
         )
 
         if (regionId?.id) {
@@ -474,7 +543,8 @@ export const Routes = {
           .updateOrderFormShipping(orderFormId, {
             address: {
               ...address,
-              geoCoordinates: [],
+              geoCoordinates: address.geoCoordinates ?? [],
+              isDisposable: true,
             },
             clearAddressIfPostalCodeNotFound: false,
           })
@@ -495,15 +565,20 @@ export const Routes = {
       phoneNumber,
       stateRegistration,
       tradeName,
+      isCorporate,
     })
 
     if (clUser && orderFormId) {
+      const phoneNumberFormatted =
+        phoneNumber || clUser.phone || clUser.homePhone || `+1${'0'.repeat(10)}`
+
       promises.push(
         checkout
           .updateOrderFormProfile(orderFormId, {
             ...clUser,
-            documentType: 'cpf',
             businessDocument: businessDocument || clUser.businessDocument,
+            documentType: documentType ?? undefined,
+            phone: phoneNumberFormatted,
             stateInscription:
               stateRegistration || clUser.stateInscription || '0'.repeat(9),
           })

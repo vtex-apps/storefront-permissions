@@ -21,7 +21,7 @@ In the following table, you can see the available storefront roles, their key us
 
 | **Role** | **Key** | **Description** |
 |---|---|---|
-| Store Admin | `store-admin` | Store administrator, that is, a user who has access to the VTEX Admin. |
+| Store Admin | `store-admin` | Store administrator, also known as a user who has access to the VTEX Admin, including the permission to impersonate any company/buyer. |
 | Sales Admin | `sales-admin` | Sales administrator user who can manage all sales users. |
 | Sales Manager | `sales-manager` | Sales manager user who can manage sales users in the same organization, as well as assist or impersonate buyers during navigation or purchase. |
 | Sales Representative | `sales-representative` | Sales representative user who can assist or impersonate buyers in the same cost center during navigation or purchase. |
@@ -123,6 +123,11 @@ If you would like to develop your own app and integrate it with **Storefront Per
 
 Once you are done developing and installing your own app, if you have [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui), the features of your app associated with each role will be automatically loaded on the **Storefront Permissions** page. For more details on this, read our documentation on the [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui) app.
 
+### Session Watcher
+
+The session watcher is based in the [session transformation feature](https://developers.vtex.com/docs/guides/vtex-io-documentation-collecting-user-session-data#configuring-vtexsession) to update the cart fields with Buyer [Organization data](https://github.com/vtex-apps/b2b-organizations): `Shipping Address`, `Profile` and `Marketdata` ( `utmCampaign` with `organization.id` and `utmMedium` with `costCenter.id` )
+
+To activate it, [use the mutation](#setSessionWatcher).
 
 ### GraphQL queries
 
@@ -266,6 +271,63 @@ Sample response:
 }
 ```
 
+#### getOrganizationsPaginatedByEmail
+
+This query allows you to retrieve a paginated list of organizations associated with a specific email. The response includes the organization data along with pagination details such as the current page, page size, and total number of results.
+
+Sample query:
+
+```graphql
+query OrganizationsPaginated($email: String!, $page: Int, $pageSize: Int) {
+  getOrganizationsPaginatedByEmail(
+    email: $email
+    page: $page
+    pageSize: $pageSize
+  ) {
+    data {
+      id
+      organizationStatus
+      costId
+      orgId
+      costCenterName
+    }
+    pagination {
+      page
+      pageSize
+      total
+    }
+  }
+}
+```
+
+Sample response:
+
+{
+  "data": {
+    "getOrganizationsPaginatedByEmail": {
+      "data": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "clId": "00000000-0000-0000-0000-000000000000",
+          "costId": "00000000-0000-0000-0000-000000000000",
+          "orgId": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "clId": "00000000-0000-0000-0000-000000000000",
+          "costId": "00000000-0000-0000-0000-000000000000",
+          "orgId": "00000000-0000-0000-0000-000000000000"
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "pageSize": 25,
+        "total": 2
+      }
+    }
+  }
+}
+
 
 
 ### GraphQL mutation
@@ -288,7 +350,7 @@ mutation impersonateUser($userId: ID)
 }
 ```
 
-#### setSessionWatcher
+#### <a href="#setSessionWatcher"></a> setSessionWatcher
 
 If your account is not using `vtex.b2b-organizations` you may want to disable the Session Watcher to avoid unnecessary operations. To do so, set the `active` property to `false` in the mutation exemplified below.
 

@@ -1,19 +1,68 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { removeVersionFromAppId } from '@vtex/api'
 
+import type { GetOrganizationsPaginatedByEmailResponse } from '../../typings/custom'
 import { currentSchema } from '../../utils'
 import {
   CUSTOMER_REQUIRED_FIELDS,
   CUSTOMER_SCHEMA_NAME,
 } from '../../utils/constants'
+import GraphQLError from '../../utils/GraphQLError'
 import { getRole } from './Roles'
-import { getAppSettings } from './Settings'
 
 const config: any = currentSchema('b2b_users')
 
 const PAGINATION = {
   page: 1,
   pageSize: 50,
+}
+
+// This function checks if given email is an user part of a buyer org.
+export const isUserPartOfBuyerOrg = async (email: string, ctx: Context) => {
+  const {
+    clients: { masterdata },
+  } = ctx
+
+  const where = `email=${email}`
+  const resp = await masterdata.searchDocumentsWithPaginationInfo({
+    dataEntity: config.name,
+    fields: ['id'], // we don't need to fetch all fields, only if there is an entry or not
+    pagination: {
+      page: 1,
+      pageSize: 1, // we only need to know if there is at least one user entry
+    },
+    schema: config.version,
+    ...(where ? { where } : {}),
+  })
+
+  const { data } = resp as unknown as {
+    data: any
+  }
+
+  if (data.length > 0) {
+    return true
+  }
+
+  return false
+}
+
+async function processChunks(
+  requests: Array<() => Promise<any>>,
+  index = 0,
+  responses: any[] = [],
+  maxConcurrency = 30
+): Promise<any[]> {
+  if (index >= requests.length) {
+    return responses
+  }
+
+  const chunk = requests.slice(index, index + maxConcurrency)
+  const chunkResponses = await Promise.all(chunk.map((fn) => fn()))
+
+  return processChunks(requests, index + maxConcurrency, [
+    ...responses,
+    ...chunkResponses,
+  ])
 }
 
 export const getAllUsers = async ({
@@ -26,55 +75,48 @@ export const getAllUsers = async ({
   where?: string
 }) => {
   try {
-    let currentPage = PAGINATION.page
-    let hasMore = true
-    const users = [] as any[]
+    const initialResp = await masterdata.searchDocumentsWithPaginationInfo({
+      dataEntity: config.name,
+      fields: ['id'],
+      pagination: { page: 1, pageSize: PAGINATION.pageSize },
+      schema: config.version,
+      ...(where ? { where } : {}),
+    })
 
-    const scrollMasterData = async () => {
-      const resp = await masterdata.searchDocumentsWithPaginationInfo({
-        dataEntity: config.name,
-        fields: [
-          'id',
-          'roleId',
-          'clId',
-          'email',
-          'name',
-          'orgId',
-          'costId',
-          'userId',
-          'canImpersonate',
-          'active',
-        ],
-        pagination: {
-          page: currentPage,
-          pageSize: PAGINATION.pageSize,
-        },
-        schema: config.version,
-        ...(where ? { where } : {}),
-      })
+    const totalItems = initialResp.pagination.total
+    const totalPages = Math.ceil(totalItems / PAGINATION.pageSize)
 
-      const { data, pagination } = resp as unknown as {
-        pagination: {
-          total: number
-        }
-        data: any
-      }
+    const requests = Array.from(
+      { length: totalPages },
+      (_, i) => async () =>
+        masterdata.searchDocumentsWithPaginationInfo({
+          dataEntity: config.name,
+          fields: [
+            'id',
+            'roleId',
+            'clId',
+            'email',
+            'name',
+            'orgId',
+            'costId',
+            'userId',
+            'canImpersonate',
+            'active',
+          ],
+          pagination: { page: i + 1, pageSize: PAGINATION.pageSize },
+          schema: config.version,
+          sort: 'id asc',
+          ...(where ? { where } : {}),
+        })
+    )
 
-      const totalPages = Math.ceil(pagination.total / PAGINATION.pageSize)
+    const responses = await processChunks(requests)
 
-      if (currentPage >= totalPages) {
-        hasMore = false
-      }
+    const users = responses.reduce((acc: any[], resp: { data: any }) => {
+      acc.push(...resp.data)
 
-      users.push(...data)
-
-      if (hasMore) {
-        currentPage += 1
-        await scrollMasterData()
-      }
-    }
-
-    await scrollMasterData()
+      return acc
+    }, [])
 
     return users
   } catch (error) {
@@ -92,9 +134,19 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
     vtex: { logger },
   } = ctx
 
-  const { email } = params
+  const { email, orgId, costId } = params
 
-  return getAllUsers({ masterdata, logger, where: `email=${email}` })
+  let where = `email=${email}`
+
+  if (orgId) {
+    where += ` AND orgId=${orgId}`
+  }
+
+  if (costId) {
+    where += ` AND costId=${costId}`
+  }
+
+  return getAllUsers({ masterdata, logger, where })
 }
 
 export const getActiveUserByEmail = async (
@@ -148,31 +200,32 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
 
 export const getUserById = async (_: any, params: any, ctx: Context) => {
   const {
-    clients: { masterdata },
+    clients: { masterDataExtended },
     vtex: { logger },
   } = ctx
 
   try {
     const { id } = params
 
-    const cl: any = await masterdata.getDocument({
-      dataEntity: CUSTOMER_SCHEMA_NAME,
-      fields: [
+    const cl: any = await masterDataExtended.getDocumentById(
+      CUSTOMER_SCHEMA_NAME,
+      id,
+      [
         'email',
         'firstName',
         'lastName',
         'document',
         'documentType',
         'phone',
+        'homePhone',
         'corporateName',
         'tradeName',
         'corporateDocument',
         'stateInscription',
         'corporatePhone',
         'isCorporate',
-      ],
-      id,
-    })
+      ]
+    )
 
     return cl ?? null
   } catch (error) {
@@ -205,6 +258,43 @@ export const checkCustomerSchema = async (_: any, __: any, ctx: Context) => {
   )
 
   return diff.length <= 0
+}
+
+export const getB2BUserById = async (_: any, params: any, ctx: Context) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  try {
+    const { id } = params
+
+    const user = await masterdata.getDocument({
+      dataEntity: config.name,
+      fields: [
+        'id',
+        'roleId',
+        'name',
+        'email',
+        'clId',
+        'orgId',
+        'costId',
+        'userId',
+        'canImpersonate',
+        'selectedPriceTable',
+      ],
+      id,
+    })
+
+    return user
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Profiles.getUserById-error',
+    })
+
+    return { status: 'error', message: error }
+  }
 }
 
 export const getUser = async (_: any, params: any, ctx: Context) => {
@@ -537,8 +627,6 @@ export const checkUserPermission = async (
   params: any,
   ctx: Context
 ) => {
-  await getAppSettings(null, null, ctx)
-
   const {
     vtex: { logger },
   } = ctx
@@ -551,15 +639,24 @@ export const checkUserPermission = async (
     logger.warn({
       message: `checkUserPermission-userNotAuthenticated`,
     })
-    throw new Error('User not authenticated, make sure the query is private')
+    throw new GraphQLError(
+      'User not authenticated, make sure the query is private',
+      {
+        logLevel: 'warn',
+      }
+    )
   }
 
   if (!sender && !skipError) {
     logger.warn({
       message: `checkUserPermission-senderNotFound`,
     })
-
-    throw new Error('Sender not available, make sure the query is private')
+    throw new GraphQLError(
+      'Sender not available, make sure the query is private',
+      {
+        logLevel: 'warn',
+      }
+    )
   }
 
   const authEmail =
@@ -614,11 +711,12 @@ export const checkUserPermission = async (
 
 export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
   const {
-    clients: { profileSystem },
+    clients: { profileSystem, fullSessions },
     vtex: { logger },
   } = ctx
 
   const { sessionData }: any = ctx.vtex
+  const { request }: any = ctx
 
   if (!sessionData?.namespaces) {
     logger.warn({
@@ -629,8 +727,16 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
 
   const profile = sessionData?.namespaces?.profile
   const sfp = sessionData?.namespaces['storefront-permissions']
+
+  const allSessions = await fullSessions.getSessions({
+    headers: {
+      cookie: `VtexIdclientAutCookie=${request.headers.vtexidclientautcookie};vtex_session=${request.headers['x-vtex-session']}`,
+    },
+  })
+
   const authEmail =
-    sessionData?.namespaces?.authentication?.storeUserEmail?.value
+    allSessions?.namespaces?.authentication?.storeUserEmail?.value ??
+    allSessions?.namespaces?.authentication?.adminUserEmail?.value
 
   let response = null
 
@@ -733,11 +839,63 @@ export const getOrganizationsByEmail = async (
   }
 }
 
+export const getOrganizationsPaginatedByEmail = async (
+  _: any,
+  {
+    email = '',
+    page = 1,
+    pageSize = 25,
+  }: {
+    email: string
+    page: number
+    pageSize: number
+  },
+  ctx: Context
+) => {
+  const {
+    clients: { masterdata },
+    vtex: { logger },
+  } = ctx
+
+  try {
+    const data: GetOrganizationsPaginatedByEmailResponse =
+      await masterdata.searchDocumentsWithPaginationInfo({
+        dataEntity: config.name,
+        fields: ['clId', 'costId', 'id', 'orgId', 'roleId'],
+        pagination: { page, pageSize },
+        schema: config.version,
+        where: `email = "${email}"`,
+      })
+
+    return data
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'getOrganizationsPaginatedByEmail-error',
+    })
+
+    throw new Error(error)
+  }
+}
+
+type UserByEmail = {
+  id: string
+  roleId: string
+  clId: string | null
+  email: string | null
+  name: string | null
+  orgId: string | null
+  costId: string | null
+  userId: string | null
+  canImpersonate: boolean
+  active: boolean
+}
+
 export const getUserByEmailOrgIdAndCostId = async (
   _: any,
   params: any,
   ctx: Context
-) => {
+): Promise<UserByEmail | null> => {
   const {
     clients: { masterdata },
     vtex: { logger },
@@ -765,7 +923,7 @@ export const getUserByEmailOrgIdAndCostId = async (
       where: `email = "${email}" AND costId = "${costId}" AND orgId = "${orgId}"`,
     })
 
-    return user[0] || null
+    return (user[0] as UserByEmail) || null
   } catch (error) {
     logger.error({
       error,

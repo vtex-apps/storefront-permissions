@@ -3,6 +3,11 @@ import type { InstanceOptions, IOContext } from '@vtex/api'
 import { ExternalClient } from '@vtex/api'
 
 import { statusToError, toUUID } from './index'
+import {
+  B2B_ORGANIZATIONS_PRODUCT_ID,
+  BUYER_ORGANIZATION_VIEW_ROLE,
+  BUYER_ORGANIZATION_EDIT_ROLE,
+} from './constants'
 
 export class LMClient extends ExternalClient {
   constructor(ctx: IOContext, options?: InstanceOptions) {
@@ -73,6 +78,67 @@ export class LMClient extends ExternalClient {
     return user ? this.delete(this.routes.deleteUser(userId, '957'), {}) : {}
   }
 
+  public getUserAdminPermissions = async (account: string, userId: string) => {
+    return this.get(this.routes.getUserAdminPermissions(account, userId)).then(
+      (res: any) => {
+        return res
+      }
+    )
+  }
+
+  public checkUserSpecificRole = async (
+    account: string,
+    userEmail: string,
+    productCode: number,
+    resourceCode: string
+  ) => {
+    return this.get(
+      `/api/license-manager/pvt/accounts/${encodeURI(
+        account
+      )}/products/${productCode}/logins/${encodeURI(
+        userEmail
+      )}/resources/${encodeURI(resourceCode)}/granted`
+    ).then((res: any) => {
+      return res
+    })
+  }
+
+  public hasBuyerOrganizationViewRole = async (
+    account: string,
+    userEmail: string
+  ) => {
+    try {
+      const hasRole = await this.checkUserSpecificRole(
+        account,
+        userEmail,
+        B2B_ORGANIZATIONS_PRODUCT_ID,
+        BUYER_ORGANIZATION_VIEW_ROLE
+      )
+
+      return hasRole
+    } catch (error) {
+      return false
+    }
+  }
+
+  public hasBuyerOrganizationEditRole = async (
+    account: string,
+    userEmail: string
+  ) => {
+    try {
+      const hasRole = await this.checkUserSpecificRole(
+        account,
+        userEmail,
+        B2B_ORGANIZATIONS_PRODUCT_ID,
+        BUYER_ORGANIZATION_EDIT_ROLE
+      )
+
+      return hasRole
+    } catch (error) {
+      return false
+    }
+  }
+
   protected get = <T>(url: string) => {
     return this.http.get<T>(url).catch(statusToError)
   }
@@ -103,6 +169,8 @@ export class LMClient extends ExternalClient {
       userByEmail: (email: string) =>
         `api/license-manager/pvt/users/${encodeURIComponent(email)}`,
       userById: (id: string) => `api/license-manager/pvt/users/${id}`,
+      getUserAdminPermissions: (account: string, userId: string) =>
+        `/api/license-manager/pvt/accounts/${account}/logins/${userId}/granted`,
     }
   }
 }

@@ -2,6 +2,7 @@ type Query {
   getAppSettings: SettingsResponse
     @cacheControl(scope: PRIVATE)
     @settings(settingsType: "workspace")
+    @withSender
 
   getRole(id: ID!): Role @cacheControl(scope: PRIVATE, maxAge: SHORT)
 
@@ -11,6 +12,7 @@ type Query {
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @settings(settingsType: "workspace")
     @withSession
+    @withSender
 
   getFeaturesByModule(module: String!): Feature
     @settings(settingsType: "workspace")
@@ -19,20 +21,29 @@ type Query {
   listFeatures: [FullFeature]
     @settings(settingsType: "workspace")
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
+    @withSender
 
-  getUser(id: ID!): User @cacheControl(scope: PRIVATE)
+  getUser(id: ID!): User @cacheControl(scope: PRIVATE) @validateStoreUserAccess
+  getB2BUser(id: ID!): User @cacheControl(scope: PRIVATE)
 
-  checkCustomerSchema: Boolean @cacheControl(scope: PRIVATE)
+  checkCustomerSchema: Boolean @cacheControl(scope: PRIVATE) @withSender
 
-  getUserByEmail(email: String!): [User] @cacheControl(scope: PRIVATE)
+  getUserByEmail(email: String!): [User]
+    @cacheControl(scope: PRIVATE)
+    @withSender
+    @validateStoreUserAccess
 
-  listAllUsers: [User] @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  listAllUsers: [User]
+    @cacheControl(scope: PRIVATE, maxAge: SHORT)
+    @withSender
+    @validateStoreUserAccess
 
   listUsers(organizationId: ID, costCenterId: ID, roleId: ID): [User]
     @cacheControl(scope: PRIVATE, maxAge: SHORT)
     @deprecated(
       reason: "This query is deprecated, use listUsersPaginated query instead."
     )
+    @validateStoreUserAccess
 
   listUsersPaginated(
     organizationId: ID
@@ -43,7 +54,9 @@ type Query {
     search: String
     sortOrder: String
     sortedBy: String
-  ): UserPagination @cacheControl(scope: PRIVATE, maxAge: SHORT)
+  ): UserPagination
+    @cacheControl(scope: PRIVATE, maxAge: SHORT)
+    @validateStoreUserAccess
 
   checkImpersonation: UserImpersonation
     @settings(settingsType: "workspace")
@@ -58,12 +71,25 @@ type Query {
 
   getSessionWatcher: Boolean @cacheControl(scope: PRIVATE)
 
-  getUsersByEmail(email: String!): [User] @cacheControl(scope: PRIVATE)
+  getUsersByEmail(email: String!, orgId: ID, costId: ID): [User]
+    @cacheControl(scope: PRIVATE)
+    @validateStoreUserAccess
 
-  getActiveUserByEmail(email: String!): User @cacheControl(scope: PRIVATE)
+  getActiveUserByEmail(email: String!): User
+    @cacheControl(scope: PRIVATE)
+    @validateStoreUserAccess
 
   getOrganizationsByEmail(email: String!): [Organization]
     @cacheControl(scope: PRIVATE)
+    @validateStoreUserAccess
+
+  getOrganizationsPaginatedByEmail(
+    email: String!
+    page: Int = 1
+    pageSize: Int = 25
+  ): OrganizationPaginated
+    @cacheControl(scope: PRIVATE)
+    @validateStoreUserAccess
 }
 
 type Mutation {
@@ -74,9 +100,15 @@ type Mutation {
     name: String!
     slug: String
     features: [FeatureInput]
-  ): MutationResponse @cacheControl(scope: PRIVATE)
+  ): MutationResponse
+    @cacheControl(scope: PRIVATE)
+    @withSender
+    @validateStoreUserAccess
 
-  deleteRole(id: ID!): MutationResponse @cacheControl(scope: PRIVATE)
+  deleteRole(id: ID!): MutationResponse
+    @cacheControl(scope: PRIVATE)
+    @withSender
+    @validateStoreUserAccess
 
   saveUser(
     id: ID
@@ -88,7 +120,9 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse
+    @validateAdminUserAccess(adminPermission: "B2B_ORGANIZATIONS_EDIT")
+    @cacheControl(scope: PRIVATE)
 
   updateUser(
     id: ID
@@ -100,7 +134,9 @@ type Mutation {
     canImpersonate: Boolean = false
     email: String
     name: String
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse
+    @validateAdminUserAccess(adminPermission: "B2B_ORGANIZATIONS_EDIT")
+    @cacheControl(scope: PRIVATE)
 
   addUser(
     id: ID
@@ -111,10 +147,12 @@ type Mutation {
     canImpersonate: Boolean = false
     name: String!
     email: String!
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse
+    @validateAdminUserAccess(adminPermission: "B2B_ORGANIZATIONS_EDIT")
+    @cacheControl(scope: PRIVATE)
 
   addCostCenterToUser(costId: ID!, userId: ID!): MutationResponse
-    @checkUserAccess
+    @validateStoreUserAccess
     @cacheControl(scope: PRIVATE)
 
   addOrganizationToUser(
@@ -122,23 +160,36 @@ type Mutation {
     userId: ID!
     costId: ID!
     roleId: ID
-  ): MutationResponse @checkAdminAccess @cacheControl(scope: PRIVATE)
+  ): MutationResponse
+    @validateAdminUserAccess(adminPermission: "B2B_ORGANIZATIONS_EDIT")
+    @cacheControl(scope: PRIVATE)
 
   setActiveUserByOrganization(userId: ID): MutationResponse
-    @checkUserAccess
+    @validateStoreUserAccess
     @cacheControl(scope: PRIVATE)
 
   impersonateUser(userId: ID): MutationResponse
-    @checkUserAccess
+    @validateStoreUserAccess
     @cacheControl(scope: PRIVATE)
 
   deleteUser(id: ID!, userId: ID, email: String!): MutationResponse
-    @checkAdminAccess
+    @validateAdminUserAccess(adminPermission: "B2B_ORGANIZATIONS_EDIT")
     @cacheControl(scope: PRIVATE)
 
   setCurrentOrganization(orgId: ID!, costId: ID!): MutationResponse
     @withSession
     @cacheControl(scope: PRIVATE)
+    @withSender
+
+  ignoreB2BSessionData(enabled: Boolean!): MutationResponse
+    @withSession
+    @cacheControl(scope: PRIVATE)
+
+  setCurrentPriceTable(priceTable: String): MutationResponse
+    @withSession
+    @cacheControl(scope: PRIVATE)
+    @withSender
+    @validateStoreUserAccess
 }
 
 type UserImpersonation {
@@ -176,6 +227,7 @@ type User {
   email: String!
   canImpersonate: Boolean
   active: Boolean
+  selectedPriceTable: String
 }
 
 type Organization {
@@ -184,6 +236,11 @@ type Organization {
   costId: ID
   orgId: ID
   roleId: ID
+}
+
+type OrganizationPaginated {
+  data: [Organization]
+  pagination: Pagination
 }
 
 type Profile {

@@ -1,0 +1,14 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: storefront-permissions
+  annotations:
+    github.com/project-slug: vtex-apps/storefront-permissions
+    backstage.io/techdocs-ref: dir:./
+    vtex.com/application-id: WPR387HG
+    vtex.com/platform-flow-id: Merch#2,Merch#3,CommDev#1
+spec:
+  system: b2b-suite
+  type: backend-api
+  lifecycle: maintenance
+  owner: te-0010
