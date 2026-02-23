@@ -27,7 +27,7 @@ These are declared in `vtex.session/configuration.json` under `input.public`.
 
 | Field | Description |
 |-------|-------------|
-| `costCenterAddressId` | The address id currently used for region, shipping, and document type. Empty if the user cleared the selection (sent empty/null) or if there are no addresses. |
+| `costCenterAddressId` | The address id that the app exposes as selected for region, shipping, and document type. When the user clears the selection (sends empty/null), this field is set to empty, but for that request the app still internally uses the first cost center address for region/shipping/document type. It is also empty if there are no addresses. |
 | (other existing fields) | `costcenter`, `organization`, `priceTables`, `userId`, `hash`, etc. |
 
 ### Output (public namespace)
