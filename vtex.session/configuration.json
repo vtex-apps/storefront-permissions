@@ -4,21 +4,12 @@
       "authentication": ["storeUserEmail"],
       "checkout": ["orderFormId"],
       "impersonate": ["storeUserEmail", "storeUserId"],
-      "public": ["impersonate", "removeB2B", "b2bCurrentCostCenter"],
+      "public": ["impersonate", "removeB2B", "b2bCurrentCostCenter", "costCenterAddressId", "allowRegionOverwrite", "postalCode", "country"],
       "storefront-permissions": ["hash"]
     },
     "output": {
       "public": ["facets", "sc", "regionId"],
-      "storefront-permissions": [
-        "storeUserId",
-        "storeUserEmail",
-        "organization",
-        "costcenter",
-        "priceTables",
-        "collections",
-        "userId",
-        "hash"
-      ]
+      "storefront-permissions": ["storeUserId", "storeUserEmail", "organization", "costcenter", "costCenterAddressId", "priceTables", "collections", "userId", "hash"]
     }
   }
 }
