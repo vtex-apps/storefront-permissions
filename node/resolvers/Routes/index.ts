@@ -429,7 +429,7 @@ export const Routes = {
     phoneNumber = costCenterData?.phoneNumber
 
     businessDocument =
-      costCenterData?.businessDocument?.replace(/[^a-zA-Z0-9]*/g, '') ?? null
+      costCenterData?.businessDocument?.replace(/[^a-zA-Z0-9]+/g, '') ?? null
 
     stateRegistration = costCenterData?.stateRegistration ?? null
 
