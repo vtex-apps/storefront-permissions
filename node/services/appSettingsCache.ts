@@ -19,8 +19,6 @@ export const getCachedAppSettings = async (ctx: Context): Promise<Record<string,
   const workspace = vtex.workspace
   const cacheKey = `${account}-${workspace}-${appId}`
 
-  console.log('cacheKey', cacheKey)
-
   const cached = await settingsCache.getOrSet(cacheKey, () =>
     ctx.clients.apps.getAppSettings(appId).then((res) => ({
       value: (res ?? {}) as Record<string, unknown>,

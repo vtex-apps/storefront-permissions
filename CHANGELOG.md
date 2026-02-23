@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [2.2.0] - 2026-02-22
-
 ### Added
 
 - **Cost center address selection (opt-in):** New app setting `enableCostCenterAddressSelection`. When enabled, the session accepts `costCenterAddressId` in the public namespace and uses the selected cost center address for region, shipping, and document type (e.g. Brazil CPF). When disabled or when no valid id is sent, the first cost center address is used. Output `costCenterAddressId` in the storefront-permissions namespace reflects the selected address; if the client sends `costCenterAddressId` as empty or null, the output is set to empty so the session reflects a cleared selection.
