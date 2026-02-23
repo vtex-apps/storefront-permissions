@@ -138,6 +138,18 @@
         "description": "When enabled, the private sellers facets will be disabled",
         "type": "boolean",
         "default": false
+      },
+      "enableCostCenterAddressSelection": {
+        "title": "Enable cost center address selection",
+        "description": "When enabled, the session accepts costCenterAddressId in public input and uses the selected address for region, shipping and document type. When disabled, the first cost center address is always used (backward compatible).",
+        "type": "boolean",
+        "default": false
+      },
+      "enableRegionOverwrite": {
+        "title": "Enable region overwrite",
+        "description": "When enabled, the session accepts allowRegionOverwrite from the frontend. When sent and both public.postalCode and public.country are set, we set public.regionId to empty and do not update the cart with an address; checkout-session backend then sets checkout.regionId from those values. Only the merchant can enable this (app setting).",
+        "type": "boolean",
+        "default": false
       }
     }
   },
