@@ -160,6 +160,7 @@ export const Routes = {
 
     const b2bImpersonate = body?.public?.impersonate?.value
     const telemarketingImpersonate = body?.impersonate?.storeUserId?.value
+    const currentSessionSalesChannel = body?.public?.sc?.value
     const orderFormId = body?.checkout?.orderFormId?.value
     const isCorporate = true
 
@@ -444,14 +445,26 @@ export const Routes = {
     const validChannels = salesChannels.data.filter(
       (channel: any) => channel.IsActive
     )
-
-    if (
-      !salesChannel?.length ||
-      !validChannels?.find(
+    const getValidChannelById = (channelId: any) =>
+      validChannels.find(
         (validSalesChannel: any) =>
-          String(validSalesChannel.Id) === salesChannel.toString()
+          String(validSalesChannel.Id) === String(channelId)
       )
-    ) {
+    const hasOrganizationSalesChannel =
+      salesChannel !== null &&
+      salesChannel !== undefined &&
+      String(salesChannel).trim().length > 0 &&
+      String(salesChannel) !== '0'
+
+    if (!hasOrganizationSalesChannel) {
+      // If organization doesn't define a trade policy ("None"),
+      // keep the current session channel when possible.
+      if (getValidChannelById(currentSessionSalesChannel)) {
+        salesChannel = currentSessionSalesChannel
+      } else {
+        salesChannel = null
+      }
+    } else if (!getValidChannelById(salesChannel)) {
       if (validChannels.length) {
         salesChannel = validChannels[0].Id
       }
@@ -503,16 +516,18 @@ export const Routes = {
         marketingTagsResponse?.data?.getMarketingTags?.tags
 
       try {
-        const [regionId] = await checkout.getRegionId(
-          address.country,
-          address.postalCode,
-          salesChannel.toString(),
-          address.geoCoordinates
-        )
+        if (salesChannel) {
+          const [regionId] = await checkout.getRegionId(
+            address.country,
+            address.postalCode,
+            salesChannel.toString(),
+            address.geoCoordinates
+          )
 
-        if (regionId?.id) {
-          response.public.regionId = {
-            value: regionId.id,
+          if (regionId?.id) {
+            response.public.regionId = {
+              value: regionId.id,
+            }
           }
         }
       } catch (error) {
