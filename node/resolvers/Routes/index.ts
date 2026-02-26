@@ -472,6 +472,9 @@ export const Routes = {
       }
       response['storefront-permissions'].costCenterAddressId.value =
         explicitlyClearedCostCenterAddress ? '' : (selectedAddress?.addressId ?? '')
+    } else {
+      // No cost center addresses: per docs, costCenterAddressId should be empty
+      response['storefront-permissions'].costCenterAddressId.value = ''
     }
 
     // Only require CPF if selected (or any) cost center address is in Brazil
