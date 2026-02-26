@@ -1,6 +1,7 @@
 import { ForbiddenError } from '@vtex/api'
 import { json } from 'co-body'
 
+import { getCachedAppSettings } from '../../services/appSettingsCache'
 import { getRole } from '../Queries/Roles'
 import { getSessionWatcher } from '../Queries/Settings'
 import { generateClUser, getUserOrganizationsData } from './utils'
@@ -120,6 +121,9 @@ export const Routes = {
       },
       'storefront-permissions': {
         costcenter: {
+          value: '',
+        },
+        costCenterAddressId: {
           value: '',
         },
         organization: {
@@ -281,14 +285,14 @@ export const Routes = {
       salesChannels,
       marketingTagsResponse,
       b2bSettingsResponse,
-    ]: Array<{
-      data: any
-    }> = await Promise.all([
+      appSettings,
+    ] = await Promise.all([
       getOrganization(user.orgId),
       organizations.getCostCenterById(user.costId),
       salesChannelClient.getSalesChannel(),
       organizations.getMarketingTags(user.costId),
       organizations.getB2BSettings(),
+      getCachedAppSettings(ctx),
     ])
 
     // Cost center validation is now handled together with organization status below
@@ -298,7 +302,7 @@ export const Routes = {
 
     // Check if we need to fetch user organizations (for inactive org or invalid cost center)
     const costCenterInvalid = Object.values(
-      costCenterResponse.data.getCostCenterById
+      costCenterResponse.data?.getCostCenterById ?? {}
     ).every((value) => value === null)
 
     const organizationInactive = organization.status === 'inactive'
@@ -384,13 +388,16 @@ export const Routes = {
       facets = [...facets, ...collections]
     }
 
-    if (
-      organization.sellers?.length ||
-      costCenterResponse?.data?.getCostCenterById?.sellers?.length
-    ) {
-      const sellersList =
-        costCenterResponse?.data?.getCostCenterById?.sellers ??
-        organization.sellers
+    const orgSellers = organization.sellers
+    const costCenterSellers = costCenterResponse?.data?.getCostCenterById?.sellers
+    const sellersArray = Array.isArray(costCenterSellers)
+      ? costCenterSellers
+      : Array.isArray(orgSellers)
+        ? orgSellers
+        : []
+
+    if (sellersArray.length > 0) {
+      const sellersList = sellersArray
 
       const { disableSellersNameFacets, disablePrivateSellersFacets } =
         await Routes.appSettings(ctx)
@@ -418,30 +425,74 @@ export const Routes = {
     response.public.facets.value = facets ? `${facets.join(';')};` : null
 
     response['storefront-permissions'].costcenter.value = user.costId
-    phoneNumber = costCenterResponse?.data?.getCostCenterById?.phoneNumber
+    const costCenterData = costCenterResponse?.data?.getCostCenterById
+    phoneNumber = costCenterData?.phoneNumber
 
     businessDocument =
-      costCenterResponse.data.getCostCenterById.businessDocument?.replace(
-        /[^a-zA-Z0-9]*/,
-        ''
-      )
+      costCenterData?.businessDocument?.replace(/[^a-zA-Z0-9]+/g, '') ?? null
 
-    stateRegistration =
-      costCenterResponse.data.getCostCenterById.stateRegistration
+    stateRegistration = costCenterData?.stateRegistration ?? null
 
-    // Only require CPF if cost center contains an address in Brazil
-    // This is a workaround to avoid setting CPF as documentType for countries other than Brazil
+    const costCenterAddresses =
+      (costCenterData as { addresses?: any[] } | undefined)?.addresses ?? []
+    const enableCostCenterAddressSelection =
+      (appSettings as any)?.enableCostCenterAddressSelection ?? false
+    const enableRegionOverwriteFlag =
+      (appSettings as any)?.enableRegionOverwrite ?? false
+    const publicCostCenterAddressId = body?.public?.costCenterAddressId?.value
+    const requestedAddressId = enableCostCenterAddressSelection
+      ? publicCostCenterAddressId
+      : undefined
+    const explicitlyClearedCostCenterAddress =
+      enableCostCenterAddressSelection &&
+      (publicCostCenterAddressId === '' || publicCostCenterAddressId === null)
+    const allowRegionOverwrite =
+      enableRegionOverwriteFlag && !!body?.public?.allowRegionOverwrite?.value
+    const hasPublicPostalCode = !!body?.public?.postalCode?.value
+    const hasPublicCountry = !!body?.public?.country?.value
+    const usePublicPostalCodeForRegion =
+      allowRegionOverwrite && hasPublicPostalCode && hasPublicCountry
+
+    let selectedAddress: any = null
+    if (costCenterAddresses.length) {
+      if (requestedAddressId) {
+        selectedAddress = costCenterAddresses.find(
+          (addr: { addressId: string }) => addr.addressId === requestedAddressId
+        )
+        if (!selectedAddress) {
+          logger.warn({
+            message: 'setProfile.costCenterAddressIdNotFound',
+            costCenterAddressId: requestedAddressId,
+            costId: user.costId,
+          })
+          selectedAddress = costCenterAddresses[0]
+        }
+      } else {
+        selectedAddress = costCenterAddresses[0]
+      }
+      response['storefront-permissions'].costCenterAddressId.value =
+        explicitlyClearedCostCenterAddress ? '' : (selectedAddress?.addressId ?? '')
+    } else {
+      // No cost center addresses: per docs, costCenterAddressId should be empty
+      response['storefront-permissions'].costCenterAddressId.value = ''
+    }
+
+    // Only require CPF if selected (or any) cost center address is in Brazil
     if (
-      costCenterResponse?.data?.getCostCenterById?.addresses?.some(
-        (address: { country: string }) => address.country === 'BRA'
-      )
+      selectedAddress
+        ? selectedAddress.country === 'BRA'
+        : costCenterAddresses.some(
+            (address: { country: string }) => address.country === 'BRA'
+          )
     ) {
       documentType = Routes.PROFILE_DOCUMENT_TYPE
     }
 
     let { salesChannel } = organization
 
-    const validChannels = salesChannels.data.filter(
+    const salesChannelsData =
+      (salesChannels as unknown as { data?: any[] })?.data ?? []
+    const validChannels = salesChannelsData.filter(
       (channel: any) => channel.IsActive
     )
 
@@ -475,11 +526,10 @@ export const Routes = {
 
     if (hashChanged && orderFormId) {
       try {
+        const b2bSettings = (b2bSettingsResponse as any)?.data?.getB2BSettings
         const {
           uiSettings: { clearCart },
-        } = b2bSettingsResponse?.data?.getB2BSettings ?? {
-          uiSettings: { clearCart: null },
-        }
+        } = b2bSettings ?? { uiSettings: { clearCart: null } }
 
         if (clearCart) {
           await Promise.all(salesChannelPromise)
@@ -493,33 +543,35 @@ export const Routes = {
       }
     }
 
-    if (
-      costCenterResponse?.data?.getCostCenterById?.addresses?.length &&
-      orderFormId
-    ) {
-      const [address] = costCenterResponse.data.getCostCenterById.addresses
-
+    // When usePublicPostalCodeForRegion (overwrite on + public.postalCode and public.country set): we do not set public.regionId and we set it to empty;
+    // checkout-session will use public.postalCode and public.country for checkout.regionId. We also do not update the cart with an address.
+    if (selectedAddress && orderFormId) {
+      const address = selectedAddress
       const marketingTags: any =
-        marketingTagsResponse?.data?.getMarketingTags?.tags
+        (marketingTagsResponse as any)?.data?.getMarketingTags?.tags
 
-      try {
-        const [regionId] = await checkout.getRegionId(
-          address.country,
-          address.postalCode,
-          salesChannel.toString(),
-          address.geoCoordinates
-        )
+      if (!usePublicPostalCodeForRegion) {
+        try {
+          const [regionId] = await checkout.getRegionId(
+            address.country,
+            address.postalCode,
+            salesChannel.toString(),
+            address.geoCoordinates
+          )
 
-        if (regionId?.id) {
-          response.public.regionId = {
-            value: regionId.id,
+          if (regionId?.id) {
+            response.public.regionId = {
+              value: regionId.id,
+            }
           }
+        } catch (error) {
+          logger.error({
+            error,
+            message: 'setProfile.getRegionId',
+          })
         }
-      } catch (error) {
-        logger.error({
-          error,
-          message: 'setProfile.getRegionId',
-        })
+      } else {
+        response.public.regionId = { value: '' }
       }
 
       promises.push(
@@ -538,32 +590,34 @@ export const Routes = {
           })
       )
 
-      promises.push(
-        checkout
-          .updateOrderFormShipping(orderFormId, {
-            address: {
-              ...address,
-              geoCoordinates: address.geoCoordinates ?? [],
-              isDisposable: true,
-            },
-            clearAddressIfPostalCodeNotFound: false,
-          })
-          .catch((error) => {
-            logger.error({
-              error,
-              message: 'setProfile.updateOrderFormShippingError',
+      if (!usePublicPostalCodeForRegion) {
+        promises.push(
+          checkout
+            .updateOrderFormShipping(orderFormId, {
+              address: {
+                ...address,
+                geoCoordinates: address.geoCoordinates ?? [],
+                isDisposable: true,
+              },
+              clearAddressIfPostalCodeNotFound: false,
             })
-          })
-      )
+            .catch((error) => {
+              logger.error({
+                error,
+                message: 'setProfile.updateOrderFormShippingError',
+              })
+            })
+        )
+      }
     }
 
     const clUser = await generateClUser({
       businessDocument,
       businessName,
-      clId: user?.clId,
+      clId: user?.clId ?? '',
       ctx,
-      phoneNumber,
-      stateRegistration,
+      phoneNumber: (phoneNumber ?? null) as string | null,
+      stateRegistration: (stateRegistration ?? null) as string | null,
       tradeName,
       isCorporate,
     })
@@ -576,11 +630,13 @@ export const Routes = {
         checkout
           .updateOrderFormProfile(orderFormId, {
             ...clUser,
-            businessDocument: businessDocument || clUser.businessDocument,
+            businessDocument:
+              (businessDocument || clUser.businessDocument) ?? null,
             documentType: documentType ?? undefined,
             phone: phoneNumberFormatted,
             stateInscription:
-              stateRegistration || clUser.stateInscription || '0'.repeat(9),
+              (stateRegistration ?? clUser.stateInscription ?? '0'.repeat(9)) ??
+              null,
           })
           .catch((error) => {
             logger.error({
