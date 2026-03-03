@@ -378,9 +378,11 @@ export const Routes = {
         ctx
       )) as { selectedPriceTable: string }
 
+      const MAX_PRICE_TABLES = 3
+
       const selectedPriceTable = userWithPriceTable?.selectedPriceTable
         ? userWithPriceTable.selectedPriceTable
-        : organization.priceTables.join(',')
+        : organization.priceTables.slice(0, MAX_PRICE_TABLES).join(',')
 
       response[
         'storefront-permissions'
