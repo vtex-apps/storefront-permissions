@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+
+- Limit fallback price tables to the first 3 when no user-selected price table is set, preventing navigation and checkout failures for organizations with hundreds of price tables.
 
 ## [3.3.0] - 2026-03-03
 
@@ -66,6 +69,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
     - vtex.b2b-theme@5.x
     - vtex.storefront-permissions-components@2.x
     - vtex.storefront-permissions-ui@1.x
+
+## [2.2.1] - 2026-03-03
+### Fixed
+
+- Limit fallback price tables to the first 3 when no user-selected price table is set, preventing navigation and checkout failures for organizations with hundreds of price tables.
 
 ## [2.2.0] - 2026-02-22
 

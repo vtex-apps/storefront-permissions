@@ -4,7 +4,7 @@ This document describes how **Storefront Permissions** handles multiple cost cen
 
 ## Overview
 
-When a B2B user has a cost center with **multiple addresses**, the storefront may let them choose which address to use for shipping, region (e.g. delivery options, pricing), and document type (e.g. Brazil CPF). In addition, the user may temporarily **override** the region (e.g. "check delivery to another location") by entering a postal code and country, without changing the cost center's selected address. This app supports both behaviors in an **opt-in** way via app settings.
+When a B2B user has a cost center with **multiple addresses**, the storefront may let them choose which address to use for shipping, region (e.g. delivery options, pricing), and document type (e.g. Brazil CPF). In addition, the user may temporarily **override** the region (e.g. “check delivery to another location”) by entering a postal code and country, without changing the cost center’s selected address. This app supports both behaviors in an **opt-in** way via app settings.
 
 ---
 
@@ -16,7 +16,7 @@ The session backend sends the current session to `setProfile`. The transform rea
 
 | Field | Used when | Description |
 |-------|-----------|-------------|
-| `costCenterAddressId` | `enableCostCenterAddressSelection` is on | The address id the user selected for this cost center. If sent as **empty or null**, the selection is treated as "cleared". |
+| `costCenterAddressId` | `enableCostCenterAddressSelection` is on | The address id the user selected for this cost center. If sent as **empty or null**, the selection is treated as “cleared”. |
 | `allowRegionOverwrite` | `enableRegionOverwrite` is on | If present/truthy, the app may leave region and cart address to checkout-session (see below). |
 | `postalCode` | `enableRegionOverwrite` + overwrite requested | Required together with `country` for region overwrite to take effect. |
 | `country` | `enableRegionOverwrite` + overwrite requested | Required together with `postalCode` for region overwrite to take effect. |
@@ -27,7 +27,7 @@ These are declared in `vtex.session/configuration.json` under `input.public`.
 
 | Field | Description |
 |-------|-------------|
-| `costCenterAddressId` | The address id that the app exposes as selected for region, shipping, and document type. When the user clears the selection (sends empty/null), this field is set to empty, but for that request the app still internally uses the first cost center address for region/shipping/document type. It is also empty if there are no addresses. |
+| `costCenterAddressId` | The address id currently used for region, shipping, and document type. Empty if the user cleared the selection (sent empty/null) or if there are no addresses. |
 | (other existing fields) | `costcenter`, `organization`, `priceTables`, `userId`, `hash`, etc. |
 
 ### Output (public namespace)
@@ -72,17 +72,17 @@ Only the merchant can turn these on in the VTEX Admin (App settings). The fronte
 - **Cost center addresses** come from the cost center GraphQL response (`addresses` array, each with `addressId`).
 - If the user **explicitly cleared** the selection (feature on and `costCenterAddressId` sent as empty or null):
   - The app still picks the **first** address for internal use (region, shipping, document type) for that request.
-  - The **output** `costCenterAddressId` is set to **empty** so the session stores "no selection".
+  - The **output** `costCenterAddressId` is set to **empty** so the session stores “no selection”.
 - Otherwise:
   - If a valid `requestedAddressId` is sent and exists in the cost center → that address is **selected**.
   - If the id is invalid or not sent → the **first** address is used.
 - The output `storefront-permissions.costCenterAddressId` is:
   - **Empty** when the user explicitly cleared the selection.
-  - Otherwise the **selected** address's `addressId` (or empty if there are no addresses).
+  - Otherwise the **selected** address’s `addressId` (or empty if there are no addresses).
 
 ### 3.3 Document type (e.g. Brazil CPF)
 
-- If there is a **selected address**, Brazil is determined from that address's country.
+- If there is a **selected address**, Brazil is determined from that address’s country.
 - Otherwise, the app uses the previous rule: any cost center address in Brazil.
 
 ### 3.4 Region and cart (when there is a selected address and order form id)
@@ -93,7 +93,7 @@ Only the merchant can turn these on in the VTEX Admin (App settings). The fronte
   - If **`usePublicPostalCodeForRegion`**: the app **does not** call the region API and sets **`response.public.regionId = { value: '' }`** so the session has an explicit empty; **checkout-session** is responsible for setting `checkout.regionId` from `public.postalCode` and `public.country`.
 - **Cart shipping address:**
   - If **not** `usePublicPostalCodeForRegion`: the app calls **updateOrderFormShipping** with the **selected** address.
-  - If **`usePublicPostalCodeForRegion`**: the app **does not** update the cart with an address (the user is in "check another location" mode; only postalCode/country are available, not a full address).
+  - If **`usePublicPostalCodeForRegion`**: the app **does not** update the cart with an address (the user is in “check another location” mode; only postalCode/country are available, not a full address).
 
 ---
 
