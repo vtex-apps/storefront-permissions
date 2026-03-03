@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- **Cost center address selection (opt-in):** New app setting `enableCostCenterAddressSelection`. When enabled, the session accepts `costCenterAddressId` in the public namespace and uses the selected cost center address for region, shipping, and document type (e.g. Brazil CPF). When disabled or when no valid id is sent, the first cost center address is used. Output `costCenterAddressId` in the storefront-permissions namespace reflects the selected address; if the client sends `costCenterAddressId` as empty or null, the output is set to empty so the session reflects a cleared selection.
+- **Region overwrite (opt-in):** New app setting `enableRegionOverwrite`. When enabled and the client sends `allowRegionOverwrite` with both `public.postalCode` and `public.country` set, we set `public.regionId` to empty and do not update the cart shipping address; checkout-session backend is responsible for setting `checkout.regionId` from those values. Requires both postalCode and country in the public namespace to take effect.
+- Session input (public) now accepts `costCenterAddressId`, `allowRegionOverwrite`, `postalCode`, and `country`. Session output (storefront-permissions) includes `costCenterAddressId`; output (public) `regionId` is explicitly set to empty when region overwrite is active.
+- LRU cache for app settings (manifest settingsSchema) to reduce Apps API calls on `setProfile` (5 min TTL). See `docs/COST_CENTER_ADDRESS_AND_REGION.md`.
+- Documentation: `docs/COST_CENTER_ADDRESS_AND_REGION.md` describing cost center address selection and region overwrite logic.
+
+### Changed
+
+- `setProfile` now reads app settings via cached getter in parallel with organization/cost center data to support the new feature flags without extra latency.
+- When region overwrite is active, `response.public.regionId` is explicitly set to empty so the session merge correctly reflects that storefront-permissions is not providing a region (checkout-session will derive it from postalCode/country).
+
 ## [3.2.3] - 2026-02-22
 
 ### Fixed
@@ -51,7 +64,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
     - vtex.b2b-theme@5.x
     - vtex.storefront-permissions-components@2.x
     - vtex.storefront-permissions-ui@1.x
-    
+
+## [2.2.0] - 2026-02-22
+
+### Added
+
+- **Cost center address selection (opt-in):** New app setting `enableCostCenterAddressSelection`. When enabled, the session accepts `costCenterAddressId` in the public namespace and uses the selected cost center address for region, shipping, and document type (e.g. Brazil CPF). When disabled or when no valid id is sent, the first cost center address is used. Output `costCenterAddressId` in the storefront-permissions namespace reflects the selected address; if the client sends `costCenterAddressId` as empty or null, the output is set to empty so the session reflects a cleared selection.
+- **Region overwrite (opt-in):** New app setting `enableRegionOverwrite`. When enabled and the client sends `allowRegionOverwrite` with both `public.postalCode` and `public.country` set, we set `public.regionId` to empty and do not update the cart shipping address; checkout-session backend is responsible for setting `checkout.regionId` from those values. Requires both postalCode and country in the public namespace to take effect.
+- Session input (public) now accepts `costCenterAddressId`, `allowRegionOverwrite`, `postalCode`, and `country`. Session output (storefront-permissions) includes `costCenterAddressId`; output (public) `regionId` is explicitly set to empty when region overwrite is active.
+- LRU cache for app settings (manifest settingsSchema) to reduce Apps API calls on `setProfile` (5 min TTL). See `docs/COST_CENTER_ADDRESS_AND_REGION.md`.
+- Documentation: `docs/COST_CENTER_ADDRESS_AND_REGION.md` describing cost center address selection and region overwrite logic.
+
+### Changed
+
+- `setProfile` now reads app settings via cached getter in parallel with organization/cost center data to support the new feature flags without extra latency.
+- When region overwrite is active, `response.public.regionId` is explicitly set to empty so the session merge correctly reflects that storefront-permissions is not providing a region (checkout-session will derive it from postalCode/country).
 
 ## [2.1.0] - 2025-07-17
 

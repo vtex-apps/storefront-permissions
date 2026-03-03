@@ -37,6 +37,8 @@ In the following table, you can see the available storefront roles, their key us
 
 It also allows you to configure available permissions when developing your own app, associate them with the predefined roles, and have these permissions checked by other applications – if you perform the steps described in the [Advanced app integration](#advanced-app-integration-optional) section.
 
+For B2B session behavior related to **cost center address selection** and **region overwrite** (multiple addresses per cost center, optional region from postal code/country), see [Cost center address and region](COST_CENTER_ADDRESS_AND_REGION.md).
+
 The **Storefront Permissions** app does not contain an interface – it operates “backstage”, storing the predefined roles and serving as a bridge to communicate with other apps in order to check user permissions. If you would like to manage roles and app permissions using the VTEX Admin interface, you must also install the [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui) app. As an optional feature, you can install the [Admin Customers](https://developers.vtex.com/vtex-developer-docs/docs/vtex-admin-customers) app for additional customer management capabilities.
 
 
