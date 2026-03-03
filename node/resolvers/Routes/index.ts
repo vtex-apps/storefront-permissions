@@ -295,7 +295,28 @@ export const Routes = {
       getCachedAppSettings(ctx),
     ])
 
-    // Cost center validation is now handled together with organization status below
+    // in case the cost center is not found, we need to find a valid cost center for the user
+    if (
+      Object.values(
+        costCenterResponse.data?.getCostCenterById ?? {}
+      ).every((value) => value === null)
+    ) {
+      try {
+        const usersByEmail = await organizations.getOrganizationsByEmail(email)
+
+        // when cost center comes without a name, it's because the cost center is deleted
+        const usersData = usersByEmail.data.getOrganizationsByEmail.find(
+          (userByEmail) => userByEmail.costCenterName !== null
+        )
+
+        user.costId = usersData?.costId ?? user.costId
+      } catch (error) {
+        logger.error({
+          error,
+          message: 'setProfile.graphqlGetOrganizationById',
+        })
+      }
+    }
 
     let organization: any = organizationResponse
     let userOrgsData: any = null
@@ -369,9 +390,11 @@ export const Routes = {
         ctx
       )) as { selectedPriceTable: string }
 
+      const MAX_PRICE_TABLES = 3
+
       const selectedPriceTable = userWithPriceTable?.selectedPriceTable
         ? userWithPriceTable.selectedPriceTable
-        : organization.priceTables.join(',')
+        : organization.priceTables.slice(0, MAX_PRICE_TABLES).join(',')
 
       response[
         'storefront-permissions'
@@ -439,7 +462,8 @@ export const Routes = {
       (appSettings as any)?.enableCostCenterAddressSelection ?? false
     const enableRegionOverwriteFlag =
       (appSettings as any)?.enableRegionOverwrite ?? false
-    const publicCostCenterAddressId = body?.public?.costCenterAddressId?.value
+    const publicCostCenterAddressId =
+      body?.public?.costCenterAddressId?.value
     const requestedAddressId = enableCostCenterAddressSelection
       ? publicCostCenterAddressId
       : undefined
@@ -572,6 +596,11 @@ export const Routes = {
         }
       } else {
         response.public.regionId = { value: '' }
+        logger.info({
+          message: 'setProfile.regionIdSkipped',
+          reason: 'usePublicPostalCodeForRegion',
+          publicPostalCode: body?.public?.postalCode?.value ?? null,
+        })
       }
 
       promises.push(
@@ -608,6 +637,11 @@ export const Routes = {
               })
             })
         )
+      } else {
+        logger.info({
+          message: 'setProfile.cartShippingSkipped',
+          reason: 'usePublicPostalCodeForRegion',
+        })
       }
     }
 
@@ -616,8 +650,8 @@ export const Routes = {
       businessName,
       clId: user?.clId ?? '',
       ctx,
-      phoneNumber: (phoneNumber ?? null) as string | null,
-      stateRegistration: (stateRegistration ?? null) as string | null,
+      phoneNumber: phoneNumber ?? null,
+      stateRegistration,
       tradeName,
       isCorporate,
     })
