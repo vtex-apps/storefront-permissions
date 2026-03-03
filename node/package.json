@@ -1,6 +1,6 @@
 {
   "name": "vtex.storefront-permissions",
-  "version": "2.1.0",
+  "version": "2.2.1",
   "dependencies": {
     "@vtex/api": "6.50.1",
     "atob": "^2.1.2",
