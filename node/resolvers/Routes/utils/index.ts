@@ -185,7 +185,7 @@ export const getUserOrganizationsData = async (
   validCostCenterId: string | null
   activeOrganization: GetOrganizationByEmailBase | null
 }> => {
-  const CACHE_TTL = 1 * 60 * 1000 // 1 minutes cache
+  const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
   const cacheKey = `orgs-${email}`
 
   // Check cache first

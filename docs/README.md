@@ -14,6 +14,7 @@ Within an organization, each user can have different roles, such as a profession
 
 The **Storefront Permissions** app stores a predefined set of roles and app permissions related to what B2B users can access and do in your storefront, making this information available for other integrated apps to check. This is useful for stores who want to set specific app permissions for users with different roles in an organization.
 
+> ⚠️ This specification applies to B2B Suite only.
 
 ## Available storefront roles
 
@@ -35,6 +36,8 @@ In the following table, you can see the available storefront roles, their key us
 **Storefront Permissions** communicates automatically with other [B2B Suite](https://developers.vtex.com/vtex-developer-docs/docs/vtex-b2b-suite) apps, such as [B2B Organizations](https://developers.vtex.com/vtex-developer-docs/docs/vtex-b2b-organizations), where it enables different organization management capabilities depending on each user’s role.
 
 It also allows you to configure available permissions when developing your own app, associate them with the predefined roles, and have these permissions checked by other applications – if you perform the steps described in the [Advanced app integration](#advanced-app-integration-optional) section.
+
+For B2B session behavior related to **cost center address selection** and **region overwrite** (multiple addresses per cost center, optional region from postal code/country), see [Cost center address and region](COST_CENTER_ADDRESS_AND_REGION.md).
 
 The **Storefront Permissions** app does not contain an interface – it operates “backstage”, storing the predefined roles and serving as a bridge to communicate with other apps in order to check user permissions. If you would like to manage roles and app permissions using the VTEX Admin interface, you must also install the [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui) app. As an optional feature, you can install the [Admin Customers](https://developers.vtex.com/vtex-developer-docs/docs/vtex-admin-customers) app for additional customer management capabilities.
 

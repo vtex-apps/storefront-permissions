@@ -1,3 +1,5 @@
 files:
-  - source: /messages/en.json
-    translation: /messages/%two_letters_code%.json
+  - source: /public/metadata/licenses/en-US.md
+    translation: /%original_path%/%locale%.%file_extension%
+  - source: /public/metadata/messages/en-US.json
+    translation: /%original_path%/%locale%.%file_extension%
