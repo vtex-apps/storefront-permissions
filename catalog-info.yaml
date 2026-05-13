@@ -7,6 +7,8 @@ metadata:
     backstage.io/techdocs-ref: dir:./
     vtex.com/application-id: WPR387HG
     vtex.com/platform-flow-id: Merch#2,Merch#3,CommDev#1
+    vtex.com/sdd-check-skip: 'true'
+    vtex.com/sdd-check-skip-reason: This repository is part of the B2B Suite package.
 spec:
   system: b2b-suite
   type: backend-api
