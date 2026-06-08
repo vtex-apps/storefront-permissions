@@ -52,7 +52,7 @@ export default [
   },
   {
     name: 'b2b_users',
-    version: 'v0.1.2',
+    version: 'v0.1.3',
     body: {
       properties: {
         roleId: {
@@ -104,6 +104,7 @@ export default [
         'orgId',
         'costId',
         'email',
+        'name',
         'canImpersonate',
         'active',
         'selectedPriceTable',

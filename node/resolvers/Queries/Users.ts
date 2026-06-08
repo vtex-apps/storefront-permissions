@@ -507,7 +507,7 @@ export const listUsersPaginated = async (
   let whereSearchFields: any[] = []
 
   if (search && search.length > 0) {
-    const fields = ['email']
+    const fields = ['email', 'name']
 
     whereSearchFields = fields.map((field) => `${field}="*${search}*"`)
   }

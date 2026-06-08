@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- Add `name` to `b2b_users` `v-indexed` to enable native sorting by name
+- Extend `listUsersPaginated` search to filter by `name` in addition to `email`
+
 ## [3.3.2] - 2026-03-06
 
 ### Changed
