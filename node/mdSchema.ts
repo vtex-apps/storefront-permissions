@@ -104,6 +104,7 @@ export default [
         'orgId',
         'costId',
         'email',
+        'name',
         'canImpersonate',
         'active',
         'selectedPriceTable',
