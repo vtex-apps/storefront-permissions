@@ -52,7 +52,7 @@ export default [
   },
   {
     name: 'b2b_users',
-    version: 'v0.1.3',
+    version: 'v0.1.2',
     body: {
       properties: {
         roleId: {
