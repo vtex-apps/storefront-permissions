@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.3.3] - 2026-06-12
+
 ### Changed
 
 - Add `name` to `b2b_users` `v-indexed` to enable native sorting by name
