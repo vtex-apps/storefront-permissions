@@ -1,5 +1,5 @@
 import schemas from '../../mdSchema'
-import { toHash } from '../../utils'
+import { getSchemaSettingsVBaseKey, toHash } from '../../utils'
 import { syncRoles } from '../Mutations/Roles'
 import type { ErrorResponse } from '../Routes/utils'
 
@@ -17,8 +17,9 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
   } = ctx
 
   const app: string = getAppId()
+  const settingsKey = getSchemaSettingsVBaseKey(app)
 
-  const settings = (await vbase.getJSON('b2b_settings', app).catch(() => {
+  const settings = (await vbase.getJSON('b2b_settings', settingsKey).catch(() => {
     return {}
   })) as {
     adminSetup: {
@@ -73,7 +74,7 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
         }
       })
 
-    await vbase.saveJSON('b2b_settings', app, settings)
+    await vbase.saveJSON('b2b_settings', settingsKey, settings)
   }
 
   const roles: any = await syncRoles(ctx).catch(() => [])
