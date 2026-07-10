@@ -1,7 +1,13 @@
+const SCHEMA_MAJOR = '3'
+
+export const B2B_ROLES_SCHEMA_VERSION = `v${SCHEMA_MAJOR}.0.3`
+export const B2B_PROFILES_SCHEMA_VERSION = `v${SCHEMA_MAJOR}.0.2`
+export const B2B_USERS_SCHEMA_VERSION = `v${SCHEMA_MAJOR}.1.2`
+
 export default [
   {
     name: 'b2b_roles',
-    version: 'v0.0.3',
+    version: B2B_ROLES_SCHEMA_VERSION,
     body: {
       properties: {
         name: {
@@ -31,7 +37,7 @@ export default [
   },
   {
     name: 'b2b_profiles',
-    version: 'v0.0.2',
+    version: B2B_PROFILES_SCHEMA_VERSION,
     body: {
       properties: {
         roleId: {
@@ -52,7 +58,7 @@ export default [
   },
   {
     name: 'b2b_users',
-    version: 'v0.1.2',
+    version: B2B_USERS_SCHEMA_VERSION,
     body: {
       properties: {
         roleId: {
