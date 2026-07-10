@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-07-10
+
 ### Fixed
 
 - Scope schema sync hash by app major version (VBase key `${app}-v{N}`)
