@@ -526,6 +526,8 @@ export const Routes = {
 
     let { salesChannel } = organization
 
+    const hasOrgSalesChannel = !!salesChannel?.length
+
     const salesChannelsData =
       (salesChannels as unknown as { data?: any[] })?.data ?? []
 
@@ -533,17 +535,30 @@ export const Routes = {
       (channel: any) => channel.IsActive
     )
 
+    const deferSalesChannelToBinding =
+      !hasOrgSalesChannel && !!(appSettings as any)?.deferSalesChannelToBinding
+
+    // When the organization has no salesChannel of its own, defaulting it here
+    // races with other apps (e.g. vtex.binding-selector) that also patch the
+    // session/cart sales channel from the chosen binding. If the merchant opted
+    // in, skip that default entirely and let the binding be the source of truth.
     if (
-      !salesChannel?.length ||
-      !validChannels?.find(
-        (validSalesChannel: any) =>
-          String(validSalesChannel.Id) === salesChannel.toString()
-      )
+      !deferSalesChannelToBinding &&
+      (!salesChannel?.length ||
+        !validChannels?.find(
+          (validSalesChannel: any) =>
+            String(validSalesChannel.Id) === salesChannel.toString()
+        ))
     ) {
       if (validChannels.length) {
         salesChannel = validChannels[0].Id
       }
     }
+
+    // Only used for the region lookup below; falls back independently of
+    // deferSalesChannelToBinding since it doesn't write to the shared session/cart.
+    const regionLookupSalesChannel =
+      salesChannel || (validChannels.length ? validChannels[0].Id : null)
 
     const salesChannelPromise = []
 
@@ -559,6 +574,11 @@ export const Routes = {
           })
       )
       response.public.sc.value = salesChannel.toString()
+    } else if (deferSalesChannelToBinding) {
+      logger.info({
+        message: 'setProfile.salesChannelDeferredToBinding',
+        orgId: user.orgId,
+      })
     }
 
     if (hashChanged && orderFormId) {
@@ -587,12 +607,12 @@ export const Routes = {
       const marketingTags: any = (marketingTagsResponse as any)?.data
         ?.getMarketingTags?.tags
 
-      if (!usePublicPostalCodeForRegion) {
+      if (!usePublicPostalCodeForRegion && regionLookupSalesChannel) {
         try {
           const [regionId] = await checkout.getRegionId(
             address.country,
             address.postalCode,
-            salesChannel.toString(),
+            regionLookupSalesChannel.toString(),
             address.geoCoordinates
           )
 
@@ -611,7 +631,9 @@ export const Routes = {
         response.public.regionId = { value: '' }
         logger.info({
           message: 'setProfile.regionIdSkipped',
-          reason: 'usePublicPostalCodeForRegion',
+          reason: usePublicPostalCodeForRegion
+            ? 'usePublicPostalCodeForRegion'
+            : 'noSalesChannelAvailable',
           publicPostalCode: body?.public?.postalCode?.value ?? null,
         })
       }

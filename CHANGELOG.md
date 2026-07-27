@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- New app setting `deferSalesChannelToBinding` (default `false`). When enabled, if the organization has no `salesChannel` set, `setProfile` no longer defaults the session/cart sales channel to the account's first active sales channel, avoiding a write race with apps like `vtex.binding-selector` that also set the sales channel from the chosen binding. [B2BTEAM-3593]
+
 ## [3.5.0] - 2026-07-15
 
 ### Changed
