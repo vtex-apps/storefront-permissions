@@ -297,9 +297,9 @@ export const Routes = {
 
     // in case the cost center is not found, we need to find a valid cost center for the user
     if (
-      Object.values(
-        costCenterResponse.data?.getCostCenterById ?? {}
-      ).every((value) => value === null)
+      Object.values(costCenterResponse.data?.getCostCenterById ?? {}).every(
+        (value) => value === null
+      )
     ) {
       try {
         const usersByEmail = await organizations.getOrganizationsByEmail(email)
@@ -412,12 +412,14 @@ export const Routes = {
     }
 
     const orgSellers = organization.sellers
-    const costCenterSellers = costCenterResponse?.data?.getCostCenterById?.sellers
+    const costCenterSellers =
+      costCenterResponse?.data?.getCostCenterById?.sellers
+
     const sellersArray = Array.isArray(costCenterSellers)
       ? costCenterSellers
       : Array.isArray(orgSellers)
-        ? orgSellers
-        : []
+      ? orgSellers
+      : []
 
     if (sellersArray.length > 0) {
       const sellersList = sellersArray
@@ -449,6 +451,7 @@ export const Routes = {
 
     response['storefront-permissions'].costcenter.value = user.costId
     const costCenterData = costCenterResponse?.data?.getCostCenterById
+
     phoneNumber = costCenterData?.phoneNumber
 
     businessDocument =
@@ -458,26 +461,32 @@ export const Routes = {
 
     const costCenterAddresses =
       (costCenterData as { addresses?: any[] } | undefined)?.addresses ?? []
+
     const enableCostCenterAddressSelection =
       (appSettings as any)?.enableCostCenterAddressSelection ?? false
+
     const enableRegionOverwriteFlag =
       (appSettings as any)?.enableRegionOverwrite ?? false
-    const publicCostCenterAddressId =
-      body?.public?.costCenterAddressId?.value
+
+    const publicCostCenterAddressId = body?.public?.costCenterAddressId?.value
     const requestedAddressId = enableCostCenterAddressSelection
       ? publicCostCenterAddressId
       : undefined
+
     const explicitlyClearedCostCenterAddress =
       enableCostCenterAddressSelection &&
       (publicCostCenterAddressId === '' || publicCostCenterAddressId === null)
+
     const allowRegionOverwrite =
       enableRegionOverwriteFlag && !!body?.public?.allowRegionOverwrite?.value
+
     const hasPublicPostalCode = !!body?.public?.postalCode?.value
     const hasPublicCountry = !!body?.public?.country?.value
     const usePublicPostalCodeForRegion =
       allowRegionOverwrite && hasPublicPostalCode && hasPublicCountry
 
     let selectedAddress: any = null
+
     if (costCenterAddresses.length) {
       if (requestedAddressId) {
         selectedAddress = costCenterAddresses.find(
@@ -494,8 +503,11 @@ export const Routes = {
       } else {
         selectedAddress = costCenterAddresses[0]
       }
+
       response['storefront-permissions'].costCenterAddressId.value =
-        explicitlyClearedCostCenterAddress ? '' : (selectedAddress?.addressId ?? '')
+        explicitlyClearedCostCenterAddress
+          ? ''
+          : selectedAddress?.addressId ?? ''
     } else {
       // No cost center addresses: per docs, costCenterAddressId should be empty
       response['storefront-permissions'].costCenterAddressId.value = ''
@@ -516,6 +528,7 @@ export const Routes = {
 
     const salesChannelsData =
       (salesChannels as unknown as { data?: any[] })?.data ?? []
+
     const validChannels = salesChannelsData.filter(
       (channel: any) => channel.IsActive
     )
@@ -571,8 +584,8 @@ export const Routes = {
     // checkout-session will use public.postalCode and public.country for checkout.regionId. We also do not update the cart with an address.
     if (selectedAddress && orderFormId) {
       const address = selectedAddress
-      const marketingTags: any =
-        (marketingTagsResponse as any)?.data?.getMarketingTags?.tags
+      const marketingTags: any = (marketingTagsResponse as any)?.data
+        ?.getMarketingTags?.tags
 
       if (!usePublicPostalCodeForRegion) {
         try {
@@ -669,7 +682,9 @@ export const Routes = {
             documentType: documentType ?? undefined,
             phone: phoneNumberFormatted,
             stateInscription:
-              (stateRegistration ?? clUser.stateInscription ?? '0'.repeat(9)) ??
+              stateRegistration ??
+              clUser.stateInscription ??
+              '0'.repeat(9) ??
               null,
           })
           .catch((error) => {
