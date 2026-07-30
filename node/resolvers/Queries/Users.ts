@@ -679,34 +679,18 @@ export const checkUserPermission = async (
 
   const module = removeVersionFromAppId(sender)
 
-  const authPermissions = await getRoleAndPermissionsByEmail({
+  // During impersonation (authEmail !== profileEmail), permissions must be
+  // scoped to the impersonated profile only, never the acting Operator's.
+  const isImpersonating = Boolean(profileEmail) && authEmail !== profileEmail
+
+  const targetEmail = isImpersonating ? profileEmail : authEmail
+
+  return getRoleAndPermissionsByEmail({
     ctx,
-    email: authEmail,
+    email: targetEmail,
     module,
     skipError: true,
   })
-
-  const profilePermissions =
-    profileEmail && authEmail !== profileEmail
-      ? await getRoleAndPermissionsByEmail({
-          ctx,
-          email: profileEmail,
-          module,
-          skipError: true,
-        })
-      : defaultResponse
-
-  return {
-    permissions: [
-      ...new Set([
-        ...authPermissions.permissions,
-        ...profilePermissions.permissions,
-      ]),
-    ],
-    role: authPermissions.role.id
-      ? authPermissions.role
-      : profilePermissions.role,
-  }
 }
 
 export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
