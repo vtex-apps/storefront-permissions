@@ -12,7 +12,7 @@ In stores that also use bindings to serve multiple locales/sales channels (`vtex
 
 | Field | Description |
 |-------|-------------|
-| `public.sc` | The resolved sales channel. Left untouched (no write) when the organization has no `salesChannel` and `deferSalesChannelToBinding` is on — see below. |
+| `public.sc` | The resolved sales channel. Omitted from the `setProfile` response entirely (not sent even as an empty value) when the organization has no `salesChannel` and `deferSalesChannelToBinding` is on, so the session merge leaves it as whatever already set it — see below. |
 | `public.regionId` | Unaffected by this setting: region lookup uses its own independent sales-channel fallback so it always has a value to query with, even when the session's `sc` write is deferred. |
 
 This is part of the same `setProfile` output already declared in `vtex.session/configuration.json` (`public.sc`); no new session input/output field was added.
@@ -31,7 +31,7 @@ Only the merchant can turn this on in the VTEX Admin (App settings). It has no e
 - `hasOrgSalesChannel` = the organization has a non-empty `salesChannel`.
 - `deferSalesChannelToBinding` = `!hasOrgSalesChannel && appSettings.deferSalesChannelToBinding`.
 - If `deferSalesChannelToBinding` is **false**: unchanged behavior — when the organization's `salesChannel` is empty or not an active sales channel, it falls back to the account's first active sales channel.
-- If `deferSalesChannelToBinding` is **true**: the fallback is skipped, so `salesChannel` stays empty; the app does **not** call `checkout.updateSalesChannel` and does **not** write `public.sc`.
+- If `deferSalesChannelToBinding` is **true**: the fallback is skipped, so `salesChannel` stays empty; the app does **not** call `checkout.updateSalesChannel`, and it **deletes** `public.sc` from the response instead of sending `{ value: '' }` — an explicit empty value is treated as a real write during session merge elsewhere in this app (e.g. the `regionId` case), so leaving the key in would have cleared whatever already set the sales channel.
 - **Region lookup is independent:** a separate `regionLookupSalesChannel` (the resolved `salesChannel`, or the first active sales channel if none) is used only for the `checkout.getRegionId` call, so deferring the session/cart write never leaves the region lookup without a sales channel.
 
 ## 4. Summary table
