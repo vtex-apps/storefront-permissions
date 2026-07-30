@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.5.1] - 2026-07-30
+
 ### Fixed
 
 - `checkUserPermission` no longer returns the union of the acting Operator's and impersonated profile's permissions during Call Center impersonation sessions. It now scopes the result to the impersonated profile only, preventing the Operator's elevated permissions from leaking into the storefront. [B2BTEAM-3566]
