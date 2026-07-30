@@ -575,6 +575,11 @@ export const Routes = {
       )
       response.public.sc.value = salesChannel.toString()
     } else if (deferSalesChannelToBinding) {
+      // Omit `sc` entirely rather than sending `{ value: '' }`: this app treats
+      // an explicit empty value as a real write during session merge (see the
+      // regionId case below), so leaving the key in would clear whatever
+      // already set the session's sales channel (e.g. the binding).
+      delete response.public.sc
       logger.info({
         message: 'setProfile.salesChannelDeferredToBinding',
         orgId: user.orgId,
