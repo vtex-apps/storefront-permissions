@@ -297,9 +297,9 @@ export const Routes = {
 
     // in case the cost center is not found, we need to find a valid cost center for the user
     if (
-      Object.values(
-        costCenterResponse.data?.getCostCenterById ?? {}
-      ).every((value) => value === null)
+      Object.values(costCenterResponse.data?.getCostCenterById ?? {}).every(
+        (value) => value === null
+      )
     ) {
       try {
         const usersByEmail = await organizations.getOrganizationsByEmail(email)
@@ -412,12 +412,14 @@ export const Routes = {
     }
 
     const orgSellers = organization.sellers
-    const costCenterSellers = costCenterResponse?.data?.getCostCenterById?.sellers
+    const costCenterSellers =
+      costCenterResponse?.data?.getCostCenterById?.sellers
+
     const sellersArray = Array.isArray(costCenterSellers)
       ? costCenterSellers
       : Array.isArray(orgSellers)
-        ? orgSellers
-        : []
+      ? orgSellers
+      : []
 
     if (sellersArray.length > 0) {
       const sellersList = sellersArray
@@ -449,6 +451,7 @@ export const Routes = {
 
     response['storefront-permissions'].costcenter.value = user.costId
     const costCenterData = costCenterResponse?.data?.getCostCenterById
+
     phoneNumber = costCenterData?.phoneNumber
 
     businessDocument =
@@ -458,26 +461,32 @@ export const Routes = {
 
     const costCenterAddresses =
       (costCenterData as { addresses?: any[] } | undefined)?.addresses ?? []
+
     const enableCostCenterAddressSelection =
       (appSettings as any)?.enableCostCenterAddressSelection ?? false
+
     const enableRegionOverwriteFlag =
       (appSettings as any)?.enableRegionOverwrite ?? false
-    const publicCostCenterAddressId =
-      body?.public?.costCenterAddressId?.value
+
+    const publicCostCenterAddressId = body?.public?.costCenterAddressId?.value
     const requestedAddressId = enableCostCenterAddressSelection
       ? publicCostCenterAddressId
       : undefined
+
     const explicitlyClearedCostCenterAddress =
       enableCostCenterAddressSelection &&
       (publicCostCenterAddressId === '' || publicCostCenterAddressId === null)
+
     const allowRegionOverwrite =
       enableRegionOverwriteFlag && !!body?.public?.allowRegionOverwrite?.value
+
     const hasPublicPostalCode = !!body?.public?.postalCode?.value
     const hasPublicCountry = !!body?.public?.country?.value
     const usePublicPostalCodeForRegion =
       allowRegionOverwrite && hasPublicPostalCode && hasPublicCountry
 
     let selectedAddress: any = null
+
     if (costCenterAddresses.length) {
       if (requestedAddressId) {
         selectedAddress = costCenterAddresses.find(
@@ -494,8 +503,11 @@ export const Routes = {
       } else {
         selectedAddress = costCenterAddresses[0]
       }
+
       response['storefront-permissions'].costCenterAddressId.value =
-        explicitlyClearedCostCenterAddress ? '' : (selectedAddress?.addressId ?? '')
+        explicitlyClearedCostCenterAddress
+          ? ''
+          : selectedAddress?.addressId ?? ''
     } else {
       // No cost center addresses: per docs, costCenterAddressId should be empty
       response['storefront-permissions'].costCenterAddressId.value = ''
@@ -514,23 +526,39 @@ export const Routes = {
 
     let { salesChannel } = organization
 
+    const hasOrgSalesChannel = !!salesChannel?.length
+
     const salesChannelsData =
       (salesChannels as unknown as { data?: any[] })?.data ?? []
+
     const validChannels = salesChannelsData.filter(
       (channel: any) => channel.IsActive
     )
 
+    const deferSalesChannelToBinding =
+      !hasOrgSalesChannel && !!(appSettings as any)?.deferSalesChannelToBinding
+
+    // When the organization has no salesChannel of its own, defaulting it here
+    // races with other apps (e.g. vtex.binding-selector) that also patch the
+    // session/cart sales channel from the chosen binding. If the merchant opted
+    // in, skip that default entirely and let the binding be the source of truth.
     if (
-      !salesChannel?.length ||
-      !validChannels?.find(
-        (validSalesChannel: any) =>
-          String(validSalesChannel.Id) === salesChannel.toString()
-      )
+      !deferSalesChannelToBinding &&
+      (!salesChannel?.length ||
+        !validChannels?.find(
+          (validSalesChannel: any) =>
+            String(validSalesChannel.Id) === salesChannel.toString()
+        ))
     ) {
       if (validChannels.length) {
         salesChannel = validChannels[0].Id
       }
     }
+
+    // Only used for the region lookup below; falls back independently of
+    // deferSalesChannelToBinding since it doesn't write to the shared session/cart.
+    const regionLookupSalesChannel =
+      salesChannel || (validChannels.length ? validChannels[0].Id : null)
 
     const salesChannelPromise = []
 
@@ -546,6 +574,16 @@ export const Routes = {
           })
       )
       response.public.sc.value = salesChannel.toString()
+    } else if (deferSalesChannelToBinding) {
+      // Omit `sc` entirely rather than sending `{ value: '' }`: this app treats
+      // an explicit empty value as a real write during session merge (see the
+      // regionId case below), so leaving the key in would clear whatever
+      // already set the session's sales channel (e.g. the binding).
+      delete response.public.sc
+      logger.info({
+        message: 'setProfile.salesChannelDeferredToBinding',
+        orgId: user.orgId,
+      })
     }
 
     if (hashChanged && orderFormId) {
@@ -571,15 +609,15 @@ export const Routes = {
     // checkout-session will use public.postalCode and public.country for checkout.regionId. We also do not update the cart with an address.
     if (selectedAddress && orderFormId) {
       const address = selectedAddress
-      const marketingTags: any =
-        (marketingTagsResponse as any)?.data?.getMarketingTags?.tags
+      const marketingTags: any = (marketingTagsResponse as any)?.data
+        ?.getMarketingTags?.tags
 
-      if (!usePublicPostalCodeForRegion) {
+      if (!usePublicPostalCodeForRegion && regionLookupSalesChannel) {
         try {
           const [regionId] = await checkout.getRegionId(
             address.country,
             address.postalCode,
-            salesChannel.toString(),
+            regionLookupSalesChannel.toString(),
             address.geoCoordinates
           )
 
@@ -598,7 +636,9 @@ export const Routes = {
         response.public.regionId = { value: '' }
         logger.info({
           message: 'setProfile.regionIdSkipped',
-          reason: 'usePublicPostalCodeForRegion',
+          reason: usePublicPostalCodeForRegion
+            ? 'usePublicPostalCodeForRegion'
+            : 'noSalesChannelAvailable',
           publicPostalCode: body?.public?.postalCode?.value ?? null,
         })
       }
@@ -669,7 +709,9 @@ export const Routes = {
             documentType: documentType ?? undefined,
             phone: phoneNumberFormatted,
             stateInscription:
-              (stateRegistration ?? clUser.stateInscription ?? '0'.repeat(9)) ??
+              stateRegistration ??
+              clUser.stateInscription ??
+              '0'.repeat(9) ??
               null,
           })
           .catch((error) => {

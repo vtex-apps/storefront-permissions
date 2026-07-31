@@ -156,6 +156,12 @@
         "description": "When enabled, the session accepts allowRegionOverwrite from the frontend. When sent and both public.postalCode and public.country are set, we set public.regionId to empty and do not update the cart with an address; checkout-session backend then sets checkout.regionId from those values. Only the merchant can enable this (app setting).",
         "type": "boolean",
         "default": false
+      },
+      "deferSalesChannelToBinding": {
+        "title": "Defer sales channel to binding",
+        "description": "When enabled, if the organization has no salesChannel set, this app does not patch the session's public.sc or restamp the cart's sales channel, leaving that value to whatever already set it (e.g. vtex.binding-selector). When disabled, an organization with no salesChannel set falls back to the account's first active sales channel (backward compatible).",
+        "type": "boolean",
+        "default": false
       }
     }
   },
