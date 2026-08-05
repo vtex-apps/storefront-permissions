@@ -162,6 +162,12 @@
         "description": "When enabled, if the organization has no salesChannel set, this app does not patch the session's public.sc or restamp the cart's sales channel, leaving that value to whatever already set it (e.g. vtex.binding-selector). When disabled, an organization with no salesChannel set falls back to the account's first active sales channel (backward compatible).",
         "type": "boolean",
         "default": false
+      },
+      "strictImpersonationPermissions": {
+        "title": "Strict impersonation permissions",
+        "description": "When enabled, checkUserPermission returns only the impersonated profile's permissions during an impersonation session, so the acting user's (Operator, sales representative, approver) permissions never leak into the storefront. When disabled (default), the permissions of the acting user and the impersonated profile are aggregated, which is required by flows that rely on the acting user's rights while impersonating - for example a sales representative completing checkout for a buyer role that has no can-checkout permission, or an approver retaining approval power.",
+        "type": "boolean",
+        "default": false
       }
     }
   },

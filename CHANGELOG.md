@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- New app setting `strictImpersonationPermissions` (default `false`) controlling how `checkUserPermission` evaluates impersonation sessions. When enabled, only the impersonated profile's permissions are returned, so the acting user's permissions never leak into the storefront. When disabled, the acting user's and the impersonated profile's permissions are aggregated. [B2BTEAM-3566]
+- Documentation: `checkUserPermission` now documents its contract during impersonation sessions, for both the `vtex.telemarketing` and the B2B Organizations impersonation flows. [B2BTEAM-3566]
+
+### Changed
+
+- **Reverts the 3.5.1 default.** Aggregated permissions during impersonation are the default again, because 3.5.1 made strict scoping unconditional and that silently removes permissions the default B2B Suite configuration depends on - `can-checkout` is not granted to the `customer-buyer` role, so a sales representative impersonating an Organization Buyer could no longer complete checkout. Stores that want the strict behavior of 3.5.1 must now enable `strictImpersonationPermissions`. [B2BTEAM-3566]
+
 ## [3.6.0] - 2026-07-31
 
 ### Added
