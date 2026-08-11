@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.6.1] - 2026-08-11
+
 ### Added
 
 - New app setting `strictImpersonationPermissions` (default `false`) controlling how `checkUserPermission` evaluates impersonation sessions. When enabled, only the impersonated profile's permissions are returned, so the acting user's permissions never leak into the storefront. When disabled, the acting user's and the impersonated profile's permissions are aggregated. [B2BTEAM-3566]
