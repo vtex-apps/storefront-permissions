@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { removeVersionFromAppId } from '@vtex/api'
 
+import { getCachedAppSettings } from '../../services/appSettingsCache'
 import type { GetOrganizationsPaginatedByEmailResponse } from '../../typings/custom'
 import { currentSchema } from '../../utils'
 import {
@@ -679,18 +680,70 @@ export const checkUserPermission = async (
 
   const module = removeVersionFromAppId(sender)
 
-  // During impersonation (authEmail !== profileEmail), permissions must be
-  // scoped to the impersonated profile only, never the acting Operator's.
+  // Both impersonation flows (vtex.telemarketing and the Organizations app)
+  // switch the profile namespace to the impersonated user while
+  // authentication.storeUserEmail keeps holding the acting user, so a
+  // divergence between the two is what identifies an impersonation session.
   const isImpersonating = Boolean(profileEmail) && authEmail !== profileEmail
 
-  const targetEmail = isImpersonating ? profileEmail : authEmail
+  if (!isImpersonating) {
+    return getRoleAndPermissionsByEmail({
+      ctx,
+      email: authEmail,
+      module,
+      skipError: true,
+    })
+  }
 
-  return getRoleAndPermissionsByEmail({
-    ctx,
-    email: targetEmail,
-    module,
-    skipError: true,
+  // Only impersonation sessions need the setting, so regular sessions never
+  // pay for reading it (cached for 5 minutes when they do).
+  const appSettings = await getCachedAppSettings(ctx).catch((error) => {
+    logger.warn({ error, message: 'checkUserPermission-getAppSettingsError' })
+
+    return {} as Record<string, unknown>
   })
+
+  // Strict mode: scope the evaluation to the impersonated profile so the
+  // acting user's elevated permissions never reach the storefront.
+  if ((appSettings as any)?.strictImpersonationPermissions) {
+    return getRoleAndPermissionsByEmail({
+      ctx,
+      email: profileEmail,
+      module,
+      skipError: true,
+    })
+  }
+
+  // Aggregated mode (default): keep the legacy union, which flows relying on
+  // the acting user's rights while impersonating depend on - for example a
+  // sales representative completing checkout for a buyer role that has no
+  // can-checkout permission, or an approver retaining approval power.
+  const [authPermissions, profilePermissions] = await Promise.all([
+    getRoleAndPermissionsByEmail({
+      ctx,
+      email: authEmail,
+      module,
+      skipError: true,
+    }),
+    getRoleAndPermissionsByEmail({
+      ctx,
+      email: profileEmail,
+      module,
+      skipError: true,
+    }),
+  ])
+
+  return {
+    permissions: [
+      ...new Set([
+        ...authPermissions.permissions,
+        ...profilePermissions.permissions,
+      ]),
+    ],
+    role: authPermissions.role.id
+      ? authPermissions.role
+      : profilePermissions.role,
+  }
 }
 
 export const checkImpersonation = async (_: any, __: any, ctx: Context) => {

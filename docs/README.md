@@ -183,6 +183,24 @@ Sample response:
 }
 ```
 
+##### Behavior during impersonation
+
+An impersonation session has two identities: the **acting user** (the Operator, sales representative or approver who started the session, kept in `authentication.storeUserEmail`) and the **impersonated profile** (kept in the `profile` namespace). This applies to both impersonation flows: `vtex.telemarketing` and the [B2B Organizations](https://developers.vtex.com/vtex-developer-docs/docs/vtex-b2b-organizations#impersonate-users) app.
+
+Which identity `checkUserPermission` evaluates is controlled by the `strictImpersonationPermissions` app setting:
+
+| Setting | Result during impersonation |
+|---|---|
+| `false` (default) | The deduplicated **union** of the acting user's and the impersonated profile's permissions. `role` is the acting user's role, falling back to the impersonated profile's role when the acting user has none. |
+| `true` | **Only** the impersonated profile's permissions and role. The acting user's permissions are never returned. |
+
+Outside impersonation sessions both modes behave identically, returning the authenticated user's permissions.
+
+Pick the mode that matches your store:
+
+- Enable `strictImpersonationPermissions` when the storefront must render exactly what the impersonated user is allowed to do, and elevated permissions from the acting user would produce incorrect gating.
+- Keep it disabled when a flow depends on the acting user's rights while impersonating. Note that some of these flows exist in the default B2B Suite configuration: `can-checkout` is not granted to the `customer-buyer` role, so a sales representative impersonating an Organization Buyer relies on aggregation to complete the purchase. Review your role configuration before enabling strict mode.
+
 
 
 #### hasUsers
