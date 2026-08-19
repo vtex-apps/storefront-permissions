@@ -13,6 +13,52 @@ import {
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
 import { toHash } from '../../utils'
 
+const createSetProfileTimers = (logger: Context['vtex']['logger']) => {
+  const timing = { prev: Date.now(), t0: Date.now() }
+
+  const logSetProfileStep = (step: string, extra?: Record<string, unknown>) => {
+    const now = Date.now()
+
+    logger.debug({
+      message: 'setProfile.timing',
+      step,
+      stepMs: now - timing.prev,
+      totalMs: now - timing.t0,
+      ...extra,
+    })
+    timing.prev = now
+  }
+
+  const timedSetProfile = async <T>(
+    step: string,
+    promise: Promise<T>
+  ): Promise<T> => {
+    const start = Date.now()
+
+    try {
+      const result = await promise
+
+      logger.debug({
+        message: 'setProfile.timing',
+        step,
+        durationMs: Date.now() - start,
+      })
+
+      return result
+    } catch (error) {
+      logger.debug({
+        message: 'setProfile.timing',
+        step,
+        durationMs: Date.now() - start,
+        failed: true,
+      })
+      throw error
+    }
+  }
+
+  return { logSetProfileStep, timedSetProfile }
+}
+
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
   appSettings: async (ctx: Context) => {
@@ -107,6 +153,11 @@ export const Routes = {
       vtex: { logger },
     } = ctx
 
+    const { logSetProfileStep, timedSetProfile } =
+      createSetProfileTimers(logger)
+
+    logSetProfileStep('start')
+
     const response: any = {
       public: {
         facets: {
@@ -150,9 +201,15 @@ export const Routes = {
     ctx.set('Content-Type', 'application/json')
     ctx.set('Cache-Control', 'no-cache, no-store')
 
-    const isWatchActive = await getSessionWatcher(null, null, ctx)
+    const isWatchActive = await timedSetProfile(
+      'getSessionWatcher',
+      getSessionWatcher(null, null, ctx)
+    )
+
+    logSetProfileStep('getSessionWatcher')
 
     if (!isWatchActive) {
+      logSetProfileStep('earlyReturn.sessionWatcherInactive')
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -160,7 +217,9 @@ export const Routes = {
     }
 
     const promises = [] as Array<Promise<any>>
-    const body: any = await json(req)
+    const body: any = await timedSetProfile('parseBody', json(req))
+
+    logSetProfileStep('parseBody')
 
     const b2bImpersonate = body?.public?.impersonate?.value
     const telemarketingImpersonate = body?.impersonate?.storeUserId?.value
@@ -179,6 +238,7 @@ export const Routes = {
     const ignoreB2B = body?.public?.removeB2B?.value
 
     if (ignoreB2B) {
+      logSetProfileStep('earlyReturn.ignoreB2B')
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -187,10 +247,13 @@ export const Routes = {
 
     if (email && b2bImpersonate) {
       try {
-        user = (await getUser({
-          masterdata,
-          params: { userId: b2bImpersonate },
-        })) as {
+        user = (await timedSetProfile(
+          'getUser.impersonate',
+          getUser({
+            masterdata,
+            params: { userId: b2bImpersonate },
+          })
+        )) as {
           orgId: string
           costId: string
           clId: string
@@ -203,16 +266,18 @@ export const Routes = {
         let { userId } = user
 
         if (!userId) {
-          userId = await profileSystem.createRegisterOnProfileSystem(
-            email,
-            user.name
+          userId = await timedSetProfile(
+            'createRegisterOnProfileSystem',
+            profileSystem.createRegisterOnProfileSystem(email, user.name)
           )
         }
 
         response['storefront-permissions'].storeUserId.value = userId
         response['storefront-permissions'].storeUserEmail.value = user.email
+        logSetProfileStep('impersonate.b2b')
       } catch (error) {
         logger.error({ message: 'setProfile.getUserError', error })
+        logSetProfileStep('impersonate.b2b.error')
       }
     } else if (telemarketingImpersonate) {
       const telemarketingEmail = body?.impersonate?.storeUserEmail?.value
@@ -222,9 +287,11 @@ export const Routes = {
       response['storefront-permissions'].storeUserEmail.value =
         telemarketingEmail
       email = telemarketingEmail
+      logSetProfileStep('impersonate.telemarketing')
     }
 
     if (!email) {
+      logSetProfileStep('earlyReturn.noEmail')
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -232,21 +299,24 @@ export const Routes = {
     }
 
     if (user === null) {
-      user = (await getActiveUserByEmail(null, { email }, ctx).catch(
-        (error) => {
+      user = (await timedSetProfile(
+        'getActiveUserByEmail',
+        getActiveUserByEmail(null, { email }, ctx).catch((error) => {
           logger.warn({ message: 'setProfile.getUserByEmailError', error })
-        }
+        })
       )) as {
         orgId: string
         costId: string
         clId: string
         id: string
       }
+      logSetProfileStep('getActiveUserByEmail')
     }
 
     response['storefront-permissions'].userId.value = user?.id
 
     if (!user?.orgId || !user?.costId) {
+      logSetProfileStep('earlyReturn.noOrgOrCostCenter')
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -287,13 +357,21 @@ export const Routes = {
       b2bSettingsResponse,
       appSettings,
     ] = await Promise.all([
-      getOrganization(user.orgId),
-      organizations.getCostCenterById(user.costId),
-      salesChannelClient.getSalesChannel(),
-      organizations.getMarketingTags(user.costId),
-      organizations.getB2BSettings(),
-      getCachedAppSettings(ctx),
+      timedSetProfile('getOrganization', getOrganization(user.orgId)),
+      timedSetProfile(
+        'getCostCenterById',
+        organizations.getCostCenterById(user.costId)
+      ),
+      timedSetProfile('getSalesChannel', salesChannelClient.getSalesChannel()),
+      timedSetProfile(
+        'getMarketingTags',
+        organizations.getMarketingTags(user.costId)
+      ),
+      timedSetProfile('getB2BSettings', organizations.getB2BSettings()),
+      timedSetProfile('getCachedAppSettings', getCachedAppSettings(ctx)),
     ])
+
+    logSetProfileStep('parallel.organizationCostCenterSettings')
 
     // in case the cost center is not found, we need to find a valid cost center for the user
     if (
@@ -302,7 +380,10 @@ export const Routes = {
       )
     ) {
       try {
-        const usersByEmail = await organizations.getOrganizationsByEmail(email)
+        const usersByEmail = await timedSetProfile(
+          'getOrganizationsByEmail',
+          organizations.getOrganizationsByEmail(email)
+        )
 
         // when cost center comes without a name, it's because the cost center is deleted
         const usersData = usersByEmail.data.getOrganizationsByEmail.find(
@@ -316,6 +397,8 @@ export const Routes = {
           message: 'setProfile.graphqlGetOrganizationById',
         })
       }
+
+      logSetProfileStep('fallback.invalidCostCenter')
     }
 
     let organization: any = organizationResponse
@@ -330,16 +413,18 @@ export const Routes = {
     const needsOrgData = organizationInactive || costCenterInvalid
 
     if (needsOrgData) {
-      userOrgsData = await getUserOrganizationsData(email, ctx).catch(
-        (error) => {
+      userOrgsData = await timedSetProfile(
+        'getUserOrganizationsData',
+        getUserOrganizationsData(email, ctx).catch((error) => {
           logger.error({
             error,
             message: 'setProfile.getUserOrganizationsData',
           })
 
           return { validCostCenterId: null, activeOrganization: null }
-        }
+        })
       )
+      logSetProfileStep('getUserOrganizationsData')
     }
 
     // Handle invalid cost center first
@@ -352,24 +437,32 @@ export const Routes = {
       const validOrganization = userOrgsData?.activeOrganization
 
       if (validOrganization) {
-        organization = (await getOrganization(validOrganization.id))?.data
-          ?.getOrganizationById
+        organization = (
+          await timedSetProfile(
+            'getOrganization.inactiveFallback',
+            getOrganization(validOrganization.id)
+          )
+        )?.data?.getOrganizationById
 
-        await setActiveUserByOrganization(
-          null,
-          {
-            costId: validOrganization.costId,
-            email,
-            orgId: validOrganization.orgId,
-            userId: validOrganization.id,
-          },
-          ctx
-        ).catch((error) => {
-          logger.warn({
-            error,
-            message: 'setProfile.setActiveUserByOrganizationError',
+        await timedSetProfile(
+          'setActiveUserByOrganization',
+          setActiveUserByOrganization(
+            null,
+            {
+              costId: validOrganization.costId,
+              email,
+              orgId: validOrganization.orgId,
+              userId: validOrganization.id,
+            },
+            ctx
+          ).catch((error) => {
+            logger.warn({
+              error,
+              message: 'setProfile.setActiveUserByOrganizationError',
+            })
           })
-        })
+        )
+        logSetProfileStep('inactiveOrganization.switched')
       } else {
         logger.warn({
           message: `setProfile-organizationInactive`,
@@ -384,10 +477,9 @@ export const Routes = {
     tradeName = organization.tradeName
 
     if (organization.priceTables?.length) {
-      const userWithPriceTable = (await getB2BUserById(
-        null,
-        { id: user.id },
-        ctx
+      const userWithPriceTable = (await timedSetProfile(
+        'getB2BUserById',
+        getB2BUserById(null, { id: user.id }, ctx)
       )) as { selectedPriceTable: string }
 
       const MAX_PRICE_TABLES = 3
@@ -399,6 +491,7 @@ export const Routes = {
       response[
         'storefront-permissions'
       ].priceTables.value = `${selectedPriceTable}`
+      logSetProfileStep('getB2BUserById')
     }
 
     let facets = [] as any
@@ -425,7 +518,7 @@ export const Routes = {
       const sellersList = sellersArray
 
       const { disableSellersNameFacets, disablePrivateSellersFacets } =
-        await Routes.appSettings(ctx)
+        await timedSetProfile('appSettings.facets', Routes.appSettings(ctx))
 
       if (!disableSellersNameFacets) {
         const sellersName = sellersList.map(
@@ -448,6 +541,7 @@ export const Routes = {
     }
 
     response.public.facets.value = facets ? `${facets.join(';')};` : null
+    logSetProfileStep('resolveFacets')
 
     response['storefront-permissions'].costcenter.value = user.costId
     const costCenterData = costCenterResponse?.data?.getCostCenterById
@@ -560,18 +654,23 @@ export const Routes = {
     const regionLookupSalesChannel =
       salesChannel || (validChannels.length ? validChannels[0].Id : null)
 
+    logSetProfileStep('resolveAddressAndSalesChannel')
+
     const salesChannelPromise = []
 
     if (salesChannel) {
       salesChannelPromise.push(
-        checkout
-          .updateSalesChannel(orderFormId, salesChannel)
-          .catch((error) => {
-            logger.error({
-              error,
-              message: 'setProfile.updateSalesChannel',
+        timedSetProfile(
+          'updateSalesChannel',
+          checkout
+            .updateSalesChannel(orderFormId, salesChannel)
+            .catch((error) => {
+              logger.error({
+                error,
+                message: 'setProfile.updateSalesChannel',
+              })
             })
-          })
+        )
       )
       response.public.sc.value = salesChannel.toString()
     } else if (deferSalesChannelToBinding) {
@@ -594,8 +693,11 @@ export const Routes = {
         } = b2bSettings ?? { uiSettings: { clearCart: null } }
 
         if (clearCart) {
-          await Promise.all(salesChannelPromise)
-          await checkout.clearCart(orderFormId)
+          await timedSetProfile(
+            'updateSalesChannel.beforeClearCart',
+            Promise.all(salesChannelPromise)
+          )
+          await timedSetProfile('clearCart', checkout.clearCart(orderFormId))
         }
       } catch (error) {
         logger.error({
@@ -603,6 +705,8 @@ export const Routes = {
           message: 'setProfile.clearCart',
         })
       }
+
+      logSetProfileStep('clearCart')
     }
 
     // When usePublicPostalCodeForRegion (overwrite on + public.postalCode and public.country set): we do not set public.regionId and we set it to empty;
@@ -614,11 +718,14 @@ export const Routes = {
 
       if (!usePublicPostalCodeForRegion && regionLookupSalesChannel) {
         try {
-          const [regionId] = await checkout.getRegionId(
-            address.country,
-            address.postalCode,
-            regionLookupSalesChannel.toString(),
-            address.geoCoordinates
+          const [regionId] = await timedSetProfile(
+            'getRegionId',
+            checkout.getRegionId(
+              address.country,
+              address.postalCode,
+              regionLookupSalesChannel.toString(),
+              address.geoCoordinates
+            )
           )
 
           if (regionId?.id) {
@@ -626,11 +733,14 @@ export const Routes = {
               value: regionId.id,
             }
           }
+
+          logSetProfileStep('getRegionId')
         } catch (error) {
           logger.error({
             error,
             message: 'setProfile.getRegionId',
           })
+          logSetProfileStep('getRegionId.error')
         }
       } else {
         response.public.regionId = { value: '' }
@@ -644,38 +754,44 @@ export const Routes = {
       }
 
       promises.push(
-        checkout
-          .updateOrderFormMarketingData(orderFormId, {
-            attachmentId: 'marketingData',
-            marketingTags: marketingTags || [],
-            utmCampaign: user.orgId,
-            utmMedium: user.costId,
-          })
-          .catch((error) => {
-            logger.error({
-              error,
-              message: 'setProfile.updateOrderFormMarketingDataError',
-            })
-          })
-      )
-
-      if (!usePublicPostalCodeForRegion) {
-        promises.push(
+        timedSetProfile(
+          'updateOrderFormMarketingData',
           checkout
-            .updateOrderFormShipping(orderFormId, {
-              address: {
-                ...address,
-                geoCoordinates: address.geoCoordinates ?? [],
-                isDisposable: true,
-              },
-              clearAddressIfPostalCodeNotFound: false,
+            .updateOrderFormMarketingData(orderFormId, {
+              attachmentId: 'marketingData',
+              marketingTags: marketingTags || [],
+              utmCampaign: user.orgId,
+              utmMedium: user.costId,
             })
             .catch((error) => {
               logger.error({
                 error,
-                message: 'setProfile.updateOrderFormShippingError',
+                message: 'setProfile.updateOrderFormMarketingDataError',
               })
             })
+        )
+      )
+
+      if (!usePublicPostalCodeForRegion) {
+        promises.push(
+          timedSetProfile(
+            'updateOrderFormShipping',
+            checkout
+              .updateOrderFormShipping(orderFormId, {
+                address: {
+                  ...address,
+                  geoCoordinates: address.geoCoordinates ?? [],
+                  isDisposable: true,
+                },
+                clearAddressIfPostalCodeNotFound: false,
+              })
+              .catch((error) => {
+                logger.error({
+                  error,
+                  message: 'setProfile.updateOrderFormShippingError',
+                })
+              })
+          )
         )
       } else {
         logger.info({
@@ -685,46 +801,62 @@ export const Routes = {
       }
     }
 
-    const clUser = await generateClUser({
-      businessDocument,
-      businessName,
-      clId: user?.clId ?? '',
-      ctx,
-      phoneNumber: phoneNumber ?? null,
-      stateRegistration,
-      tradeName,
-      isCorporate,
-    })
+    const clUser = await timedSetProfile(
+      'generateClUser',
+      generateClUser({
+        businessDocument,
+        businessName,
+        clId: user?.clId ?? '',
+        ctx,
+        phoneNumber: phoneNumber ?? null,
+        stateRegistration,
+        tradeName,
+        isCorporate,
+      })
+    )
+
+    logSetProfileStep('generateClUser')
 
     if (clUser && orderFormId) {
       const phoneNumberFormatted =
         phoneNumber || clUser.phone || clUser.homePhone || `+1${'0'.repeat(10)}`
 
       promises.push(
-        checkout
-          .updateOrderFormProfile(orderFormId, {
-            ...clUser,
-            businessDocument:
-              (businessDocument || clUser.businessDocument) ?? null,
-            documentType: documentType ?? undefined,
-            phone: phoneNumberFormatted,
-            stateInscription:
-              stateRegistration ??
-              clUser.stateInscription ??
-              '0'.repeat(9) ??
-              null,
-          })
-          .catch((error) => {
-            logger.error({
-              error,
-              message: 'setProfile.updateOrderFormProfileError',
+        timedSetProfile(
+          'updateOrderFormProfile',
+          checkout
+            .updateOrderFormProfile(orderFormId, {
+              ...clUser,
+              businessDocument:
+                (businessDocument || clUser.businessDocument) ?? null,
+              documentType: documentType ?? undefined,
+              phone: phoneNumberFormatted,
+              stateInscription:
+                stateRegistration ??
+                clUser.stateInscription ??
+                '0'.repeat(9) ??
+                null,
             })
-          })
+            .catch((error) => {
+              logger.error({
+                error,
+                message: 'setProfile.updateOrderFormProfileError',
+              })
+            })
+        )
       )
     }
 
     // Don't await promises, to avoid session timeout
     Promise.all(promises)
+
+    logSetProfileStep('done', {
+      email,
+      orgId: user?.orgId,
+      costId: user?.costId,
+      orderFormId,
+      deferredPromises: promises.length,
+    })
 
     logger.info({
       'setProfile.body': JSON.stringify(body),
