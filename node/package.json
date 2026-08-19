@@ -2,7 +2,7 @@
   "name": "vtex.checkout-ui-custom",
   "version": "3.6.1",
   "dependencies": {
-    "@vtex/api": "6.50.1",
+    "@vtex/api": "6.51.3",
     "atob": "^2.1.2",
     "co-body": "^6.0.0",
     "cookie": "^0.3.1",
@@ -18,11 +18,14 @@
     "@types/co-body": "0.0.3",
     "@types/cookie": "^0.3.2",
     "@types/graphql": "^14.5.0",
+    "@types/jest": "^26.0.24",
     "@types/jsonwebtoken": "^8.5.0",
     "@types/node": "^12.0.0",
     "@types/ramda": "types/npm-ramda#dist",
-    "@vtex/api": "6.50.1",
+    "@vtex/api": "6.51.3",
     "@vtex/prettier-config": "^0.3.1",
+    "jest": "^26.6.3",
+    "ts-jest": "^26.5.6",
     "tslint": "^5.12.0",
     "tslint-config-prettier": "^1.18.0",
     "tslint-config-vtex": "^2.1.0",
@@ -34,6 +37,10 @@
     "vtex.styleguide": "http://vtex.vtexassets.com/_v/public/typings/v1/vtex.styleguide@9.146.3/public/@types/vtex.styleguide"
   },
   "scripts": {
-    "lint": "tsc --noEmit && tslint -c tslint.json './**/*.ts'"
+    "lint": "tsc --noEmit && tslint -c tslint.json './**/*.ts'",
+    "test": "jest"
+  },
+  "resolutions": {
+    "node-releases": "2.0.14"
   }
 }

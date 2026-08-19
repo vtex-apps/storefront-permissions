@@ -1,30 +1,30 @@
-import { LRUCache } from '@vtex/api'
+import { APP_SETTINGS_CACHE_TTL_IN_MINUTES } from '../utils/constants'
+import { createCachedResource } from './cache'
 
-const APP_SETTINGS_CACHE_MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
-const APP_SETTINGS_CACHE_MAX_ENTRIES = 5000
+const APP_SETTINGS_MEMORY_CACHE_TTL_MS = 5 * 60 * 1000
 
-const settingsCache = new LRUCache<string, Record<string, unknown>>({
-  max: APP_SETTINGS_CACHE_MAX_ENTRIES,
-})
+type AppSettings = Record<string, unknown>
 
 /**
- * Returns app settings (manifest settingsSchema) with in-memory LRU cache
- * to avoid calling the Apps API on every setProfile request.
- * Cache key: account-workspace-appId. TTL: 5 minutes.
+ * App settings (manifest settingsSchema). The Apps API was measured as one of
+ * the most expensive calls on a cold pod, so this uses both layers: warm pods do
+ * no I/O, and cold pods read the shared VBase entry instead of the Apps API.
  */
-export const getCachedAppSettings = async (ctx: Context): Promise<Record<string, unknown>> => {
-  const appId = process.env.VTEX_APP_ID ?? ''
-  const vtex = ctx.vtex
-  const account = vtex.account
-  const workspace = vtex.workspace
-  const cacheKey = `${account}-${workspace}-${appId}`
+const cachedAppSettings = createCachedResource<AppSettings>('app-settings', {
+  // One entry per account/workspace served by this pod.
+  maxEntries: 50,
+  memoryTtlMs: APP_SETTINGS_MEMORY_CACHE_TTL_MS,
+  vbaseTtlMinutes: APP_SETTINGS_CACHE_TTL_IN_MINUTES,
+})
 
-  const cached = await settingsCache.getOrSet(cacheKey, () =>
-    ctx.clients.apps.getAppSettings(appId).then((res) => ({
-      value: (res ?? {}) as Record<string, unknown>,
-      maxAge: APP_SETTINGS_CACHE_MAX_AGE_MS,
-    }))
+export const getCachedAppSettings = async (
+  ctx: Context
+): Promise<AppSettings> => {
+  const appId = process.env.VTEX_APP_ID ?? ''
+
+  const cached = await cachedAppSettings(ctx, appId, () =>
+    ctx.clients.apps.getAppSettings(appId).then((res) => (res ?? {}) as AppSettings)
   )
 
-  return (cached != null && typeof cached === 'object' ? cached : {}) as Record<string, unknown>
+  return cached != null && typeof cached === 'object' ? cached : {}
 }

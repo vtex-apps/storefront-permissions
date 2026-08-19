@@ -1,0 +1,339 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { json } from 'co-body'
+
+import { Routes } from '../resolvers/Routes'
+import { getUserOrganizationsData } from '../resolvers/Routes/utils'
+
+jest.mock('co-body', () => ({ json: jest.fn() }))
+
+jest.mock('../resolvers/Routes/utils', () => ({
+  ...jest.requireActual('../resolvers/Routes/utils'),
+  generateClUser: jest.fn().mockResolvedValue(null),
+  getUserOrganizationsData: jest.fn(),
+}))
+
+jest.mock('../resolvers/Mutations/Users', () => ({
+  getUser: jest.fn(),
+  setActiveUserByOrganization: jest.fn().mockResolvedValue(undefined),
+}))
+
+process.env.VTEX_APP_ID = 'vtex.storefront-permissions@3.6.1'
+
+const jsonMock = json as jest.Mock
+
+const flush = () => new Promise((resolve) => setImmediate(resolve))
+
+let uniq = 0
+
+interface Scenario {
+  appSettings?: Record<string, unknown>
+  costCenterAddresses?: any[]
+  organization?: Record<string, unknown>
+  recoveredOrganization?: Record<string, unknown>
+  sessionWatcherActive?: boolean
+}
+
+const defaultAddress = {
+  addressId: 'addr1',
+  country: 'USA',
+  geoCoordinates: null,
+  postalCode: '53012',
+}
+
+const makeCtx = (scenario: Scenario = {}) => {
+  const {
+    appSettings = {},
+    costCenterAddresses = [defaultAddress],
+    organization = {
+      collections: null,
+      name: 'Test Org',
+      priceTables: null,
+      salesChannel: null,
+      sellers: null,
+      status: 'active',
+      tradeName: null,
+    },
+    recoveredOrganization,
+    sessionWatcherActive = true,
+  } = scenario
+
+  const userDoc = {
+    active: true,
+    clId: 'cl1',
+    costId: 'cost1',
+    email: 'buyer@test.com',
+    id: 'u1',
+    name: 'Buyer',
+    orgId: 'org1',
+  }
+
+  const ctx: any = {
+    clients: {
+      apps: { getAppSettings: jest.fn().mockResolvedValue(appSettings) },
+      checkout: {
+        clearCart: jest.fn().mockResolvedValue({}),
+        getRegionId: jest.fn().mockResolvedValue([{ id: 'v2.TESTREGION' }]),
+        updateOrderFormMarketingData: jest.fn().mockResolvedValue({}),
+        updateOrderFormProfile: jest.fn().mockResolvedValue({}),
+        updateOrderFormShipping: jest.fn().mockResolvedValue({}),
+        updateSalesChannel: jest.fn().mockResolvedValue({}),
+      },
+      masterDataExtended: {
+        getDocumentById: jest.fn().mockImplementation((entity, id) => {
+          if (
+            entity === 'organizations' &&
+            recoveredOrganization &&
+            id !== 'org1'
+          ) {
+            return Promise.resolve(recoveredOrganization)
+          }
+
+          return Promise.resolve(organization)
+        }),
+      },
+      masterdata: {
+        searchDocumentsWithPaginationInfo: jest.fn().mockResolvedValue({
+          data: [userDoc],
+          pagination: { page: 1, total: 1 },
+        }),
+      },
+      organizations: {
+        getB2BSettings: jest.fn().mockResolvedValue({
+          data: { getB2BSettings: { uiSettings: { clearCart: false } } },
+        }),
+        getCostCenterById: jest.fn().mockResolvedValue({
+          data: {
+            getCostCenterById: {
+              addresses: costCenterAddresses,
+              businessDocument: null,
+              phoneNumber: null,
+              sellers: null,
+              stateRegistration: null,
+            },
+          },
+        }),
+        getMarketingTags: jest
+          .fn()
+          .mockResolvedValue({ data: { getMarketingTags: { tags: [] } } }),
+        getOrganizationsByEmail: jest.fn(),
+      },
+      profileSystem: {},
+      salesChannel: {
+        getSalesChannel: jest
+          .fn()
+          .mockResolvedValue({ data: [{ Id: 1, IsActive: true }] }),
+      },
+      vbase: {
+        getJSON: jest.fn().mockImplementation((bucket: string) => {
+          if (bucket === 'b2b_settings') {
+            return Promise.resolve({
+              sessionWatcher: { active: sessionWatcherActive },
+            })
+          }
+
+          // sfp-cache misses so every fetcher actually runs in tests.
+          return Promise.resolve(null)
+        }),
+        saveJSON: jest.fn().mockResolvedValue(undefined),
+      },
+    },
+    req: {},
+    response: {},
+    set: jest.fn(),
+    vtex: {
+      // Module-level caches are account-scoped, so a unique account per ctx
+      // keeps tests isolated from each other.
+      account: `testacc${uniq++}`,
+      logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
+      tenant: { locale: 'en-US' },
+      workspace: 'master',
+    },
+  }
+
+  return ctx
+}
+
+const makeBody = () => ({
+  authentication: { storeUserEmail: { value: 'buyer@test.com' } },
+  checkout: { orderFormId: { value: 'of123' } },
+  public: {},
+  'storefront-permissions': { hash: { value: '' } },
+})
+
+const run = async (ctx: any, body: any = makeBody()) => {
+  jsonMock.mockResolvedValue(body)
+  await Routes.setProfile(ctx)
+  await flush()
+
+  return ctx.response.body
+}
+
+describe('setProfile', () => {
+  it('returns the empty response and calls nothing when the watcher is off', async () => {
+    const ctx = makeCtx({ sessionWatcherActive: false })
+    const response = await run(ctx)
+
+    expect(ctx.response.status).toBe(200)
+    expect(response['storefront-permissions'].organization.value).toBe('')
+    expect(
+      ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+    ).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the first active sales channel for a null-channel org', async () => {
+    const ctx = makeCtx()
+    const response = await run(ctx)
+
+    expect(response.public.sc.value).toBe('1')
+    expect(ctx.clients.checkout.updateSalesChannel).toHaveBeenCalledWith(
+      'of123',
+      1
+    )
+  })
+
+  it('omits sc entirely when deferSalesChannelToBinding is on', async () => {
+    const ctx = makeCtx({ appSettings: { deferSalesChannelToBinding: true } })
+    const response = await run(ctx)
+
+    expect(response.public.sc).toBeUndefined()
+    expect(ctx.clients.checkout.updateSalesChannel).not.toHaveBeenCalled()
+    // The region lookup still has a sales channel to work with.
+    expect(response.public.regionId.value).toBe('v2.TESTREGION')
+  })
+
+  it('resolves the region from the cost center address by default', async () => {
+    const ctx = makeCtx()
+    const response = await run(ctx)
+
+    expect(response.public.regionId.value).toBe('v2.TESTREGION')
+    expect(ctx.clients.checkout.getRegionId).toHaveBeenCalledWith(
+      'USA',
+      '53012',
+      '1',
+      null
+    )
+    expect(response.public.postalCode).toBeUndefined()
+  })
+
+  it('publishes the locality instead of calling the regions API when deferRegionToCheckoutSession is on', async () => {
+    const ctx = makeCtx({
+      appSettings: { deferRegionToCheckoutSession: true },
+    })
+
+    const response = await run(ctx)
+
+    expect(ctx.clients.checkout.getRegionId).not.toHaveBeenCalled()
+    expect(response.public.regionId).toBeUndefined()
+    expect(response.public.postalCode.value).toBe('53012')
+    expect(response.public.country.value).toBe('USA')
+  })
+
+  it('falls back to the regions API when the address has no postal code, even with the flag on', async () => {
+    const ctx = makeCtx({
+      appSettings: { deferRegionToCheckoutSession: true },
+      costCenterAddresses: [{ ...defaultAddress, postalCode: null }],
+    })
+
+    const response = await run(ctx)
+
+    expect(ctx.clients.checkout.getRegionId).toHaveBeenCalled()
+    expect(response.public.postalCode).toBeUndefined()
+    expect(response.public.regionId.value).toBe('v2.TESTREGION')
+  })
+
+  it('recovers a user whose organization is inactive but has another active one', async () => {
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'Inactive Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'inactive',
+        tradeName: null,
+      },
+      recoveredOrganization: {
+        collections: null,
+        name: 'Recovered Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+    })
+
+    // With the old `.data.getOrganizationById` unwrap this threw a TypeError
+    // and returned a 500; the fix must complete normally.
+    await run(ctx)
+
+    expect(ctx.response.status).toBe(200)
+    expect(getUserOrganizationsData).toHaveBeenCalled()
+  })
+
+  it('keeps full payload logging off unless logSessionPayloads is enabled', async () => {
+    const quiet = makeCtx()
+
+    await run(quiet)
+
+    const quietPayloads = quiet.vtex.logger.info.mock.calls.filter(
+      (call: any[]) => call[0] && call[0]['setProfile.body']
+    )
+
+    expect(quietPayloads).toHaveLength(0)
+
+    const verbose = makeCtx({ appSettings: { logSessionPayloads: true } })
+
+    await run(verbose)
+
+    const verbosePayloads = verbose.vtex.logger.info.mock.calls.filter(
+      (call: any[]) => call[0] && call[0]['setProfile.body']
+    )
+
+    expect(verbosePayloads).toHaveLength(1)
+  })
+
+  it('reuses the active-user lookup across runs and refetches when the cost center changes', async () => {
+    // One ctx for all runs: the caches are account-scoped module singletons,
+    // and this test is about sharing them across requests.
+    const ctx = makeCtx()
+    const lookups = ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+
+    await run(ctx)
+    // One resolution = two Master Data calls (count probe + one page).
+    expect(lookups).toHaveBeenCalledTimes(2)
+
+    await run(ctx)
+    // Same email, same cost center: served from cache, no new lookup.
+    expect(lookups).toHaveBeenCalledTimes(2)
+
+    await run(ctx, {
+      ...makeBody(),
+      public: { b2bCurrentCostCenter: { value: 'cost2' } },
+    })
+    // setCurrentOrganization writes b2bCurrentCostCenter on an organization
+    // switch; a different value must change the key and force a fresh lookup.
+    expect(lookups).toHaveBeenCalledTimes(4)
+  })
+
+  it('does not block the response on the CL profile update', async () => {
+    const ctx = makeCtx()
+
+    // Even if the cart profile update hangs forever, the response returns.
+    ctx.clients.checkout.updateOrderFormProfile.mockReturnValue(
+      new Promise(() => undefined)
+    )
+
+    const response = await run(ctx)
+
+    expect(response.public.facets).toBeDefined()
+    expect(ctx.response.status).toBe(200)
+  })
+})

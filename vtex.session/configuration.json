@@ -8,7 +8,7 @@
       "storefront-permissions": ["hash"]
     },
     "output": {
-      "public": ["facets", "sc", "regionId"],
+      "public": ["facets", "sc", "regionId", "postalCode", "country"],
       "storefront-permissions": ["storeUserId", "storeUserEmail", "organization", "costcenter", "costCenterAddressId", "priceTables", "collections", "userId", "hash"]
     }
   }

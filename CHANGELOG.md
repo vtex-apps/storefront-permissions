@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- Two-layer caching (per-pod in-memory LRU + cross-pod VBase stale-while-revalidate) for the data `setProfile` reads on every session transform: app settings, sales channel list, B2B settings, organization, cost center, active user, region lookup, session watcher flag (memory-only, it already lives in VBase) and roles (memory-only, same reason). Warm-pod transform time drops from roughly 1.2s to under 150ms, and a cold pod reads the entry a sibling pod populated instead of paying the origin call. The cost center cache is bounded by bytes rather than entry count, because its documents were measured spanning 400B to 29KB.
+- The active-user cache key includes the session's `public.b2bCurrentCostCenter`, which `setCurrentOrganization` writes on every organization switch, so switching organizations invalidates the cache by key instead of waiting out a TTL. TTL configurable through the `sessionUserCacheTtlMs` app setting (0 disables).
+- New app setting `deferRegionToCheckoutSession` (default `false`). When enabled, `setProfile` stops calling the checkout regions API and instead publishes the selected cost center address as `public.postalCode` and `public.country`, leaving `public.regionId` untouched so `vtex.checkout-session` resolves `checkout.regionId` itself (it performs the same lookup, cached). Also makes `vtex.search-session` regionalize search with the same address the cart uses. Falls back to resolving the region locally when the cost center address lacks a country or postal code, and stands down when region overwrite is active for the request.
+- Session transform telemetry: a `withRequestTimings` middleware logs one `setProfile.timings` line with per-step durations when a request is slow (default threshold 1000ms, configurable via `sessionTimingsSlowThresholdMs`) or sampled (`sessionTimingsSampleRate`, default 0), and always when the transform throws (`failed: true`), so incidents show which dependency degraded without redeploying.
+- Per-pod cache hit-rate and size stats logged as `cacheStats` every five minutes, piggybacked on the session transform route.
+- New app setting `logSessionPayloads` (default `false`) gating the full request/response session payload log, which previously ran on every transform and included the shopper's email and organization data.
+- Errors in the stale-while-revalidate cache layer are now logged (`staleFromVBase.readError`, `saveError`, `revalidateError`) instead of being silently swallowed - in particular a failing origin behind a stale-served cache is now visible.
+- Jest test suite (41 tests) covering the caches, the stale-while-revalidate helper, the timings middleware, the `checkPermissions` cache, and `setProfile` behaviors: sales channel deferral, region handoff and its fallbacks, organization-switch cache invalidation, payload log gating, session watcher kill switch, and the inactive-organization recovery path.
+
+### Changed
+
+- `setProfile` starts its user-independent lookups (sales channel list, B2B settings, app settings) before the user lookup instead of awaiting everything in one batch, hiding their latency behind the user and organization reads.
+- `getMarketingTags` and `generateClUser` no longer block the session transform response: both only feed fire-and-forget cart updates, and `generateClUser` had measured spikes near 1s. The CL profile lookup is also skipped entirely when there is no cart to update.
+- The sellers facets branch reuses the already-fetched cached app settings instead of issuing a second, uncached `getAppSettings` call.
+- `checkPermissions` resolves the user through a short-lived (60s, memory-only) cache; it is called per request by sibling B2B apps and previously hit Master Data every time.
+- Service resources aligned with the rest of the B2B suite: memory 256MB to 1024MB, ttl 60 to 300, timeout 45 to 60 (`b2b-organizations-graphql` and `b2b-checkout-settings` already run this profile).
+
+### Fixed
+
+- `setProfile` returned a 500 for any user whose organization is inactive but who has another active organization - the exact path meant to recover them. The recovery branch still unwrapped the response shape of the old GraphQL client (`.data.getOrganizationById`) after the Master Data client migration, resolving `organization` to `undefined` and throwing on `organization.name`. Covered by a regression test proven to fail against the old code.
+
 ## [3.6.1] - 2026-08-11
 
 ### Added

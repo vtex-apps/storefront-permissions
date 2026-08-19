@@ -1,17 +1,26 @@
 import { ForbiddenError } from '@vtex/api'
 import { json } from 'co-body'
 
-import { getCachedAppSettings } from '../../services/appSettingsCache'
-import { getRole } from '../Queries/Roles'
-import { getSessionWatcher } from '../Queries/Settings'
-import { generateClUser, getUserOrganizationsData } from './utils'
 import {
-  getActiveUserByEmail,
-  getUserByEmail,
-  getB2BUserById,
-} from '../Queries/Users'
-import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
+  getCachedActiveUserByEmail,
+  getCachedActiveUserForPermissions,
+  setActiveUserCacheTtl,
+} from '../../services/activeUserCache'
+import { getCachedAppSettings } from '../../services/appSettingsCache'
+import {
+  getCachedB2BSettings,
+  getCachedCostCenter,
+  getCachedOrganization,
+} from '../../services/organizationsCache'
+import { getCachedRegionId } from '../../services/regionCache'
+import { getCachedSalesChannel } from '../../services/salesChannelCache'
+import { getCachedSessionWatcher } from '../../services/sessionWatcherCache'
 import { toHash } from '../../utils'
+import { createTimer, getTimer } from '../../utils/requestTimings'
+import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
+import { getRole } from '../Queries/Roles'
+import { getActiveUserByEmail, getB2BUserById } from '../Queries/Users'
+import { generateClUser, getUserOrganizationsData } from './utils'
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
@@ -51,11 +60,13 @@ export const Routes = {
       throw new Error('Email not defined')
     }
 
-    const userData: any = await getUserByEmail(
-      null,
-      { email: params.email },
-      ctx
-    )
+    // Same array shape getUserByEmail returned, but served from the short-lived
+    // permissions cache: this route is called per request by sibling B2B apps.
+    const userData: any = [
+      await getCachedActiveUserForPermissions(ctx, params.email, () =>
+        getActiveUserByEmail(null, { email: params.email }, ctx)
+      ),
+    ]
 
     if (!userData.length) {
       logger.warn({
@@ -101,11 +112,14 @@ export const Routes = {
         masterDataExtended,
         checkout,
         profileSystem,
-        salesChannel: salesChannelClient,
       },
       req,
       vtex: { logger },
     } = ctx
+
+    // Provided by the withRequestTimings middleware, which emits the timings for
+    // both outcomes. The fallback keeps this callable outside that chain.
+    const timer = getTimer(ctx) ?? createTimer()
 
     const response: any = {
       public: {
@@ -150,7 +164,10 @@ export const Routes = {
     ctx.set('Content-Type', 'application/json')
     ctx.set('Cache-Control', 'no-cache, no-store')
 
-    const isWatchActive = await getSessionWatcher(null, null, ctx)
+    const isWatchActive = await timer.track(
+      'getSessionWatcher',
+      getCachedSessionWatcher(ctx)
+    )
 
     if (!isWatchActive) {
       ctx.response.body = response
@@ -177,6 +194,13 @@ export const Routes = {
     let user = null
 
     const ignoreB2B = body?.public?.removeB2B?.value
+
+    /**
+     * Written into the session by setCurrentOrganization on every organization
+     * switch. Used as part of the active-user cache key so that switching
+     * organization misses the cache instead of reading the previous one.
+     */
+    const currentCostCenter = body?.public?.b2bCurrentCostCenter?.value ?? null
 
     if (ignoreB2B) {
       ctx.response.body = response
@@ -231,11 +255,39 @@ export const Routes = {
       return
     }
 
+    // Kick off request/user-independent lookups now so their (cold) latency
+    // overlaps with the user + organization lookups below, instead of being
+    // awaited serially in a single batch. These are read-only and only fire
+    // once we know this is an authenticated (email-bearing) session.
+    const salesChannelsPromise = timer.track(
+      'getSalesChannel',
+      getCachedSalesChannel(ctx)
+    )
+    // b2bSettings is only consumed by the (conditional) clearCart branch, so it
+    // may never be awaited; guard against unhandled rejections.
+    const b2bSettingsPromise = timer
+      .track(
+        'getB2BSettings',
+        getCachedB2BSettings(ctx, () => organizations.getB2BSettings())
+      )
+      .catch((error) => {
+        logger.error({ error, message: 'setProfile.getB2BSettings' })
+
+        return null
+      })
+    const appSettingsPromise = timer.track(
+      'getCachedAppSettings',
+      getCachedAppSettings(ctx)
+    )
+
     if (user === null) {
-      user = (await getActiveUserByEmail(null, { email }, ctx).catch(
-        (error) => {
-          logger.warn({ message: 'setProfile.getUserByEmailError', error })
-        }
+      user = (await timer.track(
+        'getActiveUserByEmail',
+        getCachedActiveUserByEmail(ctx, email, currentCostCenter, () =>
+          getActiveUserByEmail(null, { email }, ctx).catch((error) => {
+            logger.warn({ message: 'setProfile.getUserByEmailError', error })
+          })
+        )
       )) as {
         orgId: string
         costId: string
@@ -256,22 +308,24 @@ export const Routes = {
     response['storefront-permissions'].organization.value = user.orgId
 
     const getOrganization = async (orgId: any): Promise<any> => {
-      return masterDataExtended
-        .getDocumentById('organizations', orgId, [
-          'name',
-          'tradeName',
-          'status',
-          'priceTables',
-          'salesChannel',
-          'collections',
-          'sellers',
-        ])
-        .catch((error) => {
-          logger.error({
-            error,
-            message: 'setProfile.graphqlGetOrganizationById',
+      return getCachedOrganization(ctx, String(orgId), () =>
+        masterDataExtended
+          .getDocumentById('organizations', orgId, [
+            'name',
+            'tradeName',
+            'status',
+            'priceTables',
+            'salesChannel',
+            'collections',
+            'sellers',
+          ])
+          .catch((error) => {
+            logger.error({
+              error,
+              message: 'setProfile.graphqlGetOrganizationById',
+            })
           })
-        })
+      )
     }
 
     const hash = toHash(`${user.orgId}|${user.costId}`)
@@ -279,21 +333,53 @@ export const Routes = {
 
     response['storefront-permissions'].hash.value = hash
 
-    const [
-      organizationResponse,
-      costCenterResponse,
-      salesChannels,
-      marketingTagsResponse,
-      b2bSettingsResponse,
-      appSettings,
-    ] = await Promise.all([
-      getOrganization(user.orgId),
-      organizations.getCostCenterById(user.costId),
-      salesChannelClient.getSalesChannel(),
-      organizations.getMarketingTags(user.costId),
-      organizations.getB2BSettings(),
-      getCachedAppSettings(ctx),
+    // Best-effort context, so a request that throws before finishing still
+    // reports which organization it was serving. Refined at the end.
+    timer.meta.extra = {
+      hasOrderFormId: !!orderFormId,
+      hashChanged,
+      orgId: user.orgId,
+    }
+
+    // Marketing tags only feed a fire-and-forget cart update further down, so
+    // keep them off the critical path (do not await here).
+    const marketingTagsPromise = organizations
+      .getMarketingTags(user.costId)
+      .catch((error) => {
+        logger.error({ error, message: 'setProfile.getMarketingTags' })
+
+        return null
+      })
+
+    // Read into locals so the cache fetcher below does not close over `user`,
+    // which is reassigned further down.
+    const resolvedCostId = user.costId
+
+    // Only these two genuinely depend on the resolved user (orgId/costId).
+    const [organizationResponse, costCenterResponse] = await Promise.all([
+      timer.track('getOrganization', getOrganization(user.orgId)),
+      timer.track(
+        'getCostCenterById',
+        getCachedCostCenter(ctx, String(resolvedCostId), () =>
+          organizations.getCostCenterById(resolvedCostId)
+        )
+      ),
     ])
+
+    // These were started earlier; by now their latency is largely hidden
+    // behind the user + organization lookups above. Tracking the wait itself
+    // shows how much (if any) still lands on the critical path.
+    const [salesChannels, appSettings] = await timer.track(
+      'awaitIndependent',
+      Promise.all([salesChannelsPromise, appSettingsPromise])
+    )
+
+    setActiveUserCacheTtl((appSettings as any)?.sessionUserCacheTtlMs)
+
+    // Hand the account's limits to the middleware that emits the timings.
+    timer.meta.sampleRate = (appSettings as any)?.sessionTimingsSampleRate
+    timer.meta.slowThresholdMs = (appSettings as any)
+      ?.sessionTimingsSlowThresholdMs
 
     // in case the cost center is not found, we need to find a valid cost center for the user
     if (
@@ -302,7 +388,10 @@ export const Routes = {
       )
     ) {
       try {
-        const usersByEmail = await organizations.getOrganizationsByEmail(email)
+        const usersByEmail = await timer.track(
+          'getOrganizationsByEmail',
+          organizations.getOrganizationsByEmail(email)
+        )
 
         // when cost center comes without a name, it's because the cost center is deleted
         const usersData = usersByEmail.data.getOrganizationsByEmail.find(
@@ -330,15 +419,16 @@ export const Routes = {
     const needsOrgData = organizationInactive || costCenterInvalid
 
     if (needsOrgData) {
-      userOrgsData = await getUserOrganizationsData(email, ctx).catch(
-        (error) => {
+      userOrgsData = await timer.track(
+        'getUserOrganizationsData',
+        getUserOrganizationsData(email, ctx).catch((error) => {
           logger.error({
             error,
             message: 'setProfile.getUserOrganizationsData',
           })
 
           return { validCostCenterId: null, activeOrganization: null }
-        }
+        })
       )
     }
 
@@ -352,8 +442,11 @@ export const Routes = {
       const validOrganization = userOrgsData?.activeOrganization
 
       if (validOrganization) {
-        organization = (await getOrganization(validOrganization.id))?.data
-          ?.getOrganizationById
+        // getOrganization reads Master Data directly, so it returns the document
+        // itself. Unwrapping `.data.getOrganizationById` here is left over from
+        // when this went through the b2b-organizations GraphQL client, and it
+        // resolved to undefined, throwing on the `organization.name` access below.
+        organization = await getOrganization(validOrganization.id)
 
         await setActiveUserByOrganization(
           null,
@@ -384,10 +477,9 @@ export const Routes = {
     tradeName = organization.tradeName
 
     if (organization.priceTables?.length) {
-      const userWithPriceTable = (await getB2BUserById(
-        null,
-        { id: user.id },
-        ctx
+      const userWithPriceTable = (await timer.track(
+        'getB2BUserById',
+        getB2BUserById(null, { id: user.id }, ctx)
       )) as { selectedPriceTable: string }
 
       const MAX_PRICE_TABLES = 3
@@ -424,8 +516,12 @@ export const Routes = {
     if (sellersArray.length > 0) {
       const sellersList = sellersArray
 
-      const { disableSellersNameFacets, disablePrivateSellersFacets } =
-        await Routes.appSettings(ctx)
+      // Reuse the already-fetched (cached) appSettings instead of issuing a
+      // second, uncached getAppSettings round-trip on the sellers path.
+      const disableSellersNameFacets = (appSettings as any)
+        ?.disableSellersNameFacets
+      const disablePrivateSellersFacets = (appSettings as any)
+        ?.disablePrivateSellersFacets
 
       if (!disableSellersNameFacets) {
         const sellersName = sellersList.map(
@@ -467,6 +563,9 @@ export const Routes = {
 
     const enableRegionOverwriteFlag =
       (appSettings as any)?.enableRegionOverwrite ?? false
+
+    const deferRegionToCheckoutSessionFlag =
+      (appSettings as any)?.deferRegionToCheckoutSession ?? false
 
     const publicCostCenterAddressId = body?.public?.costCenterAddressId?.value
     const requestedAddressId = enableCostCenterAddressSelection
@@ -588,14 +687,18 @@ export const Routes = {
 
     if (hashChanged && orderFormId) {
       try {
+        const b2bSettingsResponse = await b2bSettingsPromise
         const b2bSettings = (b2bSettingsResponse as any)?.data?.getB2BSettings
         const {
           uiSettings: { clearCart },
         } = b2bSettings ?? { uiSettings: { clearCart: null } }
 
         if (clearCart) {
-          await Promise.all(salesChannelPromise)
-          await checkout.clearCart(orderFormId)
+          await timer.track(
+            'updateSalesChannel',
+            Promise.all(salesChannelPromise)
+          )
+          await timer.track('clearCart', checkout.clearCart(orderFormId))
         }
       } catch (error) {
         logger.error({
@@ -609,16 +712,61 @@ export const Routes = {
     // checkout-session will use public.postalCode and public.country for checkout.regionId. We also do not update the cart with an address.
     if (selectedAddress && orderFormId) {
       const address = selectedAddress
-      const marketingTags: any = (marketingTagsResponse as any)?.data
-        ?.getMarketingTags?.tags
 
-      if (!usePublicPostalCodeForRegion && regionLookupSalesChannel) {
+      /**
+       * vtex.checkout-session performs this exact same region lookup (and caches
+       * it), and it is the app that produces the canonical `checkout.regionId`
+       * that the platform and the segment actually read. When this is enabled we
+       * publish the cost center locality instead of resolving the region here,
+       * which removes a call from the session transform.
+       *
+       * It also fixes an inconsistency: today the cart is regionalized from the
+       * cost center address while vtex.search-session, which reads the locality
+       * from the public namespace, sees nothing for B2B users.
+       *
+       * Requires a country and postal code, since that is the input contract of
+       * checkout-session; otherwise we fall back to resolving it ourselves.
+       */
+      const deferRegionToCheckoutSession =
+        deferRegionToCheckoutSessionFlag &&
+        !usePublicPostalCodeForRegion &&
+        !!address.country &&
+        !!address.postalCode
+
+      if (deferRegionToCheckoutSession) {
+        // Omit `regionId` rather than sending an empty value, so we never clear a
+        // region another app (or the storefront) already resolved.
+        delete response.public.regionId
+
+        response.public.country = { value: address.country }
+        response.public.postalCode = { value: address.postalCode }
+
+        logger.info({
+          costId: user.costId,
+          message: 'setProfile.regionDeferredToCheckoutSession',
+        })
+      } else if (!usePublicPostalCodeForRegion && regionLookupSalesChannel) {
         try {
-          const [regionId] = await checkout.getRegionId(
-            address.country,
-            address.postalCode,
-            regionLookupSalesChannel.toString(),
-            address.geoCoordinates
+          const regionSalesChannel = regionLookupSalesChannel.toString()
+
+          const [regionId] = await timer.track(
+            'getRegionId',
+            getCachedRegionId(
+              ctx,
+              {
+                country: address.country,
+                geoCoordinates: address.geoCoordinates,
+                postalCode: address.postalCode,
+                salesChannel: regionSalesChannel,
+              },
+              () =>
+                checkout.getRegionId(
+                  address.country,
+                  address.postalCode,
+                  regionSalesChannel,
+                  address.geoCoordinates
+                )
+            )
           )
 
           if (regionId?.id) {
@@ -643,13 +791,21 @@ export const Routes = {
         })
       }
 
+      const utmCampaign = user.orgId
+      const utmMedium = user.costId
+
       promises.push(
-        checkout
-          .updateOrderFormMarketingData(orderFormId, {
-            attachmentId: 'marketingData',
-            marketingTags: marketingTags || [],
-            utmCampaign: user.orgId,
-            utmMedium: user.costId,
+        marketingTagsPromise
+          .then((marketingTagsResponse) => {
+            const marketingTags: any = (marketingTagsResponse as any)?.data
+              ?.getMarketingTags?.tags
+
+            return checkout.updateOrderFormMarketingData(orderFormId, {
+              attachmentId: 'marketingData',
+              marketingTags: marketingTags || [],
+              utmCampaign,
+              utmMedium,
+            })
           })
           .catch((error) => {
             logger.error({
@@ -685,34 +841,51 @@ export const Routes = {
       }
     }
 
-    const clUser = await generateClUser({
-      businessDocument,
-      businessName,
-      clId: user?.clId ?? '',
-      ctx,
-      phoneNumber: phoneNumber ?? null,
-      stateRegistration,
-      tradeName,
-      isCorporate,
-    })
-
-    if (clUser && orderFormId) {
-      const phoneNumberFormatted =
-        phoneNumber || clUser.phone || clUser.homePhone || `+1${'0'.repeat(10)}`
+    // The CL profile only feeds the fire-and-forget cart update below, so it
+    // must not block the response (it measured up to ~1s in spikes). It is also
+    // skipped entirely when there is no cart to update, which is the only thing
+    // its result was ever used for. Values are read into consts because the
+    // surrounding variables are reassigned `let`s and must not be closed over.
+    if (orderFormId) {
+      const clId = user?.clId ?? ''
+      const clBusinessDocument = businessDocument
+      const clBusinessName = businessName
+      const clDocumentType = documentType
+      const clPhoneNumber = phoneNumber
+      const clStateRegistration = stateRegistration
+      const clTradeName = tradeName
 
       promises.push(
-        checkout
-          .updateOrderFormProfile(orderFormId, {
-            ...clUser,
-            businessDocument:
-              (businessDocument || clUser.businessDocument) ?? null,
-            documentType: documentType ?? undefined,
-            phone: phoneNumberFormatted,
-            stateInscription:
-              stateRegistration ??
-              clUser.stateInscription ??
-              '0'.repeat(9) ??
-              null,
+        generateClUser({
+          businessDocument: clBusinessDocument,
+          businessName: clBusinessName,
+          clId,
+          ctx,
+          phoneNumber: clPhoneNumber ?? null,
+          stateRegistration: clStateRegistration,
+          tradeName: clTradeName,
+          isCorporate,
+        })
+          .then((clUser) => {
+            if (!clUser) {
+              return undefined
+            }
+
+            const phoneNumberFormatted =
+              clPhoneNumber ||
+              clUser.phone ||
+              clUser.homePhone ||
+              `+1${'0'.repeat(10)}`
+
+            return checkout.updateOrderFormProfile(orderFormId, {
+              ...clUser,
+              businessDocument:
+                (clBusinessDocument || clUser.businessDocument) ?? null,
+              documentType: clDocumentType ?? undefined,
+              phone: phoneNumberFormatted,
+              stateInscription:
+                clStateRegistration ?? clUser.stateInscription ?? '0'.repeat(9),
+            })
           })
           .catch((error) => {
             logger.error({
@@ -726,10 +899,23 @@ export const Routes = {
     // Don't await promises, to avoid session timeout
     Promise.all(promises)
 
-    logger.info({
-      'setProfile.body': JSON.stringify(body),
-      'setProfile.output': JSON.stringify(response),
-    })
+    timer.meta.extra = {
+      costId: user.costId,
+      hasOrderFormId: !!orderFormId,
+      hashChanged,
+      orgId: user.orgId,
+    }
+
+    // Off by default: this used to run on every session transform, which on a
+    // route this hot means two JSON.stringify calls per request plus a log line
+    // carrying the whole session in and out, including the shopper's email and
+    // organization data. Enable it per account only while debugging.
+    if ((appSettings as any)?.logSessionPayloads) {
+      logger.info({
+        'setProfile.body': JSON.stringify(body),
+        'setProfile.output': JSON.stringify(response),
+      })
+    }
 
     ctx.response.body = response
     ctx.response.status = 200
