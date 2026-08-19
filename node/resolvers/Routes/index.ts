@@ -13,20 +13,37 @@ import {
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
 import { toHash } from '../../utils'
 
+type SetProfileStepTiming = {
+  durationMs?: number
+  failed?: boolean
+  step: string
+  stepMs?: number
+  totalMs: number
+}
+
 const createSetProfileTimers = (logger: Context['vtex']['logger']) => {
   const timing = { prev: Date.now(), t0: Date.now() }
+  const steps: SetProfileStepTiming[] = []
 
   const logSetProfileStep = (step: string, extra?: Record<string, unknown>) => {
     const now = Date.now()
+    const stepTiming: SetProfileStepTiming = {
+      step,
+      stepMs: now - timing.prev,
+      totalMs: now - timing.t0,
+    }
+
+    steps.push(stepTiming)
+    timing.prev = now
 
     logger.debug({
       message: 'setProfile.timing',
       step,
-      stepMs: now - timing.prev,
-      totalMs: now - timing.t0,
+      stepMs: stepTiming.stepMs,
+      totalMs: stepTiming.totalMs,
+      steps: [...steps],
       ...extra,
     })
-    timing.prev = now
   }
 
   const timedSetProfile = async <T>(
@@ -37,20 +54,42 @@ const createSetProfileTimers = (logger: Context['vtex']['logger']) => {
 
     try {
       const result = await promise
+      const now = Date.now()
+      const stepTiming: SetProfileStepTiming = {
+        step,
+        durationMs: now - start,
+        totalMs: now - timing.t0,
+      }
+
+      steps.push(stepTiming)
 
       logger.debug({
         message: 'setProfile.timing',
         step,
-        durationMs: Date.now() - start,
+        durationMs: stepTiming.durationMs,
+        totalMs: stepTiming.totalMs,
+        steps: [...steps],
       })
 
       return result
     } catch (error) {
+      const now = Date.now()
+      const stepTiming: SetProfileStepTiming = {
+        step,
+        durationMs: now - start,
+        failed: true,
+        totalMs: now - timing.t0,
+      }
+
+      steps.push(stepTiming)
+
       logger.debug({
         message: 'setProfile.timing',
         step,
-        durationMs: Date.now() - start,
+        durationMs: stepTiming.durationMs,
         failed: true,
+        totalMs: stepTiming.totalMs,
+        steps: [...steps],
       })
       throw error
     }
