@@ -31,6 +31,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - `setProfile` returned a 500 for any user whose organization is inactive but who has another active organization - the exact path meant to recover them. The recovery branch still unwrapped the response shape of the old GraphQL client (`.data.getOrganizationById`) after the Master Data client migration, resolving `organization` to `undefined` and throwing on `organization.name`. Covered by a regression test proven to fail against the old code.
 
+### Removed
+
+- The per-step `setProfile.timing` debug logging introduced in 3.6.2/3.6.3, superseded by the gated `setProfile.timings` telemetry above: same step coverage, but one log line per slow/failed/sampled request instead of one debug line per step on every request.
+
+## [3.6.3] - 2026-08-19
+
+### Changed
+
+- Grouped the `setProfile` process-time debug logging into step timings.
+
+## [3.6.2] - 2026-08-19
+
+### Added
+
+- Step-by-step process-time debug logging in `setProfile`.
+
 ## [3.6.1] - 2026-08-11
 
 ### Added
