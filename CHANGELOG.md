@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- `setProfile` no longer blocks the session response on cart/profile side effects (`clearCart`, `getB2BSettings`, `getMarketingTags`, `updateOrderFormShipping`, `updateOrderFormMarketingData`, `generateClUser`, `updateOrderFormProfile`). These only affect the cart/profile, not the session's own fields, so they now run in a detached chain after the response is sent — reducing `setProfile`'s response time and its exposure to `session-manager`'s 2s timeout on the transform call. Internal ordering (`clearCart` before the writes that follow it) is unchanged.
+
+### Added
+
+- New app setting `debug` (default `false`) to enable `setProfile` timing logs. When enabled, each `setProfile.timing` log includes `orderFormId` and the accumulated step timeline.
+
 ## [3.6.3] - 2026-08-19
 
 ## [3.6.2] - 2026-08-19

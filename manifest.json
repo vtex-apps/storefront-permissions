@@ -168,6 +168,12 @@
         "description": "When enabled, checkUserPermission returns only the impersonated profile's permissions during an impersonation session, so the acting user's (Operator, sales representative, approver) permissions never leak into the storefront. When disabled (default), the permissions of the acting user and the impersonated profile are aggregated, which is required by flows that rely on the acting user's rights while impersonating - for example a sales representative completing checkout for a buyer role that has no can-checkout permission, or an approver retaining approval power.",
         "type": "boolean",
         "default": false
+      },
+      "debug": {
+        "title": "Enable setProfile debug logs",
+        "description": "When enabled, setProfile emits detailed timing logs (setProfile.timing) including orderFormId and step durations. Keep disabled unless diagnosing session latency.",
+        "type": "boolean",
+        "default": false
       }
     }
   },
