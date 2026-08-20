@@ -280,15 +280,36 @@ export const Routes = {
       getCachedAppSettings(ctx)
     )
 
+    // These two start before the user checks below, so an early return would
+    // leave their rejections unhandled and crash the worker. Observing here
+    // marks them handled; the awaits further down still see the real rejection.
+    salesChannelsPromise.catch(() => undefined)
+    appSettingsPromise.catch(() => undefined)
+
     if (user === null) {
-      user = (await timer.track(
-        'getActiveUserByEmail',
-        getCachedActiveUserByEmail(ctx, email, currentCostCenter, () =>
-          getActiveUserByEmail(null, { email }, ctx).catch((error) => {
-            logger.warn({ message: 'setProfile.getUserByEmailError', error })
-          })
+      // getActiveUserByEmail resolves Master Data failures into an error
+      // sentinel instead of rejecting. Rethrow it inside the fetcher so neither
+      // cache layer can store an outage as a valid "user without organization"
+      // (which would produce empty B2B sessions until the TTL expired), and
+      // handle the failure outside the cached call so it is retried next time.
+      const fetchActiveUser = async () => {
+        const activeUser: any = await getActiveUserByEmail(null, { email }, ctx)
+
+        if (activeUser?.status === 'error') {
+          throw activeUser.message
+        }
+
+        return activeUser
+      }
+
+      user = (await timer
+        .track(
+          'getActiveUserByEmail',
+          getCachedActiveUserByEmail(ctx, email, currentCostCenter, fetchActiveUser)
         )
-      )) as {
+        .catch((error) => {
+          logger.warn({ message: 'setProfile.getUserByEmailError', error })
+        })) as {
         orgId: string
         costId: string
         clId: string
@@ -356,15 +377,21 @@ export const Routes = {
     const resolvedCostId = user.costId
 
     // Only these two genuinely depend on the resolved user (orgId/costId).
-    const [organizationResponse, costCenterResponse] = await Promise.all([
-      timer.track('getOrganization', getOrganization(user.orgId)),
-      timer.track(
-        'getCostCenterById',
-        getCachedCostCenter(ctx, String(resolvedCostId), () =>
-          organizations.getCostCenterById(resolvedCostId)
-        )
-      ),
-    ])
+    // costCenterResponse is reassigned when the inactive-organization fallback
+    // below adopts a different cost center.
+    const [organizationResponse, initialCostCenterResponse] = await Promise.all(
+      [
+        timer.track('getOrganization', getOrganization(user.orgId)),
+        timer.track(
+          'getCostCenterById',
+          getCachedCostCenter(ctx, String(resolvedCostId), () =>
+            organizations.getCostCenterById(resolvedCostId)
+          )
+        ),
+      ]
+    )
+
+    let costCenterResponse: any = initialCostCenterResponse
 
     // These were started earlier; by now their latency is largely hidden
     // behind the user + organization lookups above. Tracking the wait itself
@@ -374,7 +401,7 @@ export const Routes = {
       Promise.all([salesChannelsPromise, appSettingsPromise])
     )
 
-    setActiveUserCacheTtl((appSettings as any)?.sessionUserCacheTtlMs)
+    setActiveUserCacheTtl(ctx, (appSettings as any)?.sessionUserCacheTtlMs)
 
     // Hand the account's limits to the middleware that emits the timings.
     timer.meta.sampleRate = (appSettings as any)?.sessionTimingsSampleRate
@@ -445,8 +472,31 @@ export const Routes = {
         // getOrganization reads Master Data directly, so it returns the document
         // itself. Unwrapping `.data.getOrganizationById` here is left over from
         // when this went through the b2b-organizations GraphQL client, and it
-        // resolved to undefined, throwing on the `organization.name` access below.
-        organization = await getOrganization(validOrganization.id)
+        // resolved to undefined, throwing on the `organization.name` access
+        // below. Note `validOrganization.id` is the b2b_users record id, not the
+        // organization id, so the lookup must use `orgId`.
+        organization = await getOrganization(validOrganization.orgId)
+
+        // Adopt the fallback locally as well, so this response is stamped with
+        // the organization we just activated instead of the inactive one: the
+        // session fields, the hash, and the cost center data the cart updates
+        // below read from all came from the old organization.
+        const fallbackCostId = validOrganization.costId
+
+        user.orgId = validOrganization.orgId
+        user.costId = fallbackCostId
+        response['storefront-permissions'].organization.value = user.orgId
+        response['storefront-permissions'].hash.value = toHash(
+          `${user.orgId}|${user.costId}`
+        )
+        timer.meta.extra = { ...timer.meta.extra, orgId: user.orgId }
+
+        costCenterResponse = await timer.track(
+          'getCostCenterById.inactiveFallback',
+          getCachedCostCenter(ctx, String(fallbackCostId), () =>
+            organizations.getCostCenterById(fallbackCostId)
+          )
+        )
 
         await setActiveUserByOrganization(
           null,

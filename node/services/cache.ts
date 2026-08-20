@@ -112,7 +112,10 @@ export const createCachedResource = <T>(
         : fetcher()
 
     if (memoryTtlMs <= 0) {
-      return readThrough()
+      // Explicitly disabled means disabled: bypass the VBase layer too, not
+      // just the memory one, otherwise "0" would still serve values up to the
+      // VBase TTL old.
+      return fetcher()
     }
 
     const { account, workspace } = ctx.vtex

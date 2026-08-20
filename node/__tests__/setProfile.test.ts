@@ -2,7 +2,10 @@
 import { json } from 'co-body'
 
 import { Routes } from '../resolvers/Routes'
-import { getUserOrganizationsData } from '../resolvers/Routes/utils'
+import {
+  generateClUser,
+  getUserOrganizationsData,
+} from '../resolvers/Routes/utils'
 
 jest.mock('co-body', () => ({ json: jest.fn() }))
 
@@ -79,16 +82,24 @@ const makeCtx = (scenario: Scenario = {}) => {
         updateSalesChannel: jest.fn().mockResolvedValue({}),
       },
       masterDataExtended: {
+        // Deliberately id-exact: the recovered organization only resolves for
+        // its real organization id ('org2'). Fetching with any other id (for
+        // example the b2b_users record id 'u2') returns undefined, exactly like
+        // Master Data would - which is how the wrong-id lookup bug is caught.
         getDocumentById: jest.fn().mockImplementation((entity, id) => {
-          if (
-            entity === 'organizations' &&
-            recoveredOrganization &&
-            id !== 'org1'
-          ) {
+          if (entity !== 'organizations') {
+            return Promise.resolve(undefined)
+          }
+
+          if (id === 'org1') {
+            return Promise.resolve(organization)
+          }
+
+          if (recoveredOrganization && id === 'org2') {
             return Promise.resolve(recoveredOrganization)
           }
 
-          return Promise.resolve(organization)
+          return Promise.resolve(undefined)
         }),
       },
       masterdata: {
@@ -271,11 +282,21 @@ describe('setProfile', () => {
     })
 
     // With the old `.data.getOrganizationById` unwrap this threw a TypeError
-    // and returned a 500; the fix must complete normally.
-    await run(ctx)
+    // and returned a 500; the fix must complete normally. The id-exact mock in
+    // makeCtx also fails this test if the lookup uses the user record id ('u2')
+    // instead of the organization id ('org2').
+    const response = await run(ctx)
 
     expect(ctx.response.status).toBe(200)
     expect(getUserOrganizationsData).toHaveBeenCalled()
+
+    // The response must be stamped with the organization that was just
+    // activated, not the inactive one it arrived with.
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].costcenter.value).toBe('cost2')
+    expect(ctx.clients.organizations.getCostCenterById).toHaveBeenCalledWith(
+      'cost2'
+    )
   })
 
   it('keeps full payload logging off unless logSessionPayloads is enabled', async () => {
@@ -324,6 +345,17 @@ describe('setProfile', () => {
   })
 
   it('does not block the response on the CL profile update', async () => {
+    // The suite-level mock resolves null, which would skip the cart update and
+    // make this test pass vacuously; return a real CL user so the hanging
+    // update below is actually reached.
+    const clUserMock = generateClUser as jest.Mock
+
+    clUserMock.mockResolvedValueOnce({
+      email: 'buyer@test.com',
+      isCorporate: true,
+      phone: null,
+    })
+
     const ctx = makeCtx()
 
     // Even if the cart profile update hangs forever, the response returns.
@@ -335,5 +367,7 @@ describe('setProfile', () => {
 
     expect(response.public.facets).toBeDefined()
     expect(ctx.response.status).toBe(200)
+    // Proves the fire-and-forget update genuinely started while still pending.
+    expect(ctx.clients.checkout.updateOrderFormProfile).toHaveBeenCalledTimes(1)
   })
 })

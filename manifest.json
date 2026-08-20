@@ -177,7 +177,7 @@
       },
       "sessionUserCacheTtlMs": {
         "title": "Active user cache TTL (ms)",
-        "description": "How long the resolved active user (organization and cost center for an email) is cached. The session transform runs several times per storefront navigation, so this removes most of the repeated Master Data lookups. The cache key already includes the session's b2bCurrentCostCenter, so switching organization invalidates it immediately; this TTL only bounds changes made outside that flow, such as an admin editing the user's organizations. Set to 0 to disable. Defaults to 300000ms (5 minutes).",
+        "description": "How long the resolved active user (organization and cost center for an email) is cached in memory. The session transform runs several times per storefront navigation, so this removes most of the repeated Master Data lookups. The cache key already includes the session's b2bCurrentCostCenter, so switching organization invalidates it immediately; this TTL only bounds changes made outside that flow, such as an admin editing the user's organizations. Note the cross-pod layer keeps its own 5-minute freshness window, so values below 5 minutes only tighten the in-memory layer. Set to 0 to disable caching for this lookup entirely (both layers). Defaults to 300000ms (5 minutes).",
         "type": "number",
         "default": 300000
       },

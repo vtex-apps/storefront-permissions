@@ -23,7 +23,14 @@ const cachedActiveUser = createCachedResource<any>('active-user', {
   vbaseTtlMinutes: ACTIVE_USER_CACHE_TTL_IN_MINUTES,
 })
 
-let configuredTtlMs: number | undefined
+/**
+ * Per tenant: a pod serves multiple accounts/workspaces, so a single global
+ * value would let whichever account most recently read its settings dictate
+ * the TTL for every other tenant on the pod.
+ */
+const configuredTtlMsByTenant = new Map<string, number>()
+
+const tenantKey = (ctx: Context) => `${ctx.vtex.account}-${ctx.vtex.workspace}`
 
 /**
  * The TTL is configurable, but this lookup happens before app settings are
@@ -31,9 +38,13 @@ let configuredTtlMs: number | undefined
  * the configured value is recorded once a request has read the settings and
  * applies from the next request onwards, which is fine for a TTL knob.
  */
-export const setActiveUserCacheTtl = (ttlMs?: unknown) => {
+export const setActiveUserCacheTtl = (ctx: Context, ttlMs?: unknown) => {
   if (typeof ttlMs === 'number' && ttlMs >= 0) {
-    configuredTtlMs = ttlMs
+    configuredTtlMsByTenant.set(tenantKey(ctx), ttlMs)
+  } else {
+    // Setting removed: fall back to the default rather than retaining a stale
+    // configured value.
+    configuredTtlMsByTenant.delete(tenantKey(ctx))
   }
 }
 
@@ -44,7 +55,8 @@ export const getCachedActiveUserByEmail = async (
   fetcher: () => Promise<any>
 ): Promise<any> =>
   cachedActiveUser(ctx, `${email}|${currentCostCenter ?? 'default'}`, fetcher, {
-    memoryTtlMs: configuredTtlMs ?? ACTIVE_USER_CACHE_TTL_IN_MS,
+    memoryTtlMs:
+      configuredTtlMsByTenant.get(tenantKey(ctx)) ?? ACTIVE_USER_CACHE_TTL_IN_MS,
   })
 
 /**
