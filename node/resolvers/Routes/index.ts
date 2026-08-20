@@ -62,10 +62,23 @@ export const Routes = {
 
     // Same array shape getUserByEmail returned, but served from the short-lived
     // permissions cache: this route is called per request by sibling B2B apps.
+    // The fetcher rethrows getActiveUserByEmail's resolved error sentinel so a
+    // Master Data failure is never cached as a user; the catch reconstitutes it
+    // to preserve the route's original (uncached) behavior for this request.
     const userData: any = [
-      await getCachedActiveUserForPermissions(ctx, params.email, () =>
-        getActiveUserByEmail(null, { email: params.email }, ctx)
-      ),
+      await getCachedActiveUserForPermissions(ctx, params.email, async () => {
+        const activeUser: any = await getActiveUserByEmail(
+          null,
+          { email: params.email },
+          ctx
+        )
+
+        if (activeUser?.status === 'error') {
+          throw activeUser.message
+        }
+
+        return activeUser
+      }).catch((message) => ({ message, status: 'error' })),
     ]
 
     if (!userData.length) {
