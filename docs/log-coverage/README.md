@@ -39,7 +39,8 @@ make log-coverage-test               # testes do próprio scorer
 ```
 
 Requer `python3`. O relatório sai em `reports/pr-<número>/` e precisa ser commitado junto com o resto
-do PR.
+do PR. A formatação do JSON gerado fica por conta do `lint-staged` no pre-commit; o `check` compara
+JSON parseado, não bytes, então reformatar é inofensivo.
 
 ## O que trava o merge e o que não trava
 
