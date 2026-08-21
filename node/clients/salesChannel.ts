@@ -10,6 +10,8 @@ export interface SalesChannelResponse {
   CultureInfo: string
 }
 
+export const SALES_CHANNEL_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000
+
 export class SalesChannel extends JanusClient {
   constructor(context: IOContext, options?: InstanceOptions) {
     super(context, {
@@ -21,8 +23,12 @@ export class SalesChannel extends JanusClient {
   }
 
   public getSalesChannel = async () => ({
-    data: await this.http.get<SalesChannelResponse>(
-      '/api/catalog_system/pvt/saleschannel/list'
+    data: await this.http.get<SalesChannelResponse[]>(
+      '/api/catalog_system/pvt/saleschannel/list',
+      {
+        forceMaxAge: SALES_CHANNEL_CACHE_MAX_AGE_MS,
+        metric: 'get-sales-channel',
+      }
     ),
   })
 }

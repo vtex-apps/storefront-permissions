@@ -12,11 +12,12 @@ const settingsCache = new LRUCache<string, Record<string, unknown>>({
  * to avoid calling the Apps API on every setProfile request.
  * Cache key: account-workspace-appId. TTL: 5 minutes.
  */
-export const getCachedAppSettings = async (ctx: Context): Promise<Record<string, unknown>> => {
+export const getCachedAppSettings = async (
+  ctx: Context
+): Promise<Record<string, unknown>> => {
   const appId = process.env.VTEX_APP_ID ?? ''
-  const vtex = ctx.vtex
-  const account = vtex.account
-  const workspace = vtex.workspace
+  const { vtex } = ctx
+  const { account, workspace } = vtex
   const cacheKey = `${account}-${workspace}-${appId}`
 
   const cached = await settingsCache.getOrSet(cacheKey, () =>
@@ -26,5 +27,8 @@ export const getCachedAppSettings = async (ctx: Context): Promise<Record<string,
     }))
   )
 
-  return (cached != null && typeof cached === 'object' ? cached : {}) as Record<string, unknown>
+  return (cached != null && typeof cached === 'object' ? cached : {}) as Record<
+    string,
+    unknown
+  >
 }

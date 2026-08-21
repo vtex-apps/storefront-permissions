@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 - `setProfile` no longer blocks the session response on cart/profile side effects (`clearCart`, `getB2BSettings`, `getMarketingTags`, `updateOrderFormShipping`, `updateOrderFormMarketingData`, `generateClUser`, `updateOrderFormProfile`). These only affect the cart/profile, not the session's own fields, so they now run in a detached chain after the response is sent — reducing `setProfile`'s response time and its exposure to `session-manager`'s 2s timeout on the transform call. Internal ordering (`clearCart` before the writes that follow it) is unchanged.
+- `setProfile` reads cost centers from Master Data (`cost_centers`) via `masterDataExtended` instead of `b2b-organizations-graphql`. `getActiveUserByEmail` now searches `b2b_users` through the same client instead of paginating with the default Master Data client. Invalid-cost-center and inactive-organization fallbacks (`getOrganizationsByEmail` / `getOrganizationsPaginatedByEmail`) now search `b2b_users` and hydrate `cost_centers` / `organizations` the same way, instead of the GraphQL round-trip through `b2b-organizations-graphql`.
+- `masterDataExtended` HTTP GETs (`getDocumentById`, `searchDocuments`) are cached in-process for 30 minutes, keyed per request URL so distinct documents/searches do not share a slot.
 
 ### Added
 

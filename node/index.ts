@@ -12,6 +12,8 @@ import { method, Service, AuthType, LRUCache } from '@vtex/api'
 
 import { schemaDirectives } from './directives'
 import { Clients } from './clients'
+import { MASTERDATA_EXTENDED_CACHE_MAX_AGE_MS } from './clients/masterDataExtended'
+import { SALES_CHANNEL_CACHE_MAX_AGE_MS } from './clients/salesChannel'
 import { resolvers } from './resolvers'
 
 const TIMEOUT_MS = 5000
@@ -23,6 +25,16 @@ const defaultClientOptions = {
 
 const memoryCache = new LRUCache<string, any>({ max: 1000 })
 
+const salesChannelCache = new LRUCache<string, any>({
+  max: 1000,
+  maxAge: SALES_CHANNEL_CACHE_MAX_AGE_MS,
+})
+
+const masterDataExtendedCache = new LRUCache<string, any>({
+  max: 1000,
+  maxAge: MASTERDATA_EXTENDED_CACHE_MAX_AGE_MS,
+})
+
 const clients: ClientsConfig<Clients> = {
   implementation: Clients,
   options: {
@@ -33,6 +45,12 @@ const clients: ClientsConfig<Clients> = {
     b2bAdmin: {
       authType: AuthType.bearer,
       memoryCache,
+    },
+    salesChannel: {
+      memoryCache: salesChannelCache,
+    },
+    masterDataExtended: {
+      memoryCache: masterDataExtendedCache,
     },
   },
 }

@@ -2,6 +2,13 @@ import { ForbiddenError } from '@vtex/api'
 import { json } from 'co-body'
 
 import { getCachedAppSettings } from '../../services/appSettingsCache'
+import { toHash } from '../../utils'
+import {
+  COST_CENTER_DATA_ENTITY,
+  COST_CENTER_FIELDS,
+  ORGANIZATION_DATA_ENTITY,
+  ORGANIZATION_FIELDS,
+} from '../../utils/constants'
 import { getRole } from '../Queries/Roles'
 import { getSessionWatcher } from '../Queries/Settings'
 import { generateClUser, getUserOrganizationsData } from './utils'
@@ -11,7 +18,6 @@ import {
   getB2BUserById,
 } from '../Queries/Users'
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
-import { toHash } from '../../utils'
 
 type SetProfileStepTiming = {
   durationMs?: number
@@ -405,15 +411,7 @@ export const Routes = {
 
     const getOrganization = async (orgId: any): Promise<any> => {
       return masterDataExtended
-        .getDocumentById('organizations', orgId, [
-          'name',
-          'tradeName',
-          'status',
-          'priceTables',
-          'salesChannel',
-          'collections',
-          'sellers',
-        ])
+        .getDocumentById(ORGANIZATION_DATA_ENTITY, orgId, ORGANIZATION_FIELDS)
         .catch((error) => {
           logger.error({
             error,
@@ -432,7 +430,22 @@ export const Routes = {
         timedSetProfile('getOrganization', getOrganization(user.orgId)),
         timedSetProfile(
           'getCostCenterById',
-          organizations.getCostCenterById(user.costId)
+          masterDataExtended
+            .getDocumentById(
+              COST_CENTER_DATA_ENTITY,
+              user.costId,
+              COST_CENTER_FIELDS
+            )
+            .catch((error) => {
+              if (error?.response?.status !== 404) {
+                logger.error({
+                  error,
+                  message: 'setProfile.getCostCenterById',
+                })
+              }
+
+              return {}
+            })
         ),
         timedSetProfile(
           'getSalesChannel',
@@ -442,41 +455,13 @@ export const Routes = {
 
     logSetProfileStep('parallel.organizationCostCenterSettings')
 
-    // in case the cost center is not found, we need to find a valid cost center for the user
-    if (
-      Object.values(costCenterResponse.data?.getCostCenterById ?? {}).every(
-        (value) => value === null
-      )
-    ) {
-      try {
-        const usersByEmail = await timedSetProfile(
-          'getOrganizationsByEmail',
-          organizations.getOrganizationsByEmail(email)
-        )
-
-        // when cost center comes without a name, it's because the cost center is deleted
-        const usersData = usersByEmail.data.getOrganizationsByEmail.find(
-          (userByEmail) => userByEmail.costCenterName !== null
-        )
-
-        user.costId = usersData?.costId ?? user.costId
-      } catch (error) {
-        logger.error({
-          error,
-          message: 'setProfile.graphqlGetOrganizationById',
-        })
-      }
-
-      logSetProfileStep('fallback.invalidCostCenter')
-    }
-
     let organization: any = organizationResponse
     let userOrgsData: any = null
 
     // Check if we need to fetch user organizations (for inactive org or invalid cost center)
-    const costCenterInvalid = Object.values(
-      costCenterResponse.data?.getCostCenterById ?? {}
-    ).every((value) => value === null)
+    const costCenterInvalid = Object.values(costCenterResponse ?? {}).every(
+      (value) => value === null
+    )
 
     const organizationInactive = organization.status === 'inactive'
     const needsOrgData = organizationInactive || costCenterInvalid
@@ -497,6 +482,7 @@ export const Routes = {
     }
 
     // Handle invalid cost center first
+    // when cost center comes without a name, it's because the cost center is deleted
     if (costCenterInvalid && userOrgsData?.validCostCenterId) {
       user.costId = userOrgsData.validCostCenterId
     }
@@ -506,12 +492,10 @@ export const Routes = {
       const validOrganization = userOrgsData?.activeOrganization
 
       if (validOrganization) {
-        organization = (
-          await timedSetProfile(
-            'getOrganization.inactiveFallback',
-            getOrganization(validOrganization.id)
-          )
-        )?.data?.getOrganizationById
+        organization = await timedSetProfile(
+          'getOrganization.inactiveFallback',
+          getOrganization(validOrganization.orgId)
+        )
 
         await timedSetProfile(
           'setActiveUserByOrganization',
@@ -574,8 +558,7 @@ export const Routes = {
     }
 
     const orgSellers = organization.sellers
-    const costCenterSellers =
-      costCenterResponse?.data?.getCostCenterById?.sellers
+    const costCenterSellers = costCenterResponse?.sellers
 
     const sellersArray = Array.isArray(costCenterSellers)
       ? costCenterSellers
@@ -613,7 +596,7 @@ export const Routes = {
     logSetProfileStep('resolveFacets')
 
     response['storefront-permissions'].costcenter.value = user.costId
-    const costCenterData = costCenterResponse?.data?.getCostCenterById
+    const costCenterData = costCenterResponse
 
     phoneNumber = costCenterData?.phoneNumber
 

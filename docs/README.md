@@ -41,6 +41,8 @@ For B2B session behavior related to **cost center address selection** and **regi
 
 For B2B session behavior related to **sales channel coexistence with binding selection** (multi-binding stores using `vtex.binding-selector`), see [Sales channel coexistence with binding selection](SALES_CHANNEL_BINDING_COEXISTENCE.md).
 
+For **app settings** (`deferSalesChannelToBinding`, `debug`) and the **in-process caches** used by `setProfile`, see [App settings and caching](#app-settings-and-caching).
+
 The **Storefront Permissions** app does not contain an interface – it operates “backstage”, storing the predefined roles and serving as a bridge to communicate with other apps in order to check user permissions. If you would like to manage roles and app permissions using the VTEX Admin interface, you must also install the [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui) app. As an optional feature, you can install the [Admin Customers](https://developers.vtex.com/vtex-developer-docs/docs/vtex-admin-customers) app for additional customer management capabilities.
 
 
@@ -54,6 +56,45 @@ If you opt to develop your own app and [integrate](#advanced-app-integration-opt
 ## Installation
 
 You can install the app by running `vtex install vtex.storefront-permissions` in your terminal, using the [VTEX IO CLI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-io-documentation-vtex-io-cli-installation-and-command-reference).
+
+
+## App settings and caching
+
+Settings are configured in the VTEX Admin under the **Storefront Permissions** app. Only the merchant can change them; the storefront cannot turn these flags on by itself. App-settings reads are cached for 5 minutes, so a change in Admin can take up to that TTL to affect `setProfile`.
+
+### `deferSalesChannelToBinding`
+
+Default: `false`.
+
+`setProfile` always uses the organization's `salesChannel` when it is set and matches an active channel. This flag only changes the **fallback** when the organization has **no** `salesChannel`:
+
+| Flag | Organization has `salesChannel` | Organization has no `salesChannel` |
+|---|---|---|
+| **Off** (default) | Writes that channel to `public.sc` and restamps the cart. | Falls back to the account's first active sales channel, writes `public.sc`, and restamps the cart. |
+| **On** | Unchanged: still writes the org channel to `public.sc` and restamps the cart. | Does **not** default the channel. Omits `public.sc` from the session response (does not send an empty value, which would clear whatever already set it) and skips `checkout.updateSalesChannel`. The binding (for example `vtex.binding-selector`) stays the source of truth. |
+
+Region lookup is independent of this flag: if the session/cart write is deferred, `getRegionId` still uses the first active sales channel so region resolution is not left without a channel.
+
+Enable this in multi-binding stores where organizations are intentionally left without a `salesChannel` and another app sets `sc` from the chosen binding. Full flow: [Sales channel coexistence with binding selection](SALES_CHANNEL_BINDING_COEXISTENCE.md).
+
+### `debug`
+
+Default: `false`. Keep it off except while diagnosing session latency.
+
+When **on**, `setProfile` emits `setProfile.timing` logs (`logger.debug`) with `orderFormId` and the accumulated step timeline (`stepMs` / `durationMs`, `totalMs`). When **off**, those logs are skipped; the session work still runs. This does not change session fields, cart updates, or cache behavior.
+
+### Caching
+
+`setProfile` uses **in-process LRU** caches (per IO isolate: not shared across replicas, cleared on cold start). HTTP client cache is keyed by request URL, so distinct documents or searches occupy distinct slots — fetching organization `1` and then `2` stores two entries; the next fetch of `1` returns only `1`.
+
+| Cache | TTL | Key | What it stores |
+|---|---|---|---|
+| App settings | 5 minutes | `{account}-{workspace}-{appId}` | Manifest settings (`debug`, `deferSalesChannelToBinding`, and the other flags). |
+| Sales channel list | 12 hours | HTTP GET `/api/catalog_system/pvt/saleschannel/list` | Account sales-channel list used to validate/fallback `sc` and for region lookup. |
+| Master Data (`masterDataExtended`) | 30 minutes | HTTP GET URL (`/documents/{id}` or `/search?...`) | Organization and cost-center documents, plus `b2b_users` searches (`getActiveUserByEmail` and invalid-org/cost-center fallbacks). |
+| User-organizations fallback | 5 minutes | `orgs-{email}` | Result of the invalid cost center / inactive organization fallback for that email. |
+
+Writes to Master Data (for example changing an organization's sales channel or the user's active profile) can take up to the corresponding TTL to show up in `setProfile` on that isolate. For the app-settings cache pattern, see also [Cost center address and region § 6](COST_CENTER_ADDRESS_AND_REGION.md#6-caching-app-settings).
 
 
 ## Advanced app integration [optional]
