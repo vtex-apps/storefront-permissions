@@ -1,0 +1,18 @@
+{
+  "scope": ["node/**/*.ts"],
+  "exclude": [
+    "__tests__",
+    "__mocks__",
+    "node_modules",
+    "dist",
+    "build",
+    "typings",
+    "typings.d.ts"
+  ],
+  "baseline": "docs/log-coverage/baseline.json",
+  "reportsDir": "docs/log-coverage/reports",
+  "judgedAuditGlobs": ["docs/log-coverage-audits/20*.md"],
+  "reportTriggers": ["scripts/log_coverage/audit.py"],
+  "reportCommand": "make log-coverage-report PR={pr}",
+  "docsPath": "docs/log-coverage/README.md"
+}
