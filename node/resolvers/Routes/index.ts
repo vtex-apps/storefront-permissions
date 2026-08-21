@@ -341,7 +341,7 @@ export const Routes = {
         return activeUser
       }
 
-      user = (await timer
+      const cachedUser: any = await timer
         .track(
           'getActiveUserByEmail',
           getCachedActiveUserByEmail(ctx, email, currentCostCenter, fetchActiveUser)
@@ -350,7 +350,13 @@ export const Routes = {
           if (!error?.userNotFound) {
             logger.warn({ message: 'setProfile.getUserByEmailError', error })
           }
-        })) as {
+        })
+
+      // Clone: the memory cache hands out the same object reference, and the
+      // invalid-cost-center / inactive-organization branches below reassign
+      // orgId/costId on it. Mutating the shared entry would corrupt the cache
+      // under its original key for every later request.
+      user = (cachedUser ? { ...cachedUser } : cachedUser) as {
         orgId: string
         costId: string
         clId: string

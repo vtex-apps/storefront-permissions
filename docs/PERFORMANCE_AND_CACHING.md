@@ -43,7 +43,7 @@ All caches are built by `createCachedResource` (`node/services/cache.ts`), with 
 | `active-user-permissions` | Master Data (paginated) | memory only | 60s | — | 10000 | email |
 | `region` | checkout REST | both | 30min | 30min | 10000 | `country\|postalCode\|sc\|geo` |
 | `session-watcher` | VBase | memory only | 60s | — | 100 | `active` |
-| `roles` | VBase (MD fallback) | memory only | 5min | — | 100 | `all` |
+| `roles` | VBase (MD fallback) | memory only | 60s | — | 100 | `all` |
 
 ¹ Configurable via the `sessionUserCacheTtlMs` app setting; `0` disables.
 
@@ -53,6 +53,7 @@ All caches are built by `createCachedResource` (`node/services/cache.ts`), with 
 - **App settings (5+5min):** feature flags an operator may flip; worst-case propagation is roughly memory TTL + VBase TTL (~10 minutes), because the memory layer holds its entry for its TTL and then may read a stale VBase entry once before the background refresh lands.
 - **Organization / cost center (60s/2min):** deliberately short — `organization.status === 'inactive'` blocks the user (`ForbiddenError`), so deactivating an organization must take effect within minutes.
 - **Session watcher (60s):** it is the operational kill switch; disabling it must bite quickly.
+- **Roles (60s):** authorization data. Role mutations write VBase but cannot invalidate other pods' memory caches, so this TTL is the upper bound on how long a revoked permission stays effective.
 - **Active user:** the TTL is only a safety net. The cache key contains the session's `public.b2bCurrentCostCenter`, which `setCurrentOrganization` writes on every organization switch — so a switch changes the key and misses the cache immediately, regardless of TTL. The TTL covers changes that bypass that mutation (an admin editing a user's organizations, the inactive-org fallback).
 - **`active-user-permissions` (60s, memory only):** the `checkPermissions` route receives only `app` + `email`, so there is no cost center to key on and no key-based invalidation. Short TTL bounds how long stale permissions can survive an organization switch; no VBase layer so nothing extends that window.
 

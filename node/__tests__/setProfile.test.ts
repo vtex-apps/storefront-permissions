@@ -347,6 +347,50 @@ describe('setProfile', () => {
     expect(ctx.clients.checkout.clearCart).toHaveBeenCalledWith('of123')
   })
 
+  it('does not let fallback branches mutate the cached user entry', async () => {
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    // The mock is module-level and earlier tests already invoked it; this test
+    // asserts on call counts, so start from zero.
+    orgsDataMock.mockClear()
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'Inactive Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'inactive',
+        tradeName: null,
+      },
+      recoveredOrganization: {
+        collections: null,
+        name: 'Recovered Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+    })
+
+    // First run goes through the inactive-org recovery, which rewrites
+    // user.orgId/costId locally.
+    await run(ctx)
+    expect(orgsDataMock).toHaveBeenCalledTimes(1)
+
+    // Second run hits the active-user cache. If recovery had mutated the
+    // shared cached object, this run would start from org2 and skip recovery
+    // entirely; a pristine entry must re-enter the recovery path.
+    await run(ctx)
+    expect(orgsDataMock).toHaveBeenCalledTimes(2)
+  })
+
   it('does not cache a failed organization lookup', async () => {
     const ctx = makeCtx()
 

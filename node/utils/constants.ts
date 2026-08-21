@@ -34,8 +34,13 @@ export const APP_SETTINGS_CACHE_TTL_IN_MINUTES = 5
 // In-memory only (VBase-sourced), and short: this flag is a kill switch.
 export const SESSION_WATCHER_CACHE_TTL_IN_MS = 60 * 1000
 
-// In-memory only (VBase-sourced); roles change rarely and only via the admin.
-export const ROLES_CACHE_TTL_IN_MS = 5 * 60 * 1000
+/**
+ * In-memory only (VBase-sourced). Deliberately short: this is authorization
+ * data and role mutations cannot invalidate other pods' caches, so the TTL is
+ * the upper bound on how long a permission revoked in the admin stays
+ * effective.
+ */
+export const ROLES_CACHE_TTL_IN_MS = 60 * 1000
 
 /**
  * Resolves the *active* organization of a user. The cache key includes the
