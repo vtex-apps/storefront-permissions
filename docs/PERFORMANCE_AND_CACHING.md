@@ -30,6 +30,18 @@ All caches are built by `createCachedResource` (`node/services/cache.ts`), with 
 
 **Rule: only add the VBase layer when the origin is expensive** (Apps API, Master Data, another app's GraphQL, checkout). For data that already lives in VBase — the session watcher flag, roles — a VBase-backed cache would just swap one VBase read for another; those caches are memory-only.
 
+### Cache correctness rules
+
+Every substantive bug found in review of this architecture was a variant of the same mistake: **letting the cache hold a state the origin never produced.** A cache entry is a claim — "this is what the origin returned for this key" — and each rule below protects that claim. Break one and the cache serves wrong responses repeatedly, for the full TTL, to every request that hits it.
+
+1. **Never cache a failure.** A fetcher must rethrow errors, not swallow them into `undefined`/`null`. A swallowed failure gets stored by both layers, turning one transient Master Data blip into minutes of errors served from cache — after the origin has already recovered. Log at the fetcher if useful, but always rethrow; handle the failure *outside* the cached call so the next request retries. (Guarded by the "does not cache a failed organization lookup" test.)
+
+2. **Never cache a miss that can be transient.** "User not found" during replication lag — right after someone is added to an organization — is not a fact, it is a race. Caching it pins that shopper to an empty B2B session for the whole TTL. When a miss can be transient, throw a typed marker from the fetcher so nothing is stored, and translate it back at the call site; the cost is one origin lookup per request for that population, which is exactly the pre-cache behavior. (Guarded by the "does not cache a user that was not found" test.)
+
+3. **Never mutate an object returned by a cache.** The memory layer hands out the *same object reference* on every hit, so reassigning a field on it rewrites the shared entry under its original key — every later request receives request-local surgery the origin never returned, and the VBase layer (which stored a serialized snapshot) now *disagrees* with memory, making behavior depend on which layer answers. Treat cached values as read-only; if a request needs to modify one, shallow-clone at the boundary (`{ ...cached }`) — and remember nested arrays/objects are still shared, so deeper mutation needs a deeper copy. (Guarded by the "does not let fallback branches mutate the cached user entry" test.)
+
+Corollary for reviews: when a change touches a fetcher or anything downstream of a cached read, ask "can this store or corrupt a state the origin didn't produce?" before asking anything about performance.
+
 ### Current resources
 
 | Resource | Origin | Layers | Memory TTL | VBase TTL | Bound | Key |
