@@ -77,8 +77,22 @@ export const Routes = {
           throw activeUser.message
         }
 
+        // A miss must not be cached (replication lag would pin it); throwing
+        // keeps it out of the cache, and the catch below restores the exact
+        // uncached shape this route always produced for a missing user.
+        if (!activeUser?.id) {
+          const notFound: any = new Error('checkPermissions.userNotFound')
+
+          notFound.userNotFound = true
+          throw notFound
+        }
+
         return activeUser
-      }).catch((message) => ({ message, status: 'error' })),
+      }).catch((error) =>
+        error?.userNotFound
+          ? { email: '', name: '' }
+          : { message: error, status: 'error' }
+      ),
     ]
 
     if (!userData.length) {
@@ -312,6 +326,18 @@ export const Routes = {
           throw activeUser.message
         }
 
+        // "No B2B user" must not be cached either: right after provisioning or
+        // during replication lag, caching the miss would pin this shopper to an
+        // empty B2B session for the whole TTL. Throwing keeps the miss out of
+        // both layers, which simply restores the pre-cache behavior (a lookup
+        // per transform) for non-B2B shoppers.
+        if (!activeUser?.orgId || !activeUser?.costId) {
+          const notFound: any = new Error('setProfile.userNotFound')
+
+          notFound.userNotFound = true
+          throw notFound
+        }
+
         return activeUser
       }
 
@@ -321,7 +347,9 @@ export const Routes = {
           getCachedActiveUserByEmail(ctx, email, currentCostCenter, fetchActiveUser)
         )
         .catch((error) => {
-          logger.warn({ message: 'setProfile.getUserByEmailError', error })
+          if (!error?.userNotFound) {
+            logger.warn({ message: 'setProfile.getUserByEmailError', error })
+          }
         })) as {
         orgId: string
         costId: string
@@ -358,12 +386,19 @@ export const Routes = {
               error,
               message: 'setProfile.graphqlGetOrganizationById',
             })
+
+            // Rethrow so a transient Master Data failure fails only this
+            // request. Swallowing it here would make the cache store an empty
+            // organization for its full TTL, turning one blip into minutes of
+            // errors served from cache.
+            throw error
           })
       )
     }
 
+    // Reassigned by the inactive-organization fallback below.
     const hash = toHash(`${user.orgId}|${user.costId}`)
-    const hashChanged = body?.['storefront-permissions']?.hash?.value !== hash
+    let hashChanged = body?.['storefront-permissions']?.hash?.value !== hash
 
     response['storefront-permissions'].hash.value = hash
 
@@ -499,9 +534,17 @@ export const Routes = {
         user.orgId = validOrganization.orgId
         user.costId = fallbackCostId
         response['storefront-permissions'].organization.value = user.orgId
-        response['storefront-permissions'].hash.value = toHash(
-          `${user.orgId}|${user.costId}`
-        )
+
+        // Recompute against the adopted organization: the value derived above
+        // used the inactive org's hash, so a session that matched it would
+        // report "unchanged" and skip the clearCart branch even though the
+        // shopper just moved organizations.
+        const fallbackHash = toHash(`${user.orgId}|${user.costId}`)
+
+        response['storefront-permissions'].hash.value = fallbackHash
+        hashChanged =
+          body?.['storefront-permissions']?.hash?.value !== fallbackHash
+
         timer.meta.extra = { ...timer.meta.extra, orgId: user.orgId }
 
         costCenterResponse = await timer.track(

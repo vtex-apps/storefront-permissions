@@ -6,6 +6,7 @@ import {
   generateClUser,
   getUserOrganizationsData,
 } from '../resolvers/Routes/utils'
+import { toHash } from '../utils'
 
 jest.mock('co-body', () => ({ json: jest.fn() }))
 
@@ -297,6 +298,88 @@ describe('setProfile', () => {
     expect(ctx.clients.organizations.getCostCenterById).toHaveBeenCalledWith(
       'cost2'
     )
+  })
+
+  it('clears the cart on inactive-org recovery even when the session hash matched the old org', async () => {
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'Inactive Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'inactive',
+        tradeName: null,
+      },
+      recoveredOrganization: {
+        collections: null,
+        name: 'Recovered Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+    })
+
+    ctx.clients.organizations.getB2BSettings.mockResolvedValue({
+      data: { getB2BSettings: { uiSettings: { clearCart: true } } },
+    })
+
+    // The session arrives with the hash of the (now inactive) org1/cost1, so
+    // the pre-recovery hashChanged is false; without recomputation the cart
+    // would keep the old organization's items.
+    const response = await run(ctx, {
+      ...makeBody(),
+      'storefront-permissions': { hash: { value: toHash('org1|cost1') } },
+    })
+
+    expect(response['storefront-permissions'].hash.value).toBe(
+      toHash('org2|cost2')
+    )
+    expect(ctx.clients.checkout.clearCart).toHaveBeenCalledWith('of123')
+  })
+
+  it('does not cache a failed organization lookup', async () => {
+    const ctx = makeCtx()
+
+    ctx.clients.masterDataExtended.getDocumentById.mockRejectedValueOnce(
+      new Error('master data blip')
+    )
+
+    // The failing request errors instead of resolving with a broken session...
+    await expect(run(ctx)).rejects.toThrow('master data blip')
+
+    // ...and the very next request retries the origin instead of reading a
+    // cached empty organization for the whole TTL.
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+  })
+
+  it('does not cache a user that was not found', async () => {
+    const ctx = makeCtx()
+    const lookups = ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+
+    lookups.mockResolvedValueOnce({ data: [], pagination: { page: 1, total: 0 } })
+
+    // First transform: user not provisioned yet, empty B2B session.
+    const first = await run(ctx)
+
+    expect(first['storefront-permissions'].organization.value).toBe('')
+
+    // Second transform: the user now exists and must be found immediately -
+    // a cached miss would pin the empty session for the whole TTL.
+    const second = await run(ctx)
+
+    expect(second['storefront-permissions'].organization.value).toBe('org1')
   })
 
   it('keeps full payload logging off unless logSessionPayloads is enabled', async () => {
