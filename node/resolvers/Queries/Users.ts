@@ -1,3 +1,4 @@
+/* eslint-disable max-params */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { removeVersionFromAppId } from '@vtex/api'
 
@@ -12,6 +13,19 @@ import GraphQLError from '../../utils/GraphQLError'
 import { getRole } from './Roles'
 
 const config: any = currentSchema('b2b_users')
+
+const B2B_USER_FIELDS = [
+  'id',
+  'roleId',
+  'clId',
+  'email',
+  'name',
+  'orgId',
+  'costId',
+  'userId',
+  'canImpersonate',
+  'active',
+]
 
 const PAGINATION = {
   page: 1,
@@ -125,7 +139,7 @@ export const getAllUsers = async ({
       error,
       message: 'Profiles.getAllUsersByEmail-error',
     })
-    throw new Error(error)
+    throw new Error(error instanceof Error ? error.message : String(error))
   }
 }
 
@@ -156,14 +170,33 @@ export const getActiveUserByEmail = async (
   ctx: Context
 ) => {
   const {
+    clients: { masterDataExtended },
     vtex: { logger },
   } = ctx
 
-  try {
-    const users = await getAllUsersByEmail(null, params, ctx)
-    const activeUser = users.find((user: any) => user.active)
+  const { email, orgId, costId } = params
 
-    const userFound = activeUser || users[0]
+  let where = `email=${email}`
+
+  if (orgId) {
+    where += ` AND orgId=${orgId}`
+  }
+
+  if (costId) {
+    where += ` AND costId=${costId}`
+  }
+
+  try {
+    const users = await masterDataExtended.searchDocuments<any>({
+      dataEntity: config.name,
+      fields: B2B_USER_FIELDS,
+      pagination: { page: 1, pageSize: 50 },
+      schema: config.version,
+      sort: 'active DESC',
+      where,
+    })
+
+    const userFound = users?.find((user: any) => user.active) ?? users?.[0]
 
     if (!userFound) {
       logger.warn({
@@ -841,7 +874,7 @@ export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
       error,
       message: `getUsersByEmail-error`,
     })
-    throw new Error(error)
+    throw new Error(error instanceof Error ? error.message : String(error))
   }
 }
 
@@ -911,7 +944,7 @@ export const getOrganizationsPaginatedByEmail = async (
       message: 'getOrganizationsPaginatedByEmail-error',
     })
 
-    throw new Error(error)
+    throw new Error(error instanceof Error ? error.message : String(error))
   }
 }
 
@@ -966,6 +999,6 @@ export const getUserByEmailOrgIdAndCostId = async (
       error,
       message: `getUsersByEmail-error`,
     })
-    throw new Error(error)
+    throw new Error(error instanceof Error ? error.message : String(error))
   }
 }

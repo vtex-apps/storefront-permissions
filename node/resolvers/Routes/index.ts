@@ -2,6 +2,13 @@ import { ForbiddenError } from '@vtex/api'
 import { json } from 'co-body'
 
 import { getCachedAppSettings } from '../../services/appSettingsCache'
+import { toHash } from '../../utils'
+import {
+  COST_CENTER_DATA_ENTITY,
+  COST_CENTER_FIELDS,
+  ORGANIZATION_DATA_ENTITY,
+  ORGANIZATION_FIELDS,
+} from '../../utils/constants'
 import { getRole } from '../Queries/Roles'
 import { getSessionWatcher } from '../Queries/Settings'
 import { generateClUser, getUserOrganizationsData } from './utils'
@@ -11,7 +18,6 @@ import {
   getB2BUserById,
 } from '../Queries/Users'
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
-import { toHash } from '../../utils'
 
 type SetProfileStepTiming = {
   durationMs?: number
@@ -21,11 +27,35 @@ type SetProfileStepTiming = {
   totalMs: number
 }
 
-const createSetProfileTimers = (logger: Context['vtex']['logger']) => {
+type SetProfileLogContext = {
+  debug: boolean
+  orderFormId?: string
+}
+
+const createSetProfileTimers = (
+  logger: Context['vtex']['logger'],
+  logContext: SetProfileLogContext
+) => {
   const timing = { prev: Date.now(), t0: Date.now() }
   const steps: SetProfileStepTiming[] = []
 
+  const emitTiming = (payload: Record<string, unknown>) => {
+    if (!logContext.debug) {
+      return
+    }
+
+    logger.debug({
+      message: 'setProfile.timing',
+      orderFormId: logContext.orderFormId,
+      ...payload,
+    })
+  }
+
   const logSetProfileStep = (step: string, extra?: Record<string, unknown>) => {
+    if (!logContext.debug) {
+      return
+    }
+
     const now = Date.now()
     const stepTiming: SetProfileStepTiming = {
       step,
@@ -36,8 +66,7 @@ const createSetProfileTimers = (logger: Context['vtex']['logger']) => {
     steps.push(stepTiming)
     timing.prev = now
 
-    logger.debug({
-      message: 'setProfile.timing',
+    emitTiming({
       step,
       stepMs: stepTiming.stepMs,
       totalMs: stepTiming.totalMs,
@@ -50,6 +79,10 @@ const createSetProfileTimers = (logger: Context['vtex']['logger']) => {
     step: string,
     promise: Promise<T>
   ): Promise<T> => {
+    if (!logContext.debug) {
+      return promise
+    }
+
     const start = Date.now()
 
     try {
@@ -63,8 +96,7 @@ const createSetProfileTimers = (logger: Context['vtex']['logger']) => {
 
       steps.push(stepTiming)
 
-      logger.debug({
-        message: 'setProfile.timing',
+      emitTiming({
         step,
         durationMs: stepTiming.durationMs,
         totalMs: stepTiming.totalMs,
@@ -83,8 +115,7 @@ const createSetProfileTimers = (logger: Context['vtex']['logger']) => {
 
       steps.push(stepTiming)
 
-      logger.debug({
-        message: 'setProfile.timing',
+      emitTiming({
         step,
         durationMs: stepTiming.durationMs,
         failed: true,
@@ -192,10 +223,11 @@ export const Routes = {
       vtex: { logger },
     } = ctx
 
-    const { logSetProfileStep, timedSetProfile } =
-      createSetProfileTimers(logger)
+    const appSettingsPromise = getCachedAppSettings(ctx).catch((error) => {
+      logger.warn({ error, message: 'setProfile.getAppSettingsError' })
 
-    logSetProfileStep('start')
+      return {} as Record<string, unknown>
+    })
 
     const response: any = {
       public: {
@@ -240,6 +272,18 @@ export const Routes = {
     ctx.set('Content-Type', 'application/json')
     ctx.set('Cache-Control', 'no-cache, no-store')
 
+    const appSettings = await appSettingsPromise
+    const logContext: SetProfileLogContext = {
+      debug: appSettings.debug === true,
+    }
+
+    const { logSetProfileStep, timedSetProfile } = createSetProfileTimers(
+      logger,
+      logContext
+    )
+
+    logSetProfileStep('start')
+
     const isWatchActive = await timedSetProfile(
       'getSessionWatcher',
       getSessionWatcher(null, null, ctx)
@@ -255,7 +299,6 @@ export const Routes = {
       return
     }
 
-    const promises = [] as Array<Promise<any>>
     const body: any = await timedSetProfile('parseBody', json(req))
 
     logSetProfileStep('parseBody')
@@ -263,6 +306,8 @@ export const Routes = {
     const b2bImpersonate = body?.public?.impersonate?.value
     const telemarketingImpersonate = body?.impersonate?.storeUserId?.value
     const orderFormId = body?.checkout?.orderFormId?.value
+
+    logContext.orderFormId = orderFormId
     const isCorporate = true
 
     let email = body?.authentication?.storeUserEmail?.value
@@ -366,15 +411,7 @@ export const Routes = {
 
     const getOrganization = async (orgId: any): Promise<any> => {
       return masterDataExtended
-        .getDocumentById('organizations', orgId, [
-          'name',
-          'tradeName',
-          'status',
-          'priceTables',
-          'salesChannel',
-          'collections',
-          'sellers',
-        ])
+        .getDocumentById(ORGANIZATION_DATA_ENTITY, orgId, ORGANIZATION_FIELDS)
         .catch((error) => {
           logger.error({
             error,
@@ -388,65 +425,43 @@ export const Routes = {
 
     response['storefront-permissions'].hash.value = hash
 
-    const [
-      organizationResponse,
-      costCenterResponse,
-      salesChannels,
-      marketingTagsResponse,
-      b2bSettingsResponse,
-      appSettings,
-    ] = await Promise.all([
-      timedSetProfile('getOrganization', getOrganization(user.orgId)),
-      timedSetProfile(
-        'getCostCenterById',
-        organizations.getCostCenterById(user.costId)
-      ),
-      timedSetProfile('getSalesChannel', salesChannelClient.getSalesChannel()),
-      timedSetProfile(
-        'getMarketingTags',
-        organizations.getMarketingTags(user.costId)
-      ),
-      timedSetProfile('getB2BSettings', organizations.getB2BSettings()),
-      timedSetProfile('getCachedAppSettings', getCachedAppSettings(ctx)),
-    ])
+    const [organizationResponse, costCenterResponse, salesChannels] =
+      await Promise.all([
+        timedSetProfile('getOrganization', getOrganization(user.orgId)),
+        timedSetProfile(
+          'getCostCenterById',
+          masterDataExtended
+            .getDocumentById(
+              COST_CENTER_DATA_ENTITY,
+              user.costId,
+              COST_CENTER_FIELDS
+            )
+            .catch((error) => {
+              if (error?.response?.status !== 404) {
+                logger.error({
+                  error,
+                  message: 'setProfile.getCostCenterById',
+                })
+              }
+
+              return {}
+            })
+        ),
+        timedSetProfile(
+          'getSalesChannel',
+          salesChannelClient.getSalesChannel()
+        ),
+      ])
 
     logSetProfileStep('parallel.organizationCostCenterSettings')
-
-    // in case the cost center is not found, we need to find a valid cost center for the user
-    if (
-      Object.values(costCenterResponse.data?.getCostCenterById ?? {}).every(
-        (value) => value === null
-      )
-    ) {
-      try {
-        const usersByEmail = await timedSetProfile(
-          'getOrganizationsByEmail',
-          organizations.getOrganizationsByEmail(email)
-        )
-
-        // when cost center comes without a name, it's because the cost center is deleted
-        const usersData = usersByEmail.data.getOrganizationsByEmail.find(
-          (userByEmail) => userByEmail.costCenterName !== null
-        )
-
-        user.costId = usersData?.costId ?? user.costId
-      } catch (error) {
-        logger.error({
-          error,
-          message: 'setProfile.graphqlGetOrganizationById',
-        })
-      }
-
-      logSetProfileStep('fallback.invalidCostCenter')
-    }
 
     let organization: any = organizationResponse
     let userOrgsData: any = null
 
     // Check if we need to fetch user organizations (for inactive org or invalid cost center)
-    const costCenterInvalid = Object.values(
-      costCenterResponse.data?.getCostCenterById ?? {}
-    ).every((value) => value === null)
+    const costCenterInvalid = Object.values(costCenterResponse ?? {}).every(
+      (value) => value === null
+    )
 
     const organizationInactive = organization.status === 'inactive'
     const needsOrgData = organizationInactive || costCenterInvalid
@@ -467,6 +482,7 @@ export const Routes = {
     }
 
     // Handle invalid cost center first
+    // when cost center comes without a name, it's because the cost center is deleted
     if (costCenterInvalid && userOrgsData?.validCostCenterId) {
       user.costId = userOrgsData.validCostCenterId
     }
@@ -476,12 +492,10 @@ export const Routes = {
       const validOrganization = userOrgsData?.activeOrganization
 
       if (validOrganization) {
-        organization = (
-          await timedSetProfile(
-            'getOrganization.inactiveFallback',
-            getOrganization(validOrganization.id)
-          )
-        )?.data?.getOrganizationById
+        organization = await timedSetProfile(
+          'getOrganization.inactiveFallback',
+          getOrganization(validOrganization.orgId)
+        )
 
         await timedSetProfile(
           'setActiveUserByOrganization',
@@ -544,8 +558,7 @@ export const Routes = {
     }
 
     const orgSellers = organization.sellers
-    const costCenterSellers =
-      costCenterResponse?.data?.getCostCenterById?.sellers
+    const costCenterSellers = costCenterResponse?.sellers
 
     const sellersArray = Array.isArray(costCenterSellers)
       ? costCenterSellers
@@ -583,7 +596,7 @@ export const Routes = {
     logSetProfileStep('resolveFacets')
 
     response['storefront-permissions'].costcenter.value = user.costId
-    const costCenterData = costCenterResponse?.data?.getCostCenterById
+    const costCenterData = costCenterResponse
 
     phoneNumber = costCenterData?.phoneNumber
 
@@ -695,22 +708,7 @@ export const Routes = {
 
     logSetProfileStep('resolveAddressAndSalesChannel')
 
-    const salesChannelPromise = []
-
     if (salesChannel) {
-      salesChannelPromise.push(
-        timedSetProfile(
-          'updateSalesChannel',
-          checkout
-            .updateSalesChannel(orderFormId, salesChannel)
-            .catch((error) => {
-              logger.error({
-                error,
-                message: 'setProfile.updateSalesChannel',
-              })
-            })
-        )
-      )
       response.public.sc.value = salesChannel.toString()
     } else if (deferSalesChannelToBinding) {
       // Omit `sc` entirely rather than sending `{ value: '' }`: this app treats
@@ -724,185 +722,230 @@ export const Routes = {
       })
     }
 
-    if (hashChanged && orderFormId) {
+    // regionId is part of the session response, so it has to be resolved
+    // before we answer — everything else below this block only affects the
+    // cart/profile, not this response, and is deferred past ctx.response.body.
+    //
+    // When usePublicPostalCodeForRegion (overwrite on + public.postalCode and public.country set): we do not set public.regionId and we set it to empty;
+    // checkout-session will use public.postalCode and public.country for checkout.regionId. We also do not update the cart with an address.
+    if (
+      selectedAddress &&
+      orderFormId &&
+      !usePublicPostalCodeForRegion &&
+      regionLookupSalesChannel
+    ) {
       try {
-        const b2bSettings = (b2bSettingsResponse as any)?.data?.getB2BSettings
-        const {
-          uiSettings: { clearCart },
-        } = b2bSettings ?? { uiSettings: { clearCart: null } }
-
-        if (clearCart) {
-          await timedSetProfile(
-            'updateSalesChannel.beforeClearCart',
-            Promise.all(salesChannelPromise)
+        const [regionId] = await timedSetProfile(
+          'getRegionId',
+          checkout.getRegionId(
+            selectedAddress.country,
+            selectedAddress.postalCode,
+            regionLookupSalesChannel.toString(),
+            selectedAddress.geoCoordinates
           )
-          await timedSetProfile('clearCart', checkout.clearCart(orderFormId))
+        )
+
+        if (regionId?.id) {
+          response.public.regionId = {
+            value: regionId.id,
+          }
         }
+
+        logSetProfileStep('getRegionId')
       } catch (error) {
         logger.error({
           error,
-          message: 'setProfile.clearCart',
+          message: 'setProfile.getRegionId',
         })
+        logSetProfileStep('getRegionId.error')
       }
-
-      logSetProfileStep('clearCart')
-    }
-
-    // When usePublicPostalCodeForRegion (overwrite on + public.postalCode and public.country set): we do not set public.regionId and we set it to empty;
-    // checkout-session will use public.postalCode and public.country for checkout.regionId. We also do not update the cart with an address.
-    if (selectedAddress && orderFormId) {
-      const address = selectedAddress
-      const marketingTags: any = (marketingTagsResponse as any)?.data
-        ?.getMarketingTags?.tags
-
-      if (!usePublicPostalCodeForRegion && regionLookupSalesChannel) {
-        try {
-          const [regionId] = await timedSetProfile(
-            'getRegionId',
-            checkout.getRegionId(
-              address.country,
-              address.postalCode,
-              regionLookupSalesChannel.toString(),
-              address.geoCoordinates
-            )
-          )
-
-          if (regionId?.id) {
-            response.public.regionId = {
-              value: regionId.id,
-            }
-          }
-
-          logSetProfileStep('getRegionId')
-        } catch (error) {
-          logger.error({
-            error,
-            message: 'setProfile.getRegionId',
-          })
-          logSetProfileStep('getRegionId.error')
-        }
-      } else {
-        response.public.regionId = { value: '' }
-        logger.info({
-          message: 'setProfile.regionIdSkipped',
-          reason: usePublicPostalCodeForRegion
-            ? 'usePublicPostalCodeForRegion'
-            : 'noSalesChannelAvailable',
-          publicPostalCode: body?.public?.postalCode?.value ?? null,
-        })
-      }
-
-      promises.push(
-        timedSetProfile(
-          'updateOrderFormMarketingData',
-          checkout
-            .updateOrderFormMarketingData(orderFormId, {
-              attachmentId: 'marketingData',
-              marketingTags: marketingTags || [],
-              utmCampaign: user.orgId,
-              utmMedium: user.costId,
-            })
-            .catch((error) => {
-              logger.error({
-                error,
-                message: 'setProfile.updateOrderFormMarketingDataError',
-              })
-            })
-        )
-      )
-
-      if (!usePublicPostalCodeForRegion) {
-        promises.push(
-          timedSetProfile(
-            'updateOrderFormShipping',
-            checkout
-              .updateOrderFormShipping(orderFormId, {
-                address: {
-                  ...address,
-                  geoCoordinates: address.geoCoordinates ?? [],
-                  isDisposable: true,
-                },
-                clearAddressIfPostalCodeNotFound: false,
-              })
-              .catch((error) => {
-                logger.error({
-                  error,
-                  message: 'setProfile.updateOrderFormShippingError',
-                })
-              })
-          )
-        )
-      } else {
-        logger.info({
-          message: 'setProfile.cartShippingSkipped',
-          reason: 'usePublicPostalCodeForRegion',
-        })
-      }
-    }
-
-    const clUser = await timedSetProfile(
-      'generateClUser',
-      generateClUser({
-        businessDocument,
-        businessName,
-        clId: user?.clId ?? '',
-        ctx,
-        phoneNumber: phoneNumber ?? null,
-        stateRegistration,
-        tradeName,
-        isCorporate,
+    } else {
+      response.public.regionId = { value: '' }
+      logger.info({
+        message: 'setProfile.regionIdSkipped',
+        reason: usePublicPostalCodeForRegion
+          ? 'usePublicPostalCodeForRegion'
+          : 'noSalesChannelAvailable',
+        publicPostalCode: body?.public?.postalCode?.value ?? null,
       })
-    )
-
-    logSetProfileStep('generateClUser')
-
-    if (clUser && orderFormId) {
-      const phoneNumberFormatted =
-        phoneNumber || clUser.phone || clUser.homePhone || `+1${'0'.repeat(10)}`
-
-      promises.push(
-        timedSetProfile(
-          'updateOrderFormProfile',
-          checkout
-            .updateOrderFormProfile(orderFormId, {
-              ...clUser,
-              businessDocument:
-                (businessDocument || clUser.businessDocument) ?? null,
-              documentType: documentType ?? undefined,
-              phone: phoneNumberFormatted,
-              stateInscription:
-                stateRegistration ??
-                clUser.stateInscription ??
-                '0'.repeat(9) ??
-                null,
-            })
-            .catch((error) => {
-              logger.error({
-                error,
-                message: 'setProfile.updateOrderFormProfileError',
-              })
-            })
-        )
-      )
     }
-
-    // Don't await promises, to avoid session timeout
-    Promise.all(promises)
 
     logSetProfileStep('done', {
       email,
       orgId: user?.orgId,
       costId: user?.costId,
       orderFormId,
-      deferredPromises: promises.length,
     })
 
     logger.info({
       'setProfile.body': JSON.stringify(body),
       'setProfile.output': JSON.stringify(response),
+      orderFormId,
     })
 
     ctx.response.body = response
     ctx.response.status = 200
+
+    // --- Nothing below this line blocks the session response. ---
+    // These calls only affect the cart/profile, never the setProfile output,
+    // so they run as a detached chain after the response has already been
+    // sent. clearCart still has to happen before the shipping/marketing
+    // writes that follow it, or it would wipe them straight back out — that
+    // ordering is preserved *inside* this chain, it's just off the response's
+    // critical path now.
+    ;(async () => {
+      try {
+        if (salesChannel) {
+          await timedSetProfile(
+            'updateSalesChannel',
+            checkout
+              .updateSalesChannel(orderFormId, salesChannel)
+              .catch((error) => {
+                logger.error({
+                  error,
+                  message: 'setProfile.updateSalesChannel',
+                })
+              })
+          )
+        }
+
+        if (hashChanged && orderFormId) {
+          try {
+            const [b2bSettingsResponse, marketingTagsResponse] =
+              await Promise.all([
+                timedSetProfile(
+                  'getB2BSettings',
+                  organizations.getB2BSettings()
+                ),
+                timedSetProfile(
+                  'getMarketingTags',
+                  organizations.getMarketingTags(user.costId)
+                ),
+              ])
+
+            const b2bSettings = (b2bSettingsResponse as any)?.data
+              ?.getB2BSettings
+
+            const {
+              uiSettings: { clearCart },
+            } = b2bSettings ?? { uiSettings: { clearCart: null } }
+
+            if (clearCart) {
+              await timedSetProfile(
+                'clearCart',
+                checkout.clearCart(orderFormId)
+              )
+            }
+
+            if (selectedAddress && orderFormId) {
+              const marketingTags: any = (marketingTagsResponse as any)?.data
+                ?.getMarketingTags?.tags
+
+              await timedSetProfile(
+                'updateOrderFormMarketingData',
+                checkout
+                  .updateOrderFormMarketingData(orderFormId, {
+                    attachmentId: 'marketingData',
+                    marketingTags: marketingTags || [],
+                    utmCampaign: user.orgId,
+                    utmMedium: user.costId,
+                  })
+                  .catch((error) => {
+                    logger.error({
+                      error,
+                      message: 'setProfile.updateOrderFormMarketingDataError',
+                    })
+                  })
+              )
+
+              if (!usePublicPostalCodeForRegion) {
+                await timedSetProfile(
+                  'updateOrderFormShipping',
+                  checkout
+                    .updateOrderFormShipping(orderFormId, {
+                      address: {
+                        ...selectedAddress,
+                        geoCoordinates: selectedAddress.geoCoordinates ?? [],
+                        isDisposable: true,
+                      },
+                      clearAddressIfPostalCodeNotFound: false,
+                    })
+                    .catch((error) => {
+                      logger.error({
+                        error,
+                        message: 'setProfile.updateOrderFormShippingError',
+                      })
+                    })
+                )
+              } else {
+                logger.info({
+                  message: 'setProfile.cartShippingSkipped',
+                  reason: 'usePublicPostalCodeForRegion',
+                })
+              }
+            }
+          } catch (error) {
+            logger.error({
+              error,
+              message: 'setProfile.clearCart',
+            })
+          }
+
+          logSetProfileStep('clearCart')
+        }
+
+        const clUser = await timedSetProfile(
+          'generateClUser',
+          generateClUser({
+            businessDocument,
+            businessName,
+            clId: user?.clId ?? '',
+            ctx,
+            phoneNumber: phoneNumber ?? null,
+            stateRegistration,
+            tradeName,
+            isCorporate,
+          })
+        )
+
+        logSetProfileStep('generateClUser')
+
+        if (clUser && orderFormId) {
+          const phoneNumberFormatted =
+            phoneNumber ||
+            clUser.phone ||
+            clUser.homePhone ||
+            `+1${'0'.repeat(10)}`
+
+          await timedSetProfile(
+            'updateOrderFormProfile',
+            checkout
+              .updateOrderFormProfile(orderFormId, {
+                ...clUser,
+                businessDocument:
+                  (businessDocument || clUser.businessDocument) ?? null,
+                documentType: documentType ?? undefined,
+                phone: phoneNumberFormatted,
+                stateInscription:
+                  stateRegistration ??
+                  clUser.stateInscription ??
+                  '0'.repeat(9) ??
+                  null,
+              })
+              .catch((error) => {
+                logger.error({
+                  error,
+                  message: 'setProfile.updateOrderFormProfileError',
+                })
+              })
+          )
+        }
+      } catch (error) {
+        logger.error({
+          error,
+          message: 'setProfile.deferredPostResponse',
+        })
+      }
+    })()
   },
 }

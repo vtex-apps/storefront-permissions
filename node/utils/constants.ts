@@ -1,4 +1,31 @@
 export const CUSTOMER_SCHEMA_NAME = 'CL'
+
+// Entity + schema versions owned by vtex.b2b-organizations-graphql (node/mdSchema.ts).
+export const COST_CENTER_DATA_ENTITY = 'cost_centers'
+export const COST_CENTER_SCHEMA_VERSION = 'v0.0.8'
+export const COST_CENTER_FIELDS = [
+  'id',
+  'name',
+  'addresses',
+  'paymentTerms',
+  'organization',
+  'phoneNumber',
+  'businessDocument',
+  'stateRegistration',
+  'sellers',
+]
+export const ORGANIZATION_DATA_ENTITY = 'organizations'
+export const ORGANIZATION_SCHEMA_VERSION = 'v0.0.8'
+export const ORGANIZATION_FIELDS = [
+  'id',
+  'name',
+  'tradeName',
+  'status',
+  'priceTables',
+  'salesChannel',
+  'collections',
+  'sellers',
+]
 export const CUSTOMER_REQUIRED_FIELDS = [
   'email',
   'id',
