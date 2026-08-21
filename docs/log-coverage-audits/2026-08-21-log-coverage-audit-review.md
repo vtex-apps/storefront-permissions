@@ -13,9 +13,10 @@ contraprova. O denominador conta **locais distintos que precisam de log** — ta
 (86) quanto os que faltam ou estão insuficientes (26). Caminhos triviais e sem efeito colateral
 (getters, formatadores, early returns do fluxo normal, arquivos de tipo) ficam fora.
 
-O score não é comparável ao 89% da auditoria anterior: aquela contou 95 caminhos com granularidade
-diferente. As duas conclusões qualitativas coincidem em 8 dos 10 achados originais; as diferenças
-estão registradas abaixo.
+O score não é comparável ao 89% da auditoria anterior, que mistura duas unidades de contagem no
+denominador — a reconciliação completa está em
+[Reconciliação dos scores](#reconciliação-dos-scores-89-vs-77). As duas conclusões qualitativas
+coincidem em 8 dos 10 achados originais; as diferenças estão registradas abaixo.
 
 ## Resumo
 
@@ -88,6 +89,42 @@ Três correções, todas verificadas no código:
 3. **Quatro achados novos**, nenhum na lista anterior: as chamadas sem guarda em `setProfile`
    (incluindo `services/appSettingsCache.ts`, arquivo que não aparece na auditoria anterior nem
    como achado nem como verificado), as duas escritas fora de `try/catch`, e `checkCustomerSchema`.
+
+### Reconciliação dos scores (89% vs. 77%)
+
+Os dois scores não medem a mesma coisa, e a diferença não é só de granularidade — há uma
+inconsistência de unidade na primeira auditoria.
+
+O lado **coberto** das duas praticamente coincide: 85 contra 86. As duas encontraram
+essencialmente o mesmo conjunto de caminhos já instrumentados. Toda a diferença está no
+denominador.
+
+A primeira fechou `85 + 10 = 95`: contou os caminhos cobertos **um por um**, mas os achados como
+**linhas de tabela agrupadas**. Só que várias daquelas linhas agrupam vários locais distintos —
+`LicenseManager` é uma linha com 6 catches, `getUser` é uma linha com o `.catch` mais 3 callers, as
+leituras do VBase são uma linha com 3 locais. Expandidas para locais, as 10 linhas dela somam **21**,
+não 10. O denominador mistura 85 unidades de um tipo com 10 de outro, o que subestima o lado dos
+achados e infla o score.
+
+Esta auditoria usa uma unidade só: local que precisa de uma linha de log. Daí `86 + 26 = 112`.
+
+Os números reconciliam exatamente:
+
+```
+21  locais dos 10 achados da auditoria anterior
+-1  Queries/Users.ts:592 (inalcançável, e já logado a montante)
++3  setProfile sem guarda (Promise.all, Routes.appSettings, appSettingsCache)
++2  escritas fora de try/catch (Mutations/Users.ts:605, Queries/Settings.ts:76)
++1  checkCustomerSchema
+=26 locais de achado desta auditoria
+```
+
+Normalizada para a mesma unidade, a auditoria anterior daria **85/106 ≈ 80%**, não 89%. A diferença
+restante até os 77% daqui são justamente os 6 locais dos achados novos — comportamento esperado:
+mesma base de código, mais achados, score um pouco menor.
+
+Conclusão prática: o serviço nunca esteve em 89%. Estava em ~80% pela contagem anterior e está em
+77% por esta, que é a mais defensável por não misturar unidades.
 
 ## Verificado e considerado adequado
 
