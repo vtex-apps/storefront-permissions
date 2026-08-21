@@ -3,3 +3,5 @@ node_modules
 .qodo
 .cursor
 .claude
+__pycache__/
+*.py[cod]

@@ -1,0 +1,72 @@
+name: Log coverage
+
+# Blocking gate: a PR that touches audited code must carry an up-to-date report
+# under docs/log-coverage/reports/pr-<number>/. The score itself does not gate —
+# a regression is a review signal, not a failure.
+#
+# Runs on every PR on purpose, with no paths filter: a required status check that
+# gets skipped by a paths filter leaves the PR waiting forever on a check that
+# never reports. Docs-only PRs run and pass without needing a report.
+'on':
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  log-coverage:
+    name: Log coverage
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth 0 so the base baseline and the merge-base diff are readable.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # Blocking: a green gate on top of a broken scorer means nothing. Invoked
+      # directly rather than through make, so the gate works in repos with no
+      # Makefile.
+      - name: Test the scorer
+        working-directory: scripts/log_coverage
+        run: python3 -m unittest discover -p 'test_*.py'
+      # Tolerates failure so the comment below still gets posted; the verdict is
+      # re-raised in the final step.
+      - name: Check the committed report
+        id: audit
+        continue-on-error: true
+        run: |
+          python3 scripts/log_coverage/audit.py check \
+            --pr "${{ github.event.pull_request.number }}" \
+            --baseline-ref "origin/${{ github.base_ref }}" \
+            --diff-ref "origin/${{ github.base_ref }}" \
+            --markdown-out comment.md \
+            --strict
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+      # Commenting fails on fork PRs, where GITHUB_TOKEN is read-only. The step
+      # summary above still carries the report, so that must not fail the job.
+      - name: Post or update the PR comment
+        continue-on-error: true
+        env:
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          REPO: '${{ github.repository }}'
+          PR: '${{ github.event.pull_request.number }}'
+        run: |
+          [ -f comment.md ] || exit 0
+          existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.body | contains("<!-- log-coverage-report -->")) | .id' \
+            | head -n 1)
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@comment.md
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@comment.md
+          fi
+      - name: Require an up-to-date report
+        if: steps.audit.outcome == 'failure'
+        run: |
+          echo "::error::The log-coverage report for this PR is missing or stale."
+          echo "Run: make log-coverage-report PR=${{ github.event.pull_request.number }}"
+          echo "Then commit docs/log-coverage/reports/ and docs/log-coverage/baseline.json."
+          exit 1

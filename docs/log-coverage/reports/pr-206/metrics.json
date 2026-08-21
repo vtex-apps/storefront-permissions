@@ -1,0 +1,759 @@
+{
+  "schemaVersion": 1,
+  "scope": [
+    "node/**/*.ts"
+  ],
+  "score": {
+    "covered": 68,
+    "insufficient": 0,
+    "missing": 25,
+    "total": 93,
+    "percent": 73.1
+  },
+  "handlers": [
+    {
+      "id": "bd5cd0d24b0e",
+      "file": "node/clients/checkout.ts",
+      "line": 270,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "4396a56f5798",
+      "file": "node/clients/checkout.ts",
+      "line": 276,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(err) => { // This endpoint is expected to return a redirect to // the user, so we can ignore the error if it is a 3xx if (!err.response || "
+    },
+    {
+      "id": "bd5cd0d24b0e-2",
+      "file": "node/clients/checkout.ts",
+      "line": 328,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "bd5cd0d24b0e-3",
+      "file": "node/clients/checkout.ts",
+      "line": 339,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "bd5cd0d24b0e-4",
+      "file": "node/clients/checkout.ts",
+      "line": 354,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "bd5cd0d24b0e-5",
+      "file": "node/clients/checkout.ts",
+      "line": 363,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "bd5cd0d24b0e-6",
+      "file": "node/clients/checkout.ts",
+      "line": 380,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "bd5cd0d24b0e-7",
+      "file": "node/clients/checkout.ts",
+      "line": 391,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "c327fec47ebb",
+      "file": "node/directives/helper.ts",
+      "line": 70,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "// noop so we leave hasValidAdminToken as false logger.warn({ message: 'Error validating admin token', err, })"
+    },
+    {
+      "id": "5fa23d5da3f5",
+      "file": "node/directives/helper.ts",
+      "line": 157,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "// noop so we leave hasValidApiToken as false logger.warn({ message: 'Error validating API token', err, })"
+    },
+    {
+      "id": "8fb0d9a3bf82",
+      "file": "node/directives/helper.ts",
+      "line": 210,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "// noop so we leave hasValidStoreToken as false logger.warn({ message: 'Error validating store token:', err, })"
+    },
+    {
+      "id": "0180e6f5bca9",
+      "file": "node/directives/withSession.ts",
+      "line": 26,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => null"
+    },
+    {
+      "id": "75b467ee4a9e",
+      "file": "node/directives/withUserPermissions.ts",
+      "line": 24,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => null"
+    },
+    {
+      "id": "36d3064190e9",
+      "file": "node/metrics/auth.ts",
+      "line": 43,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: `Error to send metrics from auth metric`, })"
+    },
+    {
+      "id": "94183c3ceaf3",
+      "file": "node/metrics/session.ts",
+      "line": 38,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: `Error to send metrics from session metric`, })"
+    },
+    {
+      "id": "fab72460c514",
+      "file": "node/resolvers/Mutations/Profiles.ts",
+      "line": 32,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.saveProfile-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "9b55c65b24f0",
+      "file": "node/resolvers/Mutations/Profiles.ts",
+      "line": 52,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.deleteProfile-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "5396d046a647",
+      "file": "node/resolvers/Mutations/Roles.ts",
+      "line": 39,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Roles.saveRole-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "d2c047e51623",
+      "file": "node/resolvers/Mutations/Roles.ts",
+      "line": 139,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Roles.deleteRole-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "253da035dee7",
+      "file": "node/resolvers/Mutations/Settings.ts",
+      "line": 12,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => { return {} }"
+    },
+    {
+      "id": "574b7c882e43",
+      "file": "node/resolvers/Mutations/Settings.ts",
+      "line": 23,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.error({ error, message: 'sessionWatcher.saveSessionWatcherError', }) return false }"
+    },
+    {
+      "id": "ae16bd12d47d",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 35,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'setChangeSession.error', attempt: countRetry, }) if (countRetry < MAX_RETRY) { countRetry++ const backoff = "
+    },
+    {
+      "id": "c46cf491b620",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 80,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error: any) => { if (error.response?.data?.Message === 'duplicated entry') { return masterdata .searchDocuments({ dataEntity: CUSTOMER_SCHE"
+    },
+    {
+      "id": "dab6718caaa2",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 135,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => null"
+    },
+    {
+      "id": "2369669c7875",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 149,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error: any) => { if (error.response.status < 400) { return { DocumentId: id, } } throw error }"
+    },
+    {
+      "id": "2369669c7875-2",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 177,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error: any) => { if (error.response.status < 400) { return { DocumentId: id, } } throw error }"
+    },
+    {
+      "id": "2369669c7875-3",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 222,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error: any) => { if (error.response.status < 400) { return { DocumentId: id, } } throw error }"
+    },
+    {
+      "id": "351ceeedb23a",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 285,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'addUser.error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "a11e13da969e",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 314,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'updateUser.error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "0bed6e7debda",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 350,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error: any) => { if (error.response.status >= 400) { throw error } logger.error({ error, message: 'deleteUserProfile.error', }) return [] }"
+    },
+    {
+      "id": "833da6f40ee5",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 370,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'deleteUserProfile.error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "24079aadf3d4",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 395,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'deleteUser.error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "2cbc7d25dd06",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 421,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'impersonateUser.error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "e93501cf9034",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 488,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'addOrganizationToUser.error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "d9ddda1722e7",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 542,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'addCostCenterToUser.error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "6f1f96f1e593",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 572,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error: any) => { logger.error({ error, message: 'orders-getSession-error', }) return null }"
+    },
+    {
+      "id": "f2b57f328076",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 628,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'setActiveUserById.error', })"
+    },
+    {
+      "id": "0305b2041296",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 706,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'updateCurrentOrganization.error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "c10dd5d3150d",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 784,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'setCurrentPriceTable.error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "b6f6339a7ada",
+      "file": "node/resolvers/Mutations/Users.ts",
+      "line": 817,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'removeB2BSessionData.error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "45b57f4e2b71",
+      "file": "node/resolvers/Queries/Profiles.ts",
+      "line": 21,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.getProfile-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "3c22971c801e",
+      "file": "node/resolvers/Queries/Profiles.ts",
+      "line": 49,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.getProfileByRole-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "a3558a4a328f",
+      "file": "node/resolvers/Queries/Profiles.ts",
+      "line": 83,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.listProfiles-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "345b7b335820",
+      "file": "node/resolvers/Queries/Roles.ts",
+      "line": 43,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "if (error?.response?.status === 404) { const options: any = { dataEntity: config.name, fields: ['id', 'name', 'features', 'locked', 'slug'],"
+    },
+    {
+      "id": "63a74462010a",
+      "file": "node/resolvers/Queries/Roles.ts",
+      "line": 76,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Roles.getRole', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "66b4972c82e5",
+      "file": "node/resolvers/Queries/Roles.ts",
+      "line": 109,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error: e, message: 'Roles.listRoles', }) return { status: 'error', message: e }"
+    },
+    {
+      "id": "b92a877031ba",
+      "file": "node/resolvers/Queries/Settings.ts",
+      "line": 21,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => { return {} }"
+    },
+    {
+      "id": "bc50c4315b34",
+      "file": "node/resolvers/Queries/Settings.ts",
+      "line": 51,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error: ErrorResponse) => { if (error.response.status !== 304) { throw error } return true }"
+    },
+    {
+      "id": "c54b662577f9",
+      "file": "node/resolvers/Queries/Settings.ts",
+      "line": 65,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { if (error.response.status !== 304) { logger.error({ error, message: 'getAppSettings-error', }) throw new Error(error) } }"
+    },
+    {
+      "id": "8c36b7d05799",
+      "file": "node/resolvers/Queries/Settings.ts",
+      "line": 79,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => []"
+    },
+    {
+      "id": "b92a877031ba-2",
+      "file": "node/resolvers/Queries/Settings.ts",
+      "line": 94,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => { return {} }"
+    },
+    {
+      "id": "966dbe646c30",
+      "file": "node/resolvers/Queries/Settings.ts",
+      "line": 100,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'getSessionWatcher.getSessionWatcherError', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "f237ef2f08ac",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 123,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.getAllUsersByEmail-error', }) throw new Error(error)"
+    },
+    {
+      "id": "4e4169fdf815",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 180,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: `getActiveUserByEmail-error`, }) return { message: error, status: 'error' }"
+    },
+    {
+      "id": "00c143a9c428",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 232,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.getUserById-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "00c143a9c428-2",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 291,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.getUserById-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "c5168f902959",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 350,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.getUser-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "125c4d8c7d45",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 385,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.getUserByRole-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "a300f63ef2af",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 456,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.listUsers-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "5c34090523c8",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 545,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'Profiles.listUsersPaginated-error', }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "0eae5b7bdd33",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 700,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.warn({ error, message: 'checkUserPermission-getAppSettingsError' }) return {} as Record<string, unknown> }"
+    },
+    {
+      "id": "e2c74d1ca23e",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 789,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => null"
+    },
+    {
+      "id": "232e631737c6",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 839,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: `getUsersByEmail-error`, }) throw new Error(error)"
+    },
+    {
+      "id": "d41bf8fc6a64",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 869,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: `getOrganizationsByEmail-error`, }) return { status: 'error', message: error }"
+    },
+    {
+      "id": "aae20d400921",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 908,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'getOrganizationsPaginatedByEmail-error', }) throw new Error(error)"
+    },
+    {
+      "id": "232e631737c6-2",
+      "file": "node/resolvers/Queries/Users.ts",
+      "line": 964,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: `getUsersByEmail-error`, }) throw new Error(error)"
+    },
+    {
+      "id": "db857445bec5",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 75,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "const now = Date.now() const stepTiming: SetProfileStepTiming = { step, durationMs: now - start, failed: true, totalMs: now - timing.t0, } s"
+    },
+    {
+      "id": "2336d2100b89",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 317,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ message: 'setProfile.getUserError', error }) logSetProfileStep('impersonate.b2b.error')"
+    },
+    {
+      "id": "9d8e87e1b707",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 343,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.warn({ message: 'setProfile.getUserByEmailError', error }) }"
+    },
+    {
+      "id": "bf83e3d8349f",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 378,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.error({ error, message: 'setProfile.graphqlGetOrganizationById', }) }"
+    },
+    {
+      "id": "dae5b887c3f5",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 433,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'setProfile.graphqlGetOrganizationById', })"
+    },
+    {
+      "id": "19b6cac6de0b",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 457,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.error({ error, message: 'setProfile.getUserOrganizationsData', }) return { validCostCenterId: null, activeOrganization: "
+    },
+    {
+      "id": "393b20e908d7",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 497,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.warn({ error, message: 'setProfile.setActiveUserByOrganizationError', }) }"
+    },
+    {
+      "id": "225a73e1d8c3",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 706,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.error({ error, message: 'setProfile.updateSalesChannel', }) }"
+    },
+    {
+      "id": "92d153b62896",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 741,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'setProfile.clearCart', })"
+    },
+    {
+      "id": "9599fdf29746",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 777,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'setProfile.getRegionId', }) logSetProfileStep('getRegionId.error')"
+    },
+    {
+      "id": "3479ef9b062c",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 805,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.error({ error, message: 'setProfile.updateOrderFormMarketingDataError', }) }"
+    },
+    {
+      "id": "96db79a4a00b",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 827,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.error({ error, message: 'setProfile.updateOrderFormShippingError', }) }"
+    },
+    {
+      "id": "6ed3f0638700",
+      "file": "node/resolvers/Routes/index.ts",
+      "line": 879,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.error({ error, message: 'setProfile.updateOrderFormProfileError', }) }"
+    },
+    {
+      "id": "70a299098b59",
+      "file": "node/resolvers/Routes/utils/index.ts",
+      "line": 137,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.error({ message: 'setProfile.getUserByIdError', error }) }"
+    },
+    {
+      "id": "9465ca01abdf",
+      "file": "node/resolvers/Routes/utils/index.ts",
+      "line": 248,
+      "kind": "promise-catch",
+      "status": "covered",
+      "snippet": "(error) => { logger.warn({ error, message: 'Failed to fetch page', page }) return null }"
+    },
+    {
+      "id": "57a3e954d3e7",
+      "file": "node/resolvers/Routes/utils/index.ts",
+      "line": 301,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "logger.error({ error, message: 'getUserOrganizationsData.error', email, }) return { validCostCenterId: null, activeOrganization: null }"
+    },
+    {
+      "id": "b267ce05a1c7",
+      "file": "node/utils/LicenseManager.ts",
+      "line": 29,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => { return null }"
+    },
+    {
+      "id": "aaaa650a1ee0",
+      "file": "node/utils/LicenseManager.ts",
+      "line": 50,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => { return {} }"
+    },
+    {
+      "id": "3ff9a5d94e66",
+      "file": "node/utils/LicenseManager.ts",
+      "line": 58,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => false"
+    },
+    {
+      "id": "9e9fcba79ad1",
+      "file": "node/utils/LicenseManager.ts",
+      "line": 74,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "() => { return false }"
+    },
+    {
+      "id": "faea66114577",
+      "file": "node/utils/LicenseManager.ts",
+      "line": 119,
+      "kind": "catch-block",
+      "status": "missing",
+      "snippet": "return false"
+    },
+    {
+      "id": "faea66114577-2",
+      "file": "node/utils/LicenseManager.ts",
+      "line": 137,
+      "kind": "catch-block",
+      "status": "missing",
+      "snippet": "return false"
+    },
+    {
+      "id": "b356b3b9e7c6",
+      "file": "node/utils/LicenseManager.ts",
+      "line": 143,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "b356b3b9e7c6-2",
+      "file": "node/utils/LicenseManager.ts",
+      "line": 147,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "b356b3b9e7c6-3",
+      "file": "node/utils/LicenseManager.ts",
+      "line": 151,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "b356b3b9e7c6-4",
+      "file": "node/utils/LicenseManager.ts",
+      "line": 155,
+      "kind": "promise-catch",
+      "status": "missing",
+      "snippet": "statusToError"
+    },
+    {
+      "id": "ec16092a6f26",
+      "file": "node/utils/metrics/changeTeam.ts",
+      "line": 53,
+      "kind": "catch-block",
+      "status": "covered",
+      "snippet": "console.warn('Unable to log metrics', error)"
+    }
+  ]
+}
