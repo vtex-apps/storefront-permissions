@@ -149,7 +149,10 @@ export const generateClUser = async ({
   }
 
   const clUser = await getUserById(null, { id: clId }, ctx).catch((error) => {
-    logger.error({ message: 'setProfile.getUserByIdError', error })
+    logger.error({
+      error: describeClientError(error),
+      message: 'setProfile.getUserByIdError',
+    })
   })
 
   if (!clUser) {
@@ -200,7 +203,11 @@ export const getUserOrganizationsData = async (
   activeOrganization: GetOrganizationByEmailBase | null
 }> => {
   const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
-  const cacheKey = `orgs-${email}`
+
+  // Tenant-scoped: this module-level Map is shared by every account the pod
+  // serves, so a key of just the email would hand one account's organization
+  // ids to the same email on another account.
+  const cacheKey = `${ctx.vtex.account}-${ctx.vtex.workspace}-orgs-${email}`
 
   // Check cache first
   if (useCache) {

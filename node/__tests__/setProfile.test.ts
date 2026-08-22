@@ -455,6 +455,217 @@ describe('setProfile', () => {
     expect(setActiveUserByOrganization).not.toHaveBeenCalled()
   })
 
+  it('prefers the session-pinned pair on recovery when it is fully valid', async () => {
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'Inactive Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'inactive',
+        tradeName: null,
+      },
+      recoveredOrganization: {
+        collections: null,
+        name: 'Recovered Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+      userDocs: [
+        {
+          active: true,
+          clId: 'cl1',
+          costId: 'cost1',
+          email: 'buyer@test.com',
+          id: 'u1',
+          name: 'Buyer',
+          orgId: 'org1',
+        },
+        {
+          active: false,
+          clId: 'clS',
+          costId: 'costSticky',
+          email: 'buyer@test.com',
+          id: 'uS',
+          name: 'Buyer',
+          orgId: 'orgSticky',
+        },
+      ],
+    })
+
+    // The sticky organization must resolve as usable too.
+    ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
+      (entity: string, id: string) => {
+        if (entity !== 'organizations') return Promise.resolve(undefined)
+        if (id === 'org1')
+          return Promise.resolve({ name: 'Inactive Org', status: 'inactive' })
+        if (id === 'orgSticky')
+          return Promise.resolve({
+            collections: null,
+            name: 'Sticky Org',
+            priceTables: null,
+            salesChannel: null,
+            sellers: null,
+            status: 'active',
+            tradeName: null,
+          })
+
+        return Promise.resolve(undefined)
+      }
+    )
+
+    const response = await run(ctx, {
+      ...makeBody(),
+      'storefront-permissions': {
+        costcenter: { value: 'costSticky' },
+        hash: { value: '' },
+        organization: { value: 'orgSticky' },
+      },
+    })
+
+    // The pinned pair wins over the list candidate, keeping consecutive
+    // responses stable.
+    expect(response['storefront-permissions'].organization.value).toBe(
+      'orgSticky'
+    )
+    expect(response['storefront-permissions'].costcenter.value).toBe(
+      'costSticky'
+    )
+  })
+
+  it('does not adopt the pinned pair when its cost center no longer exists', async () => {
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'Inactive Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'inactive',
+        tradeName: null,
+      },
+      recoveredOrganization: {
+        collections: null,
+        name: 'Recovered Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+      userDocs: [
+        {
+          active: true,
+          clId: 'cl1',
+          costId: 'cost1',
+          email: 'buyer@test.com',
+          id: 'u1',
+          name: 'Buyer',
+          orgId: 'org1',
+        },
+        {
+          active: false,
+          clId: 'clS',
+          costId: 'costGone',
+          email: 'buyer@test.com',
+          id: 'uS',
+          name: 'Buyer',
+          orgId: 'orgSticky',
+        },
+      ],
+    })
+
+    ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
+      (entity: string, id: string) => {
+        if (entity !== 'organizations') return Promise.resolve(undefined)
+        if (id === 'org1')
+          return Promise.resolve({ name: 'Inactive Org', status: 'inactive' })
+        if (id === 'orgSticky')
+          return Promise.resolve({ name: 'Sticky Org', status: 'active' })
+        if (id === 'org2')
+          return Promise.resolve({
+            collections: null,
+            name: 'Recovered Org',
+            priceTables: null,
+            salesChannel: null,
+            sellers: null,
+            status: 'active',
+            tradeName: null,
+          })
+
+        return Promise.resolve(undefined)
+      }
+    )
+
+    // The pinned record's cost center was deleted: Master Data answers a
+    // document whose fields are all null.
+    ctx.clients.organizations.getCostCenterById.mockImplementation(
+      (id: string) =>
+        id === 'costGone'
+          ? Promise.resolve({
+              data: {
+                getCostCenterById: {
+                  addresses: null,
+                  businessDocument: null,
+                  phoneNumber: null,
+                  sellers: null,
+                  stateRegistration: null,
+                },
+              },
+            })
+          : Promise.resolve({
+              data: {
+                getCostCenterById: {
+                  addresses: [defaultAddress],
+                  businessDocument: null,
+                  phoneNumber: null,
+                  sellers: null,
+                  stateRegistration: null,
+                },
+              },
+            })
+    )
+
+    const response = await run(ctx, {
+      ...makeBody(),
+      'storefront-permissions': {
+        costcenter: { value: 'costGone' },
+        hash: { value: '' },
+        organization: { value: 'orgSticky' },
+      },
+    })
+
+    // Falls back to the list candidate, whose pair was validated, instead of
+    // emitting a session for a deleted cost center.
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].costcenter.value).toBe('cost2')
+
+    const reported = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) =>
+        call[0]?.message === 'setProfile.stickyCostCenterInvalidOnRecovery'
+    )
+
+    expect(reported?.[0]).toMatchObject({ stickyCostId: 'costGone' })
+  })
+
   it('does not recover into a fallback organization that is itself unusable', async () => {
     const orgsDataMock = getUserOrganizationsData as jest.Mock
 

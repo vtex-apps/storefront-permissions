@@ -297,7 +297,10 @@ export const Routes = {
         response['storefront-permissions'].storeUserId.value = userId
         response['storefront-permissions'].storeUserEmail.value = user.email
       } catch (error) {
-        logger.error({ message: 'setProfile.getUserError', error })
+        logger.error({
+          error: describeClientError(error),
+          message: 'setProfile.getUserError',
+        })
       }
     } else if (telemarketingImpersonate) {
       const telemarketingEmail = body?.impersonate?.storeUserEmail?.value
@@ -643,12 +646,36 @@ export const Routes = {
           )
 
           if (stickyRecord) {
-            validOrganization = {
-              costId: stickyRecord.costId,
-              id: stickyRecord.id,
-              orgId: stickyRecord.orgId,
+            // The record existing is not enough: its cost center may have been
+            // deleted since the session was pinned, and adopting it would
+            // replace the list candidate (whose cost center was validated by
+            // isAdoptableRecord) with a broken pair, emitting a session for a
+            // cost center that no longer exists.
+            const stickyCostCenter = await timer.track(
+              'getCostCenterById.stickyValidation',
+              getCachedCostCenter(ctx, String(stickyRecord.costId), () =>
+                organizations.getCostCenterById(stickyRecord.costId)
+              )
+            )
+
+            const stickyCostCenterValid = !Object.values(
+              stickyCostCenter?.data?.getCostCenterById ?? {}
+            ).every((value) => value === null)
+
+            if (stickyCostCenterValid) {
+              validOrganization = {
+                costId: stickyRecord.costId,
+                id: stickyRecord.id,
+                orgId: stickyRecord.orgId,
+              }
+              fallbackOrganization = stickyOrganization
+            } else {
+              logger.warn({
+                message: 'setProfile.stickyCostCenterInvalidOnRecovery',
+                stickyCostId: stickyRecord.costId,
+                stickyOrgId,
+              })
             }
-            fallbackOrganization = stickyOrganization
           }
         }
       }
@@ -1092,11 +1119,13 @@ export const Routes = {
       } else {
         response.public.regionId = { value: '' }
         logger.info({
+          // Presence only: the value itself is a shopper-provided address
+          // datum and must not reach the logs.
+          hasPublicPostalCode: !!body?.public?.postalCode?.value,
           message: 'setProfile.regionIdSkipped',
           reason: usePublicPostalCodeForRegion
             ? 'usePublicPostalCodeForRegion'
             : 'noSalesChannelAvailable',
-          publicPostalCode: body?.public?.postalCode?.value ?? null,
         })
       }
 

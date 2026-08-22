@@ -1,6 +1,6 @@
 import { getUserOrganizationsData } from '../resolvers/Routes/utils'
 
-const makeCtx = (records: any[]): any => ({
+const makeCtx = (records: any[], account = 'acc'): any => ({
   clients: {
     organizations: {
       getOrganizationsPaginatedByEmail: jest.fn().mockResolvedValue({
@@ -13,7 +13,11 @@ const makeCtx = (records: any[]): any => ({
       }),
     },
   },
-  vtex: { logger: { error: jest.fn(), warn: jest.fn() } },
+  vtex: {
+    account,
+    logger: { error: jest.fn(), warn: jest.fn() },
+    workspace: 'master',
+  },
 })
 
 const record = (overrides: Record<string, unknown>) => ({
@@ -69,5 +73,24 @@ describe('getUserOrganizationsData', () => {
     const result = await getUserOrganizationsData(nextEmail(), ctx, false)
 
     expect(result.activeOrganization).toBeNull()
+  })
+
+  it('never serves one tenant the cached organizations of another', async () => {
+    // A pod serves multiple accounts and this cache is a module-level Map, so
+    // the key must be tenant-scoped: the same email can exist in two accounts
+    // with entirely different organizations.
+    const email = nextEmail()
+    const ctxA = makeCtx([record({ costId: 'ccA', orgId: 'orgA' })], 'accA')
+    const ctxB = makeCtx([record({ costId: 'ccB', orgId: 'orgB' })], 'accB')
+
+    const first = await getUserOrganizationsData(email, ctxA, true)
+    const second = await getUserOrganizationsData(email, ctxB, true)
+
+    expect(first.activeOrganization).toMatchObject({ orgId: 'orgA' })
+    expect(second.activeOrganization).toMatchObject({ orgId: 'orgB' })
+    // And the second call must have hit its own origin, not account A's cache.
+    expect(
+      ctxB.clients.organizations.getOrganizationsPaginatedByEmail
+    ).toHaveBeenCalled()
   })
 })
