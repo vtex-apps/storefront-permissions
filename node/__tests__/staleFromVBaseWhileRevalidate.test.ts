@@ -140,7 +140,13 @@ describe('staleFromVBaseWhileRevalidate', () => {
     const payload = logger.error.mock.calls[0][0]
 
     expect(payload.message).toBe('staleFromVBase.revalidateError')
-    expect(payload.key).toBe('my-logical-key')
+
+    // The log must reference the hashed storage name, never the logical key:
+    // logical keys can carry identifiers (the active-user key contains the
+    // shopper's email). The hash is deterministic, so a known key can still be
+    // located by hashing it.
+    expect(JSON.stringify(payload)).not.toContain('my-logical-key')
+    expect(payload.key).toMatch(/^[0-9a-f]{32}\.json$/)
   })
 
   it('logs a warning when the VBase read fails and the origin is used', async () => {

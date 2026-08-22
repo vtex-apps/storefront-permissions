@@ -22,6 +22,8 @@ When enabled, this app stops calling the regions API. Instead it publishes the c
 
 Safety valves: the handoff requires the cost center address to have a country **and** postal code (checkout-session's input contract); otherwise this app falls back to resolving the region itself. And it stands down entirely when region overwrite is active for the request.
 
+Known limitation, on purpose: locality is published only when the session has an order form, which is the same guard the default (non-handoff) region resolution has always had — without a cart, neither mode resolves a region. Publishing locality for cartless sessions would change *when* checkout-session and search-session perform region work, so it belongs to its own measured change, not to this flag.
+
 > Rollout note: because search starts seeing the cost center locality, QA product availability and delivery promises for a B2B user before enabling this on an account.
 
 ## `allowRegionOverwrite` — the shopper's "check delivery to another location"

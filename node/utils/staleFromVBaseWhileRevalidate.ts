@@ -33,6 +33,11 @@ const getTTL = (expirationInMinutes?: number) => {
 /**
  * VBase keys have a restricted charset, so hash the logical key to keep
  * callers free to use any descriptive string.
+ *
+ * The logs below reference this hashed storage name, never the logical key:
+ * logical keys can carry identifiers (the active-user key contains the
+ * shopper's email), and error logs must not. The hash is deterministic, so a
+ * known logical key can still be located by hashing it.
  */
 const normalizedJSONFile = (filePath: string) =>
   `${createHash('md5').update(filePath).digest('hex')}.json`
@@ -41,7 +46,6 @@ const revalidate = async <T>(
   vbase: VBase,
   bucket: string,
   filePath: string,
-  key: string,
   endDate: Date,
   validateFunction: (params?: any) => Promise<T>,
   params?: unknown,
@@ -59,7 +63,7 @@ const revalidate = async <T>(
       logger?.error({
         bucket,
         error: describeClientError(error),
-        key,
+        key: filePath,
         message: 'staleFromVBase.saveError',
       })
     })
@@ -98,7 +102,7 @@ export const staleFromVBaseWhileRevalidate = async <T>(
       logger?.warn({
         bucket,
         error: describeClientError(error),
-        key: filePath,
+        key: normalizedFilePath,
         message: 'staleFromVBase.readError',
       })
 
@@ -110,7 +114,6 @@ export const staleFromVBaseWhileRevalidate = async <T>(
       vbase,
       bucket,
       normalizedFilePath,
-      filePath,
       getTTL(options?.expirationInMinutes),
       validateFunction,
       params,
@@ -128,7 +131,6 @@ export const staleFromVBaseWhileRevalidate = async <T>(
     vbase,
     bucket,
     normalizedFilePath,
-    filePath,
     getTTL(options?.expirationInMinutes),
     validateFunction,
     params,
@@ -139,7 +141,7 @@ export const staleFromVBaseWhileRevalidate = async <T>(
     logger?.error({
       bucket,
       error: describeClientError(error),
-      key: filePath,
+      key: normalizedFilePath,
       message: 'staleFromVBase.revalidateError',
     })
   })

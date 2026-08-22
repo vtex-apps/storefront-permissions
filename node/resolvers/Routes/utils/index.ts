@@ -9,6 +9,15 @@ import { getUserById } from '../../Queries/Users'
 // Simple in-memory cache with TTL
 const organizationsCache = new Map<string, { data: any; timestamp: number }>()
 
+/**
+ * A record is only worth adopting when the *same* record pairs a usable
+ * organization with a live cost center: its `costId` is what the recovery
+ * stamps on the session, so an active organization whose cost center was
+ * deleted (`costCenterName === null`) would recover into a broken pair.
+ */
+const isAdoptableRecord = (org: GetOrganizationByEmailBase) =>
+  isOrganizationUsable(org.organizationStatus) && org.costCenterName !== null
+
 export class ErrorResponse extends Error {
   public response: {
     status: number
@@ -234,9 +243,7 @@ export const getUserOrganizationsData = async (
         (org) => org.costCenterName !== null
       )
 
-      const hasActiveOrg = firstPageData.some((org) =>
-        isOrganizationUsable(org.organizationStatus)
-      )
+      const hasActiveOrg = firstPageData.some(isAdoptableRecord)
 
       // Only fetch more pages if we're missing data
       if (!hasValidCostCenter || !hasActiveOrg) {
@@ -274,9 +281,7 @@ export const getUserOrganizationsData = async (
       (org) => org.costCenterName !== null
     )
 
-    const activeOrg = allOrganizations.find((org) =>
-      isOrganizationUsable(org.organizationStatus)
-    )
+    const activeOrg = allOrganizations.find(isAdoptableRecord)
 
     // Surface a status this app does not know about, so a value introduced by
     // b2b-organizations shows up here instead of silently being treated as

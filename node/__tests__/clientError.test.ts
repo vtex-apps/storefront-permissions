@@ -86,6 +86,15 @@ describe('describeClientError', () => {
     expect(describeClientError(undefined)).toBeNull()
   })
 
+  it('redacts emails from the stack, whose first line repeats the message', () => {
+    const error = new Error('user shopper@secret.com not found')
+
+    const described: any = describeClientError(error)
+
+    expect(described.stack).toContain('<redacted-email>')
+    expect(described.stack).not.toContain('shopper@secret.com')
+  })
+
   it('keeps the stack to a few lines of code locations', () => {
     const longStack = ['Error: x', ...Array(30).fill('    at somewhere')].join(
       '\n'

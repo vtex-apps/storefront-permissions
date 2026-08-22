@@ -348,6 +348,17 @@ describe('setProfile', () => {
       'cost2'
     )
 
+    // The record id follows the adopted pair: the emitted userId must agree
+    // with the organization this response is stamped with, and the
+    // price-table lookup reads from it.
+    expect(response['storefront-permissions'].userId.value).toBe('u2')
+
+    // Marketing tags are fetched for the cost center the session was actually
+    // placed in, not the unusable one it arrived with.
+    expect(ctx.clients.organizations.getMarketingTags).toHaveBeenCalledWith(
+      'cost2'
+    )
+
     // Recovery must never write: which record is active belongs to the
     // shopper (organization switch) or to the account admin, so the transform
     // only shapes this response and reports what it found.
@@ -442,6 +453,47 @@ describe('setProfile', () => {
     expect(response['storefront-permissions'].organization.value).toBe('org2')
     expect(response['storefront-permissions'].costcenter.value).toBe('cost2b')
     expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+  })
+
+  it('does not recover into a fallback organization that is itself unusable', async () => {
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+
+    // The list entry nominated org2, but its freshly fetched document says
+    // otherwise - the nomination is stale. Adopting it would just move the
+    // shopper into another unusable organization.
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'Inactive Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'inactive',
+        tradeName: null,
+      },
+      recoveredOrganization: {
+        collections: null,
+        name: 'Also On Hold',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'on-hold',
+        tradeName: null,
+      },
+    })
+
+    await expect(run(ctx)).rejects.toThrow()
+
+    const reported = ctx.vtex.logger.error.mock.calls.find(
+      (call: any[]) => call[0]?.message === 'setProfile.organizationUnavailable'
+    )
+
+    expect(reported?.[0]).toMatchObject({ reason: 'organizationNotActive' })
   })
 
   it('clears the cart on inactive-org recovery even when the session hash matched the old org', async () => {

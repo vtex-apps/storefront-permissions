@@ -390,7 +390,10 @@ export const Routes = {
         )
         .catch((error) => {
           if (!error?.userNotFound) {
-            logger.warn({ message: 'setProfile.getUserByEmailError', error })
+            logger.warn({
+              error: describeClientError(error),
+              message: 'setProfile.getUserByEmailError',
+            })
           }
         })
 
@@ -488,16 +491,6 @@ export const Routes = {
       hashChanged,
       orgId: user.orgId,
     }
-
-    // Marketing tags only feed a fire-and-forget cart update further down, so
-    // keep them off the critical path (do not await here).
-    const marketingTagsPromise = organizations
-      .getMarketingTags(user.costId)
-      .catch((error) => {
-        logger.error({ error: describeClientError(error), message: 'setProfile.getMarketingTags' })
-
-        return null
-      })
 
     // Read into locals so the cache fetcher below does not close over `user`,
     // which is reassigned further down.
@@ -656,7 +649,13 @@ export const Routes = {
         }
       }
 
-      if (fallbackOrganization) {
+      // The list entry that nominated this organization can be stale: validate
+      // the freshly fetched document before adopting it, or the recovery would
+      // move the shopper into another unusable organization.
+      if (
+        fallbackOrganization &&
+        isOrganizationUsable(fallbackOrganization.status)
+      ) {
         // Captured before user.orgId is reassigned below, so the log can say
         // which organization the shopper's stored selection points at.
         const unusableOrgId = user.orgId
@@ -677,6 +676,11 @@ export const Routes = {
 
         user.orgId = validOrganization.orgId
         user.costId = fallbackCostId
+        // The record id must follow too: `getB2BUserById` below reads the
+        // selected price table from `user.id`, and the emitted `userId` must
+        // agree with the organization this response is stamped with.
+        user.id = validOrganization.id
+        response['storefront-permissions'].userId.value = user.id
         response['storefront-permissions'].organization.value = user.orgId
 
         // Recompute against the adopted organization: the value derived above
@@ -758,6 +762,21 @@ export const Routes = {
         )
       }
     }
+
+    // Marketing tags only feed a fire-and-forget cart update further down, so
+    // keep them off the critical path (do not await here). Started only after
+    // the recovery above so a recovered session fetches the tags of the cost
+    // center it was actually placed in, not of the unusable one it arrived with.
+    const marketingTagsPromise = organizations
+      .getMarketingTags(user.costId)
+      .catch((error) => {
+        logger.error({
+          error: describeClientError(error),
+          message: 'setProfile.getMarketingTags',
+        })
+
+        return null
+      })
 
     businessName = organization.name
     tradeName = organization.tradeName
