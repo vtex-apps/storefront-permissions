@@ -229,7 +229,11 @@ export const Routes = {
     let phoneNumber = null
     let tradeName = null
     let stateRegistration = null
-    let user = null
+    // Explicitly typed: the platform builder compiles with noImplicitAny under
+    // an older TypeScript that cannot infer this union through the
+    // reassignments below, and closures capturing `user` (the fire-and-forget
+    // catch handlers) turn that inference gap into a build error (TS7034/7005).
+    let user: any = null
 
     const ignoreB2B = body?.public?.removeB2B?.value
 
