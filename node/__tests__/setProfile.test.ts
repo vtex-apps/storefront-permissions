@@ -507,10 +507,15 @@ describe('setProfile', () => {
     // The sticky organization must resolve as usable too.
     ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
       (entity: string, id: string) => {
-        if (entity !== 'organizations') return Promise.resolve(undefined)
-        if (id === 'org1')
+        if (entity !== 'organizations') {
+          return Promise.resolve(undefined)
+        }
+
+        if (id === 'org1') {
           return Promise.resolve({ name: 'Inactive Org', status: 'inactive' })
-        if (id === 'orgSticky')
+        }
+
+        if (id === 'orgSticky') {
           return Promise.resolve({
             collections: null,
             name: 'Sticky Org',
@@ -520,6 +525,7 @@ describe('setProfile', () => {
             status: 'active',
             tradeName: null,
           })
+        }
 
         return Promise.resolve(undefined)
       }
@@ -595,12 +601,19 @@ describe('setProfile', () => {
 
     ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
       (entity: string, id: string) => {
-        if (entity !== 'organizations') return Promise.resolve(undefined)
-        if (id === 'org1')
+        if (entity !== 'organizations') {
+          return Promise.resolve(undefined)
+        }
+
+        if (id === 'org1') {
           return Promise.resolve({ name: 'Inactive Org', status: 'inactive' })
-        if (id === 'orgSticky')
+        }
+
+        if (id === 'orgSticky') {
           return Promise.resolve({ name: 'Sticky Org', status: 'active' })
-        if (id === 'org2')
+        }
+
+        if (id === 'org2') {
           return Promise.resolve({
             collections: null,
             name: 'Recovered Org',
@@ -610,6 +623,7 @@ describe('setProfile', () => {
             status: 'active',
             tradeName: null,
           })
+        }
 
         return Promise.resolve(undefined)
       }
