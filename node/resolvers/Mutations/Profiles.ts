@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
+import { describeClientError } from '../../utils/clientError'
 import { getProfileByRole } from '../Queries/Profiles'
 
 const config: any = currentSchema('b2b_profiles')
@@ -31,7 +32,7 @@ export const saveProfile = async (_: any, params: any, ctx: Context) => {
     }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.saveProfile-error',
     })
 
@@ -51,7 +52,7 @@ export const deleteProfile = async (_: any, params: any, ctx: Context) => {
     return { status: 'success', message: '' }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.deleteProfile-error',
     })
 

@@ -1,6 +1,6 @@
 # Performance and caching in the session transform
 
-`setProfile` (the `vtex.session` transform) runs on **every session creation and update, several times per storefront navigation, across every account with the B2B Suite installed**. Session Manager gives the transform a hard **2-second budget**; historically the transform chained enough serial external calls that cold pods regularly blew it. This document explains how the transform is structured today, how the caching works, and the rules to follow when changing it — so a future change does not silently reintroduce a regression.
+`setProfile` (the `vtex.session` transform) runs on **every session creation and update, several times per storefront navigation, across every account with the B2B Suite installed**. Session Manager gives the transform a hard **2-second budget** — a budget that a chain of serial external calls on a cold pod can easily exceed, which is what the structure and the caching below are designed to prevent. This document explains how the transform is structured, how the caching works, and the rules to follow when changing it.
 
 ## Request flow
 
@@ -32,7 +32,7 @@ All caches are built by `createCachedResource` (`node/services/cache.ts`), with 
 
 ### Cache correctness rules
 
-Every substantive bug found in review of this architecture was a variant of the same mistake: **letting the cache hold a state the origin never produced.** A cache entry is a claim — "this is what the origin returned for this key" — and each rule below protects that claim. Break one and the cache serves wrong responses repeatedly, for the full TTL, to every request that hits it.
+Caching here has one failure mode worth internalizing, and every rule below is a variant of it: **letting the cache hold a state the origin never produced.** A cache entry is a claim — "this is what the origin returned for this key" — and each rule below protects that claim. Break one and the cache serves wrong responses repeatedly, for the full TTL, to every request that hits it.
 
 1. **Never cache a failure.** A fetcher must rethrow errors, not swallow them into `undefined`/`null`. A swallowed failure gets stored by both layers, turning one transient Master Data blip into minutes of errors served from cache — after the origin has already recovered. Log at the fetcher if useful, but always rethrow; handle the failure *outside* the cached call so the next request retries. (Guarded by the "does not cache a failed organization lookup" test.)
 
@@ -63,15 +63,36 @@ Corollary for reviews: when a change touches a fetcher or anything downstream of
 
 - **Sales channel list (6h):** effectively static account data.
 - **App settings (5+5min):** feature flags an operator may flip; worst-case propagation is roughly memory TTL + VBase TTL (~10 minutes), because the memory layer holds its entry for its TTL and then may read a stale VBase entry once before the background refresh lands.
-- **Organization / cost center (60s/2min):** deliberately short — `organization.status === 'inactive'` blocks the user (`ForbiddenError`), so deactivating an organization must take effect within minutes.
+- **Organization / cost center (60s/2min):** deliberately short — an organization that is not `active` blocks the user (`ForbiddenError`), so deactivating one must take effect within minutes.
 - **Session watcher (60s):** it is the operational kill switch; disabling it must bite quickly.
 - **Roles (60s):** authorization data. Role mutations write VBase but cannot invalidate other pods' memory caches, so this TTL is the upper bound on how long a revoked permission stays effective.
-- **Active user:** the TTL is only a safety net. The cache key contains the session's `public.b2bCurrentCostCenter`, which `setCurrentOrganization` writes on every organization switch — so a switch changes the key and misses the cache immediately, regardless of TTL. The TTL covers changes that bypass that mutation (an admin editing a user's organizations, the inactive-org fallback).
+- **Active user:** the TTL is only a safety net. The cache key contains the session's `public.b2bCurrentCostCenter`, which `setCurrentOrganization` writes on every organization switch — so a switch changes the key and misses the cache immediately, regardless of TTL. The TTL covers changes that bypass that mutation, such as an admin editing a user's organizations directly.
 - **`active-user-permissions` (60s, memory only):** the `checkPermissions` route receives only `app` + `email`, so there is no cost center to key on and no key-based invalidation. Short TTL bounds how long stale permissions can survive an organization switch; no VBase layer so nothing extends that window.
 
 ### Why the cost center cache is bounded by bytes
 
 Measured on a real account: organization documents span **187–480 bytes** (tight), while cost center documents span **~400 bytes to 29KB** (~70x, driven by the addresses list). A fixed entry count therefore makes the cost-center cache's memory footprint swing by 70x with the data. With a byte budget, `lru-cache` treats `max` as total serialized size: one unusually large document evicts others — and a document larger than the whole budget is *refused*, never stored. Note a parsed object costs roughly 2–3x its serialized length in heap; size budgets accordingly.
+
+## Organization data: Master Data instead of b2b-organizations
+
+The organization document is read **straight from Master Data** (`masterDataExtended.getDocumentById('organizations', ...)`) rather than through `b2b-organizations-graphql`, which owns that entity. That substitution came from the `setProfile` performance refactors, and it is deliberate — measured against a real account:
+
+| Read | Samples | Median |
+|---|---|---|
+| Master Data document | 0.40 / 0.40 / 0.39 / 0.44 / 0.41 / 0.60s | **~0.40s** |
+| `b2b-organizations` `getOrganizationById` | 0.99 / 1.19 / 1.80 / 1.87 / 2.24 / 2.35s | **~1.8s** |
+
+The extra app hop costs roughly **1.4s**, and individual samples exceeded **2.2s** — the transform's entire budget on their own. The variance is the disqualifying part, not the median. (Measured from a workstation, so both figures include the same client RTT; the delta is server-side. An in-cluster call would be faster in absolute terms, but the spread still rules it out for this path.)
+
+The trade-off is that the organization status rule then exists in two implementations. `b2b-organizations` owns the vocabulary (`ORGANIZATION_STATUSES`) and its `checkOrganizationIsActive` defines the semantics — only an `active` organization is usable — and this app mirrors it.
+
+Rules that follow from this:
+
+- **The status rule lives in exactly one module**, `node/utils/organizationStatus.ts`, which mirrors `b2b-organizations`' `ORGANIZATION_STATUSES` vocabulary and its `=== 'active'` semantics. Never write a status comparison at a call site.
+- **Any change to this rule — here or in `b2b-organizations` — must be applied in both apps.** They are two copies of one rule; a change to one is a divergence until the other follows.
+- **An unrecognized status fails closed and is logged** (`setProfile.unknownOrganizationStatus`, `getUserOrganizationsData.unknownOrganizationStatus`). Divergence cannot be prevented structurally without paying for the hop, so the fallback is to make it loud: a status introduced upstream shows up in the logs rather than silently landing in the "not usable" branch.
+
+**TODO:** extract this rule into a shared package consumed by both `storefront-permissions` and `b2b-organizations-graphql`, so there is one implementation instead of two copies kept in sync by convention. Requires agreement with the `b2b-organizations` owners, since nothing in the suite is published as a consumable library today.
 
 ## Multi-tenancy
 
@@ -89,7 +110,7 @@ Entry bounds are **global budgets across all tenants on the pod**, not per accou
 - **`workers: 1` is intentional.** Each worker is a separate Node process with its own LRUs; two workers would duplicate every cache (double memory) and halve the hit rate. Scale with replicas, not workers.
 - **`timeout: 60` vs the 2s session budget:** Session Manager stops waiting at 2s, but this service also hosts the admin GraphQL routes (user/role listing, bulk operations) that legitimately need the headroom, so the global timeout stays at the suite standard.
 
-## Known measurements (Aug 2026, kohlerqa)
+## Known measurements (Aug 2026, B2B account with multi-organization users)
 
 | Scenario | Before | After |
 |---|---|---|

@@ -2,6 +2,7 @@ import type { Logger } from '@vtex/api/lib/service/logger/logger'
 
 import type { Metric } from '../clients/metrics'
 import { B2B_METRIC_NAME, sendMetric } from '../clients/metrics'
+import { describeClientError } from '../utils/clientError'
 
 export interface AuthAuditMetric {
   operation: string
@@ -42,7 +43,7 @@ const sendAuthMetric = async (logger: Logger, authMetric: AuthMetric) => {
     await sendMetric(authMetric)
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: `Error to send metrics from auth metric`,
     })
   }

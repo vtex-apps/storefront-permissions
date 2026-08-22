@@ -5,6 +5,7 @@ import type { VBase } from '@vtex/api'
 import type { Logger } from '@vtex/api/lib/service/logger/logger'
 
 import type { StaleRevalidateData } from '../typings/staleFromVBaseWhileRevalidate'
+import { describeClientError } from './clientError'
 
 const DEFAULT_EXPIRATION_IN_MINUTES = 30
 
@@ -57,7 +58,7 @@ const revalidate = async <T>(
     .catch((error) => {
       logger?.error({
         bucket,
-        error,
+        error: describeClientError(error),
         key,
         message: 'staleFromVBase.saveError',
       })
@@ -96,7 +97,7 @@ export const staleFromVBaseWhileRevalidate = async <T>(
       // still be visible somewhere.
       logger?.warn({
         bucket,
-        error,
+        error: describeClientError(error),
         key: filePath,
         message: 'staleFromVBase.readError',
       })
@@ -137,7 +138,7 @@ export const staleFromVBaseWhileRevalidate = async <T>(
     // would go completely unnoticed.
     logger?.error({
       bucket,
-      error,
+      error: describeClientError(error),
       key: filePath,
       message: 'staleFromVBase.revalidateError',
     })

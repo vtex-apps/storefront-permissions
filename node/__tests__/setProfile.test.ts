@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { json } from 'co-body'
 
+import { sendMetric } from '../clients/metrics'
+import { setActiveUserByOrganization } from '../resolvers/Mutations/Users'
 import { Routes } from '../resolvers/Routes'
 import {
   generateClUser,
@@ -21,6 +23,13 @@ jest.mock('../resolvers/Mutations/Users', () => ({
   setActiveUserByOrganization: jest.fn().mockResolvedValue(undefined),
 }))
 
+// Observability events post to the analytics endpoint; tests must never do
+// real network I/O, and the assertions below inspect the payloads.
+jest.mock('../clients/metrics', () => ({
+  B2B_METRIC_NAME: 'b2b-suite-buyerorg-data',
+  sendMetric: jest.fn().mockResolvedValue(undefined),
+}))
+
 process.env.VTEX_APP_ID = 'vtex.storefront-permissions@3.6.1'
 
 const jsonMock = json as jest.Mock
@@ -32,22 +41,25 @@ let uniq = 0
 interface Scenario {
   appSettings?: Record<string, unknown>
   costCenterAddresses?: any[]
+  lossyScan?: boolean
   organization?: Record<string, unknown>
   recoveredOrganization?: Record<string, unknown>
   sessionWatcherActive?: boolean
+  userDocs?: any[]
 }
 
 const defaultAddress = {
   addressId: 'addr1',
   country: 'USA',
   geoCoordinates: null,
-  postalCode: '53012',
+  postalCode: '12345',
 }
 
 const makeCtx = (scenario: Scenario = {}) => {
   const {
     appSettings = {},
     costCenterAddresses = [defaultAddress],
+    lossyScan = false,
     organization = {
       collections: null,
       name: 'Test Org',
@@ -59,17 +71,18 @@ const makeCtx = (scenario: Scenario = {}) => {
     },
     recoveredOrganization,
     sessionWatcherActive = true,
+    userDocs = [
+      {
+        active: true,
+        clId: 'cl1',
+        costId: 'cost1',
+        email: 'buyer@test.com',
+        id: 'u1',
+        name: 'Buyer',
+        orgId: 'org1',
+      },
+    ],
   } = scenario
-
-  const userDoc = {
-    active: true,
-    clId: 'cl1',
-    costId: 'cost1',
-    email: 'buyer@test.com',
-    id: 'u1',
-    name: 'Buyer',
-    orgId: 'org1',
-  }
 
   const ctx: any = {
     clients: {
@@ -104,10 +117,45 @@ const makeCtx = (scenario: Scenario = {}) => {
         }),
       },
       masterdata: {
-        searchDocumentsWithPaginationInfo: jest.fn().mockResolvedValue({
-          data: [userDoc],
-          pagination: { page: 1, total: 1 },
-        }),
+        createOrUpdatePartialDocument: jest
+          .fn()
+          .mockResolvedValue({ DocumentId: 'u1' }),
+        // Applies the `where` clause and the pagination window the way Master
+        // Data does, so a test can tell the active-only lookup apart from the
+        // full scan instead of getting the same canned list for both.
+        searchDocumentsWithPaginationInfo: jest
+          .fn()
+          .mockImplementation(({ where, pagination }: any) => {
+            const wantsActive = where?.includes('active=true')
+            const orgFilter = where?.match(/orgId=([^\s]+)/)?.[1]
+            const costFilter = where?.match(/costId=([^\s]+)/)?.[1]
+
+            // `lossyScan` simulates a paginated scan that intermittently comes
+            // back without the active row, which can happen to users holding
+            // many records. The filtered and targeted lookups are unaffected,
+            // which is the whole point of using them.
+            let matching = userDocs
+
+            if (wantsActive) {
+              matching = matching.filter((doc: any) => doc.active)
+            } else if (orgFilter) {
+              matching = matching.filter(
+                (doc: any) =>
+                  doc.orgId === orgFilter &&
+                  (!costFilter || doc.costId === costFilter)
+              )
+            } else if (lossyScan) {
+              matching = matching.filter((doc: any) => !doc.active)
+            }
+
+            const { page = 1, pageSize = 50 } = pagination ?? {}
+            const start = (page - 1) * pageSize
+
+            return Promise.resolve({
+              data: matching.slice(start, start + pageSize),
+              pagination: { page, total: matching.length },
+            })
+          }),
       },
       organizations: {
         getB2BSettings: jest.fn().mockResolvedValue({
@@ -220,7 +268,7 @@ describe('setProfile', () => {
     expect(response.public.regionId.value).toBe('v2.TESTREGION')
     expect(ctx.clients.checkout.getRegionId).toHaveBeenCalledWith(
       'USA',
-      '53012',
+      '12345',
       '1',
       null
     )
@@ -236,7 +284,7 @@ describe('setProfile', () => {
 
     expect(ctx.clients.checkout.getRegionId).not.toHaveBeenCalled()
     expect(response.public.regionId).toBeUndefined()
-    expect(response.public.postalCode.value).toBe('53012')
+    expect(response.public.postalCode.value).toBe('12345')
     expect(response.public.country.value).toBe('USA')
   })
 
@@ -282,22 +330,118 @@ describe('setProfile', () => {
       },
     })
 
-    // With the old `.data.getOrganizationById` unwrap this threw a TypeError
-    // and returned a 500; the fix must complete normally. The id-exact mock in
-    // makeCtx also fails this test if the lookup uses the user record id ('u2')
-    // instead of the organization id ('org2').
+    // Unwrapping `.data.getOrganizationById` (the GraphQL client's response
+    // shape) would resolve to undefined and throw a TypeError here; this must
+    // complete normally. The id-exact mock in makeCtx also fails this test if
+    // the lookup uses the user record id ('u2') instead of the organization id
+    // ('org2').
     const response = await run(ctx)
 
     expect(ctx.response.status).toBe(200)
     expect(getUserOrganizationsData).toHaveBeenCalled()
 
-    // The response must be stamped with the organization that was just
-    // activated, not the inactive one it arrived with.
+    // The response must be stamped with the recovered organization, not the
+    // inactive one the stored selection points at.
     expect(response['storefront-permissions'].organization.value).toBe('org2')
     expect(response['storefront-permissions'].costcenter.value).toBe('cost2')
     expect(ctx.clients.organizations.getCostCenterById).toHaveBeenCalledWith(
       'cost2'
     )
+
+    // Recovery must never write: which record is active belongs to the
+    // shopper (organization switch) or to the account admin, so the transform
+    // only shapes this response and reports what it found.
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+
+    const reported = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) => call[0]?.message === 'setProfile.organizationRecovered'
+    )
+
+    expect(reported?.[0]).toMatchObject({
+      recoveredOrgId: 'org2',
+      unusableOrgId: 'org1',
+    })
+
+    // The log line is sampled by the platform pipeline; the exact count ships
+    // as an analytics event. Identifiers only on that channel - never email.
+    const event = (sendMetric as jest.Mock).mock.calls.find(
+      (call: any[]) =>
+        call[0]?.kind === 'b2b-storefront-permissions-organization-recovered'
+    )
+
+    expect(event?.[0].fields).toMatchObject({
+      recoveredOrgId: 'org2',
+      unusableOrgId: 'org1',
+    })
+    expect(JSON.stringify(event?.[0])).not.toContain('buyer@test.com')
+  })
+
+  it('recovers to the organization the session already carries, not the first of the list', async () => {
+    // Without persistence the recovery reruns on every transform, and the
+    // list-based pick is not stable. The pair the session carries must win,
+    // so consecutive responses stay on the same organization.
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    // The list-based pick suggests org2/cost2...
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'Inactive Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'inactive',
+        tradeName: null,
+      },
+      recoveredOrganization: {
+        collections: null,
+        name: 'Recovered Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+      userDocs: [
+        {
+          active: true,
+          clId: 'cl1',
+          costId: 'cost1',
+          email: 'buyer@test.com',
+          id: 'u1',
+          name: 'Buyer',
+          orgId: 'org1',
+        },
+        {
+          active: false,
+          clId: 'cl2b',
+          costId: 'cost2b',
+          email: 'buyer@test.com',
+          id: 'u2b',
+          name: 'Buyer',
+          orgId: 'org2',
+        },
+      ],
+    })
+
+    // ...but this session was already resolved to org2/cost2b.
+    const response = await run(ctx, {
+      ...makeBody(),
+      'storefront-permissions': {
+        costcenter: { value: 'cost2b' },
+        hash: { value: '' },
+        organization: { value: 'org2' },
+      },
+    })
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].costcenter.value).toBe('cost2b')
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
   })
 
   it('clears the cart on inactive-org recovery even when the session hash matched the old org', async () => {
@@ -412,7 +556,11 @@ describe('setProfile', () => {
     const ctx = makeCtx()
     const lookups = ctx.clients.masterdata.searchDocumentsWithPaginationInfo
 
-    lookups.mockResolvedValueOnce({ data: [], pagination: { page: 1, total: 0 } })
+    // Two empty answers: the active-only lookup, then the full scan it falls
+    // back to when no record is active.
+    lookups
+      .mockResolvedValueOnce({ data: [], pagination: { page: 1, total: 0 } })
+      .mockResolvedValueOnce({ data: [], pagination: { page: 1, total: 0 } })
 
     // First transform: user not provisioned yet, empty B2B session.
     const first = await run(ctx)
@@ -424,6 +572,489 @@ describe('setProfile', () => {
     const second = await run(ctx)
 
     expect(second['storefront-permissions'].organization.value).toBe('org1')
+  })
+
+  it('resolves the active record with a single filtered lookup', async () => {
+    const ctx = makeCtx()
+    const lookups = ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+
+    await run(ctx)
+
+    // Every lookup must carry the filter: an unfiltered scan would paginate
+    // through all of a multi-organization user's records.
+    for (const [args] of lookups.mock.calls) {
+      expect(args.where).toContain('active=true')
+    }
+  })
+
+  it('finds the active record even when the unfiltered scan loses it', async () => {
+    // A multi-record user whose paginated scan comes back without the active
+    // row: without the filter, the resolution falls back to `users[0]` and
+    // drops the shopper into an arbitrary organization.
+    // Filtering in Master Data returns the active record in a single call,
+    // so the lossy scan never runs.
+    const ctx = makeCtx({
+      lossyScan: true,
+      recoveredOrganization: {
+        collections: null,
+        name: 'Active Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+      userDocs: [
+        {
+          active: false,
+          clId: 'cl1',
+          costId: 'cost1',
+          email: 'buyer@test.com',
+          id: 'u1',
+          name: 'Buyer',
+          orgId: 'org1',
+        },
+        {
+          active: true,
+          clId: 'cl2',
+          costId: 'cost2',
+          email: 'buyer@test.com',
+          id: 'u2',
+          name: 'Buyer',
+          orgId: 'org2',
+        },
+      ],
+    })
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].costcenter.value).toBe('cost2')
+  })
+
+  it('falls back read-only when the user has no active record', async () => {
+    // Records are created with active=false, so a user who never picked an
+    // organization legitimately has none active. The fallback must be
+    // deterministic and must not write: the record is unvalidated and could
+    // point at an inactive or deleted organization, and persisting it would
+    // make a bad selection permanent.
+    const ctx = makeCtx({
+      userDocs: [
+        {
+          active: false,
+          clId: 'cl1',
+          costId: 'cost1',
+          email: 'buyer@test.com',
+          id: 'u1',
+          name: 'Buyer',
+          orgId: 'org1',
+        },
+      ],
+    })
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+    expect(
+      ctx.clients.masterdata.createOrUpdatePartialDocument
+    ).not.toHaveBeenCalled()
+
+    const reported = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) =>
+        call[0]?.message === 'getActiveUserByEmail-noActiveRecord'
+    )
+
+    expect(reported?.[0]).toMatchObject({
+      fallbackRecordId: 'u1',
+      totalRecords: 1,
+    })
+  })
+
+  it('keeps the organization the session already carries when none is active', async () => {
+    // Without stickiness the resolution below is re-derived every transform and
+    // can drift for users with many records, making a cost center switch appear
+    // not to stick. 'org2' is not the record the plain scan would pick.
+    const ctx = makeCtx({
+      recoveredOrganization: {
+        collections: null,
+        name: 'Sticky Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+      userDocs: [
+        {
+          active: false,
+          clId: 'cl1',
+          costId: 'cost1',
+          email: 'buyer@test.com',
+          id: 'u1',
+          name: 'Buyer',
+          orgId: 'org1',
+        },
+        {
+          active: false,
+          clId: 'cl2',
+          costId: 'cost2',
+          email: 'buyer@test.com',
+          id: 'u2',
+          name: 'Buyer',
+          orgId: 'org2',
+        },
+      ],
+    })
+
+    const response = await run(ctx, {
+      ...makeBody(),
+      'storefront-permissions': {
+        hash: { value: '' },
+        organization: { value: 'org2' },
+      },
+    })
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].costcenter.value).toBe('cost2')
+  })
+
+  it('keeps the exact cost center when the organization has several', async () => {
+    // A shopper can hold one record per cost center inside the same
+    // organization, so pinning on the organization alone would pick an
+    // arbitrary cost center - the same drift, one level down.
+    const ctx = makeCtx({
+      recoveredOrganization: {
+        collections: null,
+        name: 'Sticky Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+      userDocs: [
+        {
+          active: false,
+          clId: 'clA',
+          costId: 'costA',
+          email: 'buyer@test.com',
+          id: 'uA',
+          name: 'Buyer',
+          orgId: 'org2',
+        },
+        {
+          active: false,
+          clId: 'clB',
+          costId: 'costB',
+          email: 'buyer@test.com',
+          id: 'uB',
+          name: 'Buyer',
+          orgId: 'org2',
+        },
+      ],
+    })
+
+    const response = await run(ctx, {
+      ...makeBody(),
+      'storefront-permissions': {
+        costcenter: { value: 'costB' },
+        hash: { value: '' },
+        organization: { value: 'org2' },
+      },
+    })
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].costcenter.value).toBe('costB')
+  })
+
+  it('stays in the organization when only the pinned cost center is gone', async () => {
+    const ctx = makeCtx({
+      recoveredOrganization: {
+        collections: null,
+        name: 'Sticky Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+      userDocs: [
+        {
+          active: false,
+          clId: 'clA',
+          costId: 'costA',
+          email: 'buyer@test.com',
+          id: 'uA',
+          name: 'Buyer',
+          orgId: 'org2',
+        },
+      ],
+    })
+
+    const response = await run(ctx, {
+      ...makeBody(),
+      'storefront-permissions': {
+        costcenter: { value: 'costGone' },
+        hash: { value: '' },
+        organization: { value: 'org2' },
+      },
+    })
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].costcenter.value).toBe('costA')
+
+    const reported = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) =>
+        call[0]?.message ===
+        'getActiveUserByEmail-stickyCostCenterNoLongerAvailable'
+    )
+
+    expect(reported?.[0]).toMatchObject({ stickyCostId: 'costGone' })
+  })
+
+  it('falls back and reports when the session organization is no longer available', async () => {
+    // The shopper was removed from the organization the session was pinned to.
+    const ctx = makeCtx({
+      userDocs: [
+        {
+          active: false,
+          clId: 'cl1',
+          costId: 'cost1',
+          email: 'buyer@test.com',
+          id: 'u1',
+          name: 'Buyer',
+          orgId: 'org1',
+        },
+      ],
+    })
+
+    const response = await run(ctx, {
+      ...makeBody(),
+      'storefront-permissions': {
+        hash: { value: '' },
+        organization: { value: 'orgGone' },
+      },
+    })
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+
+    const reported = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) =>
+        call[0]?.message === 'getActiveUserByEmail-stickyOrgNoLongerAvailable'
+    )
+
+    expect(reported?.[0]).toMatchObject({ stickyOrgId: 'orgGone' })
+  })
+
+  it('logs an explicit reason when the organization no longer exists', async () => {
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: null,
+      validCostCenterId: null,
+    })
+
+    // No document for 'org1': the active record points at a deleted org.
+    const ctx = makeCtx({ organization: undefined })
+
+    ctx.clients.masterDataExtended.getDocumentById.mockResolvedValue(undefined)
+
+    await expect(run(ctx)).rejects.toThrow('Organization not found')
+
+    const reported = ctx.vtex.logger.error.mock.calls.find(
+      (call: any[]) => call[0]?.message === 'setProfile.organizationUnavailable'
+    )
+
+    // The sessions service turns this into a generic 502, so the log is the
+    // only place that says which shopper and which organization failed.
+    expect(reported?.[0]).toMatchObject({
+      email: 'buyer@test.com',
+      organizationId: 'org1',
+      reason: 'organizationNotFound',
+    })
+  })
+
+  it('treats an on-hold organization as unusable, like b2b-organizations does', async () => {
+    // b2b-organizations' own checkOrganizationIsActive answers
+    // `status === 'active'`, so 'on-hold' must not be shoppable here either.
+    // The previous `!== 'inactive'` check let it through.
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'On Hold Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'on-hold',
+        tradeName: null,
+      },
+      recoveredOrganization: {
+        collections: null,
+        name: 'Recovered Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+    })
+
+    const response = await run(ctx)
+
+    expect(getUserOrganizationsData).toHaveBeenCalled()
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+  })
+
+  it('reports a status it does not know about instead of failing silently', async () => {
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: null,
+      validCostCenterId: null,
+    })
+
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'Odd Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'suspended-by-finance',
+        tradeName: null,
+      },
+    })
+
+    // Fails closed: an unrecognized status is not shoppable.
+    await expect(run(ctx)).rejects.toThrow()
+
+    const reported = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) =>
+        call[0]?.message === 'setProfile.unknownOrganizationStatus'
+    )
+
+    expect(reported?.[0]).toMatchObject({ status: 'suspended-by-finance' })
+  })
+
+  it('sanitizes the cart address and reports what it removed', async () => {
+    const ctx = makeCtx({
+      costCenterAddresses: [
+        {
+          ...defaultAddress,
+          reference: '{ "street2":"","street3":""}',
+        },
+      ],
+    })
+
+    await run(ctx)
+
+    const sent =
+      ctx.clients.checkout.updateOrderFormShipping.mock.calls[0]?.[1]
+
+    // Checkout must receive the cleaned value, otherwise it answers CHK0040 and
+    // discards the whole attachment, leaving the previous address on the cart.
+    expect(sent.address.reference).toBe('{ street2:,street3:}')
+
+    const reported = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) => call[0]?.code === 'CART_ADDRESS_SANITIZED'
+    )
+
+    expect(reported?.[0]).toMatchObject({
+      costCenterAddressId: 'addr1',
+      fields: [{ field: 'reference', removed: ['"'] }],
+      message: 'setProfile.cartAddressSanitized',
+      orgId: 'org1',
+    })
+
+    // No address values at any level: they are personal data and this runs on
+    // every session transform.
+    expect(JSON.stringify(reported?.[0])).not.toContain('street2')
+  })
+
+  it('reports a rejected postal code instead of shipping to a different place', async () => {
+    const ctx = makeCtx({
+      costCenterAddresses: [{ ...defaultAddress, postalCode: '12345%' }],
+    })
+
+    await run(ctx)
+
+    const reported = ctx.vtex.logger.error.mock.calls.find(
+      (call: any[]) => call[0]?.code === 'CART_ADDRESS_FIELD_REJECTED'
+    )
+
+    expect(reported?.[0]).toMatchObject({
+      fields: [{ field: 'postalCode', removed: ['%'] }],
+      orgId: 'org1',
+    })
+
+    // Never rewritten: a stripped postal code is a different location.
+    const sent =
+      ctx.clients.checkout.updateOrderFormShipping.mock.calls[0]?.[1]
+
+    expect(sent.address.postalCode).toBe('12345%')
+  })
+
+  it('never logs address values, even with payload logging on', async () => {
+    const ctx = makeCtx({
+      appSettings: { logSessionPayloads: true },
+      costCenterAddresses: [
+        {
+          ...defaultAddress,
+          reference: '{ "street2":"CONFIDENTIAL"}',
+          street: 'Private Road 9',
+        },
+      ],
+    })
+
+    await run(ctx)
+
+    const sanitizedLog = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) => call[0]?.code === 'CART_ADDRESS_SANITIZED'
+    )
+
+    expect(JSON.stringify(sanitizedLog?.[0])).not.toContain('CONFIDENTIAL')
+  })
+
+  it('tags a cart address update that still fails after sanitizing', async () => {
+    const ctx = makeCtx({
+      costCenterAddresses: [
+        { ...defaultAddress, reference: 'has "quotes"' },
+      ],
+    })
+
+    // Shaped like a real axios rejection: `config.data` carries the request
+    // body, which is the shopper's address. Logging the error object whole
+    // would carry it into the logs, so the described object must not.
+    ctx.clients.checkout.updateOrderFormShipping.mockRejectedValue({
+      config: {
+        data: JSON.stringify({ address: { street: 'Private Road 9' } }),
+      },
+      message: 'Request failed with status code 400',
+      response: {
+        data: { error: { code: 'CHK0040', message: 'reference field' } },
+        status: 400,
+      },
+    })
+
+    await run(ctx)
+
+    const reported = ctx.vtex.logger.error.mock.calls.find(
+      (call: any[]) => call[0]?.code === 'CART_ADDRESS_UPDATE_FAILED'
+    )
+
+    expect(reported?.[0]).toMatchObject({
+      error: { status: 400, vtexErrorCode: 'CHK0040' },
+      sanitizedFields: ['reference'],
+    })
+
+    expect(JSON.stringify(reported?.[0])).not.toContain('Private Road')
   })
 
   it('keeps full payload logging off unless logSessionPayloads is enabled', async () => {

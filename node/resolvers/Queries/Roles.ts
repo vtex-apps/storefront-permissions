@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getCachedRoles } from '../../services/rolesCache'
 import { currentRoleNames, currentSchema } from '../../utils'
+import { describeClientError } from '../../utils/clientError'
 import { ROLES_VBASE_ID } from '../../utils/constants'
 import { getUserByRole } from './Users'
 
@@ -80,7 +81,7 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
     return role
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Roles.getRole',
     })
 

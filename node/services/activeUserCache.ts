@@ -10,11 +10,14 @@ import { createCachedResource } from './cache'
  * measured spiking well past a second, and the session transform runs several
  * times per navigation for the same email.
  *
- * The key is `email + b2bCurrentCostCenter`. That second part is written into the
- * session by `setCurrentOrganization` whenever the user switches organization, so
- * a switch produces a different key and therefore a miss, rather than serving the
- * previous organization from cache. Because invalidation is exact, both layers
- * can be used and the TTL only has to cover changes that bypass that mutation.
+ * The key is `email + b2bCurrentCostCenter + sticky`. `b2bCurrentCostCenter` is
+ * written into the session by `setCurrentOrganization` whenever the user switches
+ * organization, so a switch produces a different key and therefore a miss, rather
+ * than serving the previous organization from cache. `sticky` is the
+ * organization/cost center pair the session already carries, which participates in
+ * resolving the user, so two sessions pinned to different pairs must not share an
+ * entry. Because invalidation is exact, both layers can be used and the TTL only
+ * has to cover changes that bypass those flows.
  */
 const cachedActiveUser = createCachedResource<any>('active-user', {
   // Small payloads (~400B), one per shopper.
@@ -52,12 +55,19 @@ export const getCachedActiveUserByEmail = async (
   ctx: Context,
   email: string,
   currentCostCenter: string | null,
+  sticky: string | null,
   fetcher: () => Promise<any>
 ): Promise<any> =>
-  cachedActiveUser(ctx, `${email}|${currentCostCenter ?? 'default'}`, fetcher, {
-    memoryTtlMs:
-      configuredTtlMsByTenant.get(tenantKey(ctx)) ?? ACTIVE_USER_CACHE_TTL_IN_MS,
-  })
+  cachedActiveUser(
+    ctx,
+    `${email}|${currentCostCenter ?? 'default'}|${sticky ?? 'none'}`,
+    fetcher,
+    {
+      memoryTtlMs:
+        configuredTtlMsByTenant.get(tenantKey(ctx)) ??
+        ACTIVE_USER_CACHE_TTL_IN_MS,
+    }
+  )
 
 /**
  * Variant for permission checks (checkPermissions route). Those requests carry

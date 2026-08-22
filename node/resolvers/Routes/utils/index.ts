@@ -1,4 +1,9 @@
 import type { GetOrganizationByEmailBase } from '../../../typings/custom'
+import { describeClientError } from '../../../utils/clientError'
+import {
+  isKnownOrganizationStatus,
+  isOrganizationUsable,
+} from '../../../utils/organizationStatus'
 import { getUserById } from '../../Queries/Users'
 
 // Simple in-memory cache with TTL
@@ -229,8 +234,8 @@ export const getUserOrganizationsData = async (
         (org) => org.costCenterName !== null
       )
 
-      const hasActiveOrg = firstPageData.some(
-        (org) => org.organizationStatus !== 'inactive'
+      const hasActiveOrg = firstPageData.some((org) =>
+        isOrganizationUsable(org.organizationStatus)
       )
 
       // Only fetch more pages if we're missing data
@@ -246,7 +251,7 @@ export const getUserOrganizationsData = async (
             organizations
               .getOrganizationsPaginatedByEmail(email, page, 200)
               .catch((error) => {
-                logger.warn({ error, message: 'Failed to fetch page', page })
+                logger.warn({ error: describeClientError(error), message: 'Failed to fetch page', page })
 
                 return null
               })
@@ -269,9 +274,28 @@ export const getUserOrganizationsData = async (
       (org) => org.costCenterName !== null
     )
 
-    const activeOrg = allOrganizations.find(
-      (org) => org.organizationStatus !== 'inactive'
+    const activeOrg = allOrganizations.find((org) =>
+      isOrganizationUsable(org.organizationStatus)
     )
+
+    // Surface a status this app does not know about, so a value introduced by
+    // b2b-organizations shows up here instead of silently being treated as
+    // unusable.
+    const unknownStatuses = Array.from(
+      new Set(
+        allOrganizations
+          .map((org) => org.organizationStatus)
+          .filter((status) => !isKnownOrganizationStatus(status))
+      )
+    )
+
+    if (unknownStatuses.length) {
+      logger.warn({
+        email,
+        message: 'getUserOrganizationsData.unknownOrganizationStatus',
+        statuses: unknownStatuses,
+      })
+    }
 
     const result = {
       validCostCenterId: validCostCenterOrg?.costId || null,
@@ -300,7 +324,7 @@ export const getUserOrganizationsData = async (
     return result
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'getUserOrganizationsData.error',
       email,
     })

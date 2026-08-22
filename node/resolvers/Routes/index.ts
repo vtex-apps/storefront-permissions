@@ -16,10 +16,21 @@ import { getCachedRegionId } from '../../services/regionCache'
 import { getCachedSalesChannel } from '../../services/salesChannelCache'
 import { getCachedSessionWatcher } from '../../services/sessionWatcherCache'
 import { toHash } from '../../utils'
+import { sanitizeAddressForCheckout } from '../../utils/checkoutAddress'
+import { describeClientError } from '../../utils/clientError'
+import { sendObservabilityEvent } from '../../utils/observabilityEvent'
+import {
+  isKnownOrganizationStatus,
+  isOrganizationUsable,
+} from '../../utils/organizationStatus'
 import { createTimer, getTimer } from '../../utils/requestTimings'
-import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
+import { getUser } from '../Mutations/Users'
 import { getRole } from '../Queries/Roles'
-import { getActiveUserByEmail, getB2BUserById } from '../Queries/Users'
+import {
+  getActiveUserByEmail,
+  getAllUsersByEmail,
+  getB2BUserById,
+} from '../Queries/Users'
 import { generateClUser, getUserOrganizationsData } from './utils'
 
 export const Routes = {
@@ -229,6 +240,25 @@ export const Routes = {
      */
     const currentCostCenter = body?.public?.b2bCurrentCostCenter?.value ?? null
 
+    /**
+     * The organization this session was already resolved to. Declared as an
+     * input alongside `hash` (which this transform likewise reads back from its
+     * own namespace) so that, absent an explicit selection, the session keeps
+     * the organization it already had instead of re-deriving it - the lookup is
+     * not stable for users with many organizations, and re-deriving made the
+     * organization drift between requests.
+     */
+    const stickyOrgId =
+      body?.['storefront-permissions']?.organization?.value || null
+
+    /**
+     * Paired with the organization above: a shopper can hold several records in
+     * the same organization, one per cost center, so the organization alone
+     * does not identify which record the session was resolved to.
+     */
+    const stickyCostId =
+      body?.['storefront-permissions']?.costcenter?.value || null
+
     if (ignoreB2B) {
       ctx.response.body = response
       ctx.response.status = 200
@@ -298,7 +328,7 @@ export const Routes = {
         getCachedB2BSettings(ctx, () => organizations.getB2BSettings())
       )
       .catch((error) => {
-        logger.error({ error, message: 'setProfile.getB2BSettings' })
+        logger.error({ error: describeClientError(error), message: 'setProfile.getB2BSettings' })
 
         return null
       })
@@ -320,7 +350,11 @@ export const Routes = {
       // (which would produce empty B2B sessions until the TTL expired), and
       // handle the failure outside the cached call so it is retried next time.
       const fetchActiveUser = async () => {
-        const activeUser: any = await getActiveUserByEmail(null, { email }, ctx)
+        const activeUser: any = await getActiveUserByEmail(
+          null,
+          { email, stickyCostId, stickyOrgId },
+          ctx
+        )
 
         if (activeUser?.status === 'error') {
           throw activeUser.message
@@ -344,7 +378,15 @@ export const Routes = {
       const cachedUser: any = await timer
         .track(
           'getActiveUserByEmail',
-          getCachedActiveUserByEmail(ctx, email, currentCostCenter, fetchActiveUser)
+          getCachedActiveUserByEmail(
+            ctx,
+            email,
+            currentCostCenter,
+            stickyOrgId && stickyCostId
+              ? `${stickyOrgId}:${stickyCostId}`
+              : stickyOrgId,
+            fetchActiveUser
+          )
         )
         .catch((error) => {
           if (!error?.userNotFound) {
@@ -387,11 +429,26 @@ export const Routes = {
             'collections',
             'sellers',
           ])
+          .then((document: any) => {
+            // Master Data answers a missing document with an empty result
+            // rather than an error. Throwing keeps the miss out of both cache
+            // layers (see getOrganizationOrNull, which turns it into null).
+            if (!document) {
+              const notFound: any = new Error('organizationNotFound')
+
+              notFound.organizationNotFound = true
+              throw notFound
+            }
+
+            return document
+          })
           .catch((error) => {
-            logger.error({
-              error,
-              message: 'setProfile.graphqlGetOrganizationById',
-            })
+            if (!error?.organizationNotFound) {
+              logger.error({
+                error: describeClientError(error),
+                message: 'setProfile.graphqlGetOrganizationById',
+              })
+            }
 
             // Rethrow so a transient Master Data failure fails only this
             // request. Swallowing it here would make the cache store an empty
@@ -401,6 +458,22 @@ export const Routes = {
           })
       )
     }
+
+    // A 404 means the organization no longer exists (deleted, or an id that
+    // was never valid), so the caller can adopt another organization or report
+    // it explicitly. Deliberately outside the cached fetcher above: caching a
+    // "not found" would pin the shopper to the error for the whole TTL. Any
+    // other failure still rejects, so it is retried on the next request.
+    const getOrganizationOrNull = async (orgId: any): Promise<any> =>
+      getOrganization(orgId).catch((error: any) => {
+        const status = error?.response?.status ?? error?.status
+
+        if (error?.organizationNotFound || status === 404) {
+          return null
+        }
+
+        throw error
+      })
 
     // Reassigned by the inactive-organization fallback below.
     const hash = toHash(`${user.orgId}|${user.costId}`)
@@ -421,7 +494,7 @@ export const Routes = {
     const marketingTagsPromise = organizations
       .getMarketingTags(user.costId)
       .catch((error) => {
-        logger.error({ error, message: 'setProfile.getMarketingTags' })
+        logger.error({ error: describeClientError(error), message: 'setProfile.getMarketingTags' })
 
         return null
       })
@@ -435,7 +508,7 @@ export const Routes = {
     // below adopts a different cost center.
     const [organizationResponse, initialCostCenterResponse] = await Promise.all(
       [
-        timer.track('getOrganization', getOrganization(user.orgId)),
+        timer.track('getOrganization', getOrganizationOrNull(user.orgId)),
         timer.track(
           'getCostCenterById',
           getCachedCostCenter(ctx, String(resolvedCostId), () =>
@@ -482,7 +555,7 @@ export const Routes = {
         user.costId = usersData?.costId ?? user.costId
       } catch (error) {
         logger.error({
-          error,
+          error: describeClientError(error),
           message: 'setProfile.graphqlGetOrganizationById',
         })
       }
@@ -496,15 +569,31 @@ export const Routes = {
       costCenterResponse.data?.getCostCenterById ?? {}
     ).every((value) => value === null)
 
-    const organizationInactive = organization.status === 'inactive'
-    const needsOrgData = organizationInactive || costCenterInvalid
+    // Null means the lookup 404'd: the record points at an organization that
+    // no longer exists. Both states are unusable and share the same recovery.
+    const organizationMissing = !organization
+    const organizationInactive =
+      !organizationMissing && !isOrganizationUsable(organization?.status)
+    const organizationUnusable = organizationMissing || organizationInactive
+
+    if (
+      !organizationMissing &&
+      !isKnownOrganizationStatus(organization?.status)
+    ) {
+      logger.warn({
+        message: 'setProfile.unknownOrganizationStatus',
+        organizationId: user.orgId,
+        status: organization?.status,
+      })
+    }
+    const needsOrgData = organizationUnusable || costCenterInvalid
 
     if (needsOrgData) {
       userOrgsData = await timer.track(
         'getUserOrganizationsData',
         getUserOrganizationsData(email, ctx).catch((error) => {
           logger.error({
-            error,
+            error: describeClientError(error),
             message: 'setProfile.getUserOrganizationsData',
           })
 
@@ -518,18 +607,67 @@ export const Routes = {
       user.costId = userOrgsData.validCostCenterId
     }
 
-    // Handle inactive organization
-    if (organizationInactive) {
-      const validOrganization = userOrgsData?.activeOrganization
+    // Handle an organization that is inactive or no longer exists.
+    //
+    // The recovery only shapes THIS response - it never writes. Which record
+    // is active is a decision that belongs to the shopper (organization
+    // switch) or to whoever manages the account's organizations; the session
+    // transform rewriting it on its own turned an admin deactivating an
+    // organization into a silent, permanent relocation of its users.
+    if (organizationUnusable) {
+      let validOrganization = userOrgsData?.activeOrganization
 
-      if (validOrganization) {
+      // Resolve the replacement before committing to it: the fallback record
+      // can itself point at an organization that no longer exists, and
+      // adopting a null one would only move the failure a few lines down.
+      let fallbackOrganization = validOrganization
+        ? await getOrganizationOrNull(validOrganization.orgId)
+        : null
+
+      // Prefer the pair this session already carries. Since nothing is
+      // persisted, the list-based pick above could land on a different
+      // organization on the next transform; honoring the session pin keeps
+      // consecutive responses stable without touching Master Data.
+      if (stickyOrgId && String(stickyOrgId) !== String(user.orgId)) {
+        const stickyOrganization = await getOrganizationOrNull(stickyOrgId)
+
+        if (
+          stickyOrganization &&
+          isOrganizationUsable(stickyOrganization.status)
+        ) {
+          const [stickyRecord] = await getAllUsersByEmail(
+            null,
+            {
+              email,
+              orgId: stickyOrgId,
+              ...(stickyCostId ? { costId: stickyCostId } : {}),
+            },
+            ctx
+          )
+
+          if (stickyRecord) {
+            validOrganization = {
+              costId: stickyRecord.costId,
+              id: stickyRecord.id,
+              orgId: stickyRecord.orgId,
+            }
+            fallbackOrganization = stickyOrganization
+          }
+        }
+      }
+
+      if (fallbackOrganization) {
+        // Captured before user.orgId is reassigned below, so the log can say
+        // which organization the shopper's stored selection points at.
+        const unusableOrgId = user.orgId
+
         // getOrganization reads Master Data directly, so it returns the document
-        // itself. Unwrapping `.data.getOrganizationById` here is left over from
-        // when this went through the b2b-organizations GraphQL client, and it
-        // resolved to undefined, throwing on the `organization.name` access
-        // below. Note `validOrganization.id` is the b2b_users record id, not the
-        // organization id, so the lookup must use `orgId`.
-        organization = await getOrganization(validOrganization.orgId)
+        // itself - do not unwrap `.data.getOrganizationById` (the GraphQL
+        // client's response shape): that resolves to undefined and throws on
+        // the `organization.name` access below. Note `validOrganization.id` is
+        // the b2b_users record id, not the organization id, so the lookup must
+        // use `orgId`.
+        organization = fallbackOrganization
 
         // Adopt the fallback locally as well, so this response is stamped with
         // the organization we just activated instead of the inactive one: the
@@ -560,28 +698,64 @@ export const Routes = {
           )
         )
 
-        await setActiveUserByOrganization(
-          null,
-          {
-            costId: validOrganization.costId,
-            email,
-            orgId: validOrganization.orgId,
-            userId: validOrganization.id,
-          },
-          ctx
-        ).catch((error) => {
-          logger.warn({
-            error,
-            message: 'setProfile.setActiveUserByOrganizationError',
-          })
+        // Visible on purpose: the shopper's stored selection points at an
+        // unusable organization, nothing is written to fix it (that decision
+        // belongs to the shopper or the account admin), so every session for
+        // them re-enters this recovery until one of those two acts. This log
+        // is the signal that the record needs attention at the source.
+        logger.warn({
+          email,
+          message: 'setProfile.organizationRecovered',
+          recoveredCostId: validOrganization.costId,
+          recoveredOrgId: validOrganization.orgId,
+          unusableOrgId,
+        })
+
+        // The log above is sampled by the platform pipeline; the event is the
+        // exact count. No email here: identifiers only on this channel.
+        sendObservabilityEvent(ctx, 'organization-recovered', {
+          recoveredCostId: String(validOrganization.costId),
+          recoveredOrgId: String(validOrganization.orgId),
+          unusableOrgId: String(unusableOrgId),
         })
       } else {
-        logger.warn({
-          message: `setProfile-organizationInactive`,
-          organizationData: organization,
-          organizationId: user.orgId,
+        // Nothing to recover to. This still fails the transform, which the
+        // sessions service reports as a generic "App storefront-permissions
+        // failed" 502 with no detail, so this log is the only place that
+        // explains why a specific shopper cannot log in. Keep it explicit and
+        // searchable: filter by message to find every affected shopper.
+        sendObservabilityEvent(ctx, 'organization-unavailable', {
+          organizationId: String(user.orgId),
+          reason: organizationMissing
+            ? 'organizationNotFound'
+            : 'organizationNotActive',
+          status: organizationMissing ? null : organization?.status ?? null,
         })
-        throw new ForbiddenError('Organization is inactive')
+
+        logger.error({
+          email,
+          message: 'setProfile.organizationUnavailable',
+          organizationId: user.orgId,
+          reason: organizationMissing
+            ? 'organizationNotFound'
+            : 'organizationNotActive',
+          // Only an 'active' organization is usable, so this covers 'inactive',
+          // 'on-hold' and anything b2b-organizations adds later.
+          status: organizationMissing ? null : organization?.status,
+        })
+
+        timer.meta.extra = {
+          ...timer.meta.extra,
+          organizationUnavailable: organizationMissing
+            ? 'organizationNotFound'
+            : 'organizationInactive',
+        }
+
+        throw new ForbiddenError(
+          organizationMissing
+            ? 'Organization not found'
+            : 'Organization is inactive'
+        )
       }
     }
 
@@ -779,7 +953,7 @@ export const Routes = {
           .updateSalesChannel(orderFormId, salesChannel)
           .catch((error) => {
             logger.error({
-              error,
+              error: describeClientError(error),
               message: 'setProfile.updateSalesChannel',
             })
           })
@@ -814,7 +988,7 @@ export const Routes = {
         }
       } catch (error) {
         logger.error({
-          error,
+          error: describeClientError(error),
           message: 'setProfile.clearCart',
         })
       }
@@ -888,7 +1062,7 @@ export const Routes = {
           }
         } catch (error) {
           logger.error({
-            error,
+            error: describeClientError(error),
             message: 'setProfile.getRegionId',
           })
         }
@@ -921,27 +1095,101 @@ export const Routes = {
           })
           .catch((error) => {
             logger.error({
-              error,
+              error: describeClientError(error),
               message: 'setProfile.updateOrderFormMarketingDataError',
             })
           })
       )
 
       if (!usePublicPostalCodeForRegion) {
+        // Checkout rejects a set of characters with CHK0040 and discards the
+        // whole attachment, which would make the cart silently keep its
+        // previous address.
+        const {
+          address: checkoutAddress,
+          invalid,
+          sanitized,
+        } = sanitizeAddressForCheckout(address)
+
+        if (invalid.length) {
+          // Location-bearing fields are never rewritten: a stripped character
+          // can point the delivery somewhere else (Plus Codes are built around
+          // `+`, B2B receiver names carry `"` as an inch mark). Checkout will
+          // reject the attachment and the cart keeps its previous address -
+          // this log is the only notice that the record needs fixing at the
+          // source.
+          logger.error({
+            code: 'CART_ADDRESS_FIELD_REJECTED',
+            costCenterAddressId: address.addressId,
+            costId: user.costId,
+            fields: invalid,
+            message: 'setProfile.cartAddressFieldRejected',
+            orgId: user.orgId,
+          })
+
+          sendObservabilityEvent(ctx, 'cart-address-field-rejected', {
+            costCenterAddressId: String(address.addressId ?? ''),
+            costId: String(user.costId),
+            fields: invalid.map(({ field }) => field).join(','),
+            orgId: String(user.orgId),
+          })
+        }
+
+        if (sanitized.length) {
+          // No address values here, at any log level: they are personal data
+          // and this runs on every session transform. Which field was rewritten
+          // and which characters came out is enough to count the occurrences
+          // and find the offending record through the ids below.
+          logger.warn({
+            code: 'CART_ADDRESS_SANITIZED',
+            costCenterAddressId: address.addressId,
+            costId: user.costId,
+            fields: sanitized,
+            message: 'setProfile.cartAddressSanitized',
+            orgId: user.orgId,
+          })
+
+          sendObservabilityEvent(ctx, 'cart-address-sanitized', {
+            costCenterAddressId: String(address.addressId ?? ''),
+            costId: String(user.costId),
+            fields: sanitized.map(({ field }) => field).join(','),
+            orgId: String(user.orgId),
+          })
+        }
+
         promises.push(
           checkout
             .updateOrderFormShipping(orderFormId, {
               address: {
-                ...address,
-                geoCoordinates: address.geoCoordinates ?? [],
+                ...checkoutAddress,
+                geoCoordinates: checkoutAddress.geoCoordinates ?? [],
                 isDisposable: true,
               },
               clearAddressIfPostalCodeNotFound: false,
             })
             .catch((error) => {
+              // Still failing after sanitizing: the cart keeps its previous
+              // address, so the shopper may be shipping to the wrong place.
+              // `code` makes the remaining failures countable next to the
+              // CART_ADDRESS_SANITIZED events they were supposed to prevent.
+              //
+              const described = describeClientError(error)
+
               logger.error({
-                error,
+                code: 'CART_ADDRESS_UPDATE_FAILED',
+                costCenterAddressId: address.addressId,
+                costId: user.costId,
+                error: described,
                 message: 'setProfile.updateOrderFormShippingError',
+                orgId: user.orgId,
+                sanitizedFields: sanitized.map(({ field }) => field),
+              })
+
+              sendObservabilityEvent(ctx, 'cart-address-update-failed', {
+                costId: String(user.costId),
+                orgId: String(user.orgId),
+                status: (described as any)?.status ?? null,
+                vtexErrorCode: (described as any)?.vtexErrorCode ?? null,
               })
             })
         )
@@ -1001,7 +1249,7 @@ export const Routes = {
           })
           .catch((error) => {
             logger.error({
-              error,
+              error: describeClientError(error),
               message: 'setProfile.updateOrderFormProfileError',
             })
           })
@@ -1018,10 +1266,10 @@ export const Routes = {
       orgId: user.orgId,
     }
 
-    // Off by default: this used to run on every session transform, which on a
-    // route this hot means two JSON.stringify calls per request plus a log line
-    // carrying the whole session in and out, including the shopper's email and
-    // organization data. Enable it per account only while debugging.
+    // Off by default: on a route this hot, unconditional payload logging means
+    // two JSON.stringify calls per request plus a log line carrying the whole
+    // session in and out, including the shopper's email and organization data.
+    // Enable it per account only while debugging.
     if ((appSettings as any)?.logSessionPayloads) {
       logger.info({
         'setProfile.body': JSON.stringify(body),

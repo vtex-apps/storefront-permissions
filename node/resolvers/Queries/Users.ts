@@ -4,6 +4,7 @@ import { removeVersionFromAppId } from '@vtex/api'
 import { getCachedAppSettings } from '../../services/appSettingsCache'
 import type { GetOrganizationsPaginatedByEmailResponse } from '../../typings/custom'
 import { currentSchema } from '../../utils'
+import { describeClientError } from '../../utils/clientError'
 import {
   CUSTOMER_REQUIRED_FIELDS,
   CUSTOMER_SCHEMA_NAME,
@@ -122,7 +123,7 @@ export const getAllUsers = async ({
     return users
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getAllUsersByEmail-error',
     })
     throw new Error(error)
@@ -135,7 +136,7 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
     vtex: { logger },
   } = ctx
 
-  const { email, orgId, costId } = params
+  const { email, orgId, costId, active } = params
 
   let where = `email=${email}`
 
@@ -145,6 +146,10 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
 
   if (costId) {
     where += ` AND costId=${costId}`
+  }
+
+  if (active !== undefined) {
+    where += ` AND active=${active}`
   }
 
   return getAllUsers({ masterdata, logger, where })
@@ -160,10 +165,113 @@ export const getActiveUserByEmail = async (
   } = ctx
 
   try {
-    const users = await getAllUsersByEmail(null, params, ctx)
-    const activeUser = users.find((user: any) => user.active)
+    // Fast path: setActiveUserByOrganization keeps at most one record active
+    // per email, so filtering in Master Data returns 0..1 records in a single
+    // call. Scanning every record for the email instead (3+ pages for
+    // multi-organization users) is both slower and unsafe: whenever the
+    // paginated scan misses the active row, a `users[0]` fallback lands the
+    // shopper in an arbitrary organization.
+    const activeUsers = await getAllUsersByEmail(
+      null,
+      { ...params, active: true },
+      ctx
+    )
 
-    const userFound = activeUser || users[0]
+    if (activeUsers.length > 1) {
+      // Data corruption (e.g. a race between two organization switches).
+      // getAllUsers sorts by id, so picking the first is still deterministic.
+      logger.warn({
+        email: params.email,
+        message: 'getActiveUserByEmail-multipleActiveRecords',
+        recordIds: activeUsers.map((user: any) => user.id),
+      })
+    }
+
+    let userFound = activeUsers[0]
+
+    // No explicit selection, but the session already carries an organization
+    // from a previous transform: keep it. Without this the resolution below is
+    // re-derived on every transform. For a shopper holding many records the
+    // scan below is not stable, so re-deriving lets the organization change
+    // between requests: stickiness breaks and switching cost center looks like
+    // it does nothing. Targeted lookup, so it stays a single Master Data call.
+    if (!userFound && params.stickyOrgId) {
+      // Match the exact organization *and* cost center the session was
+      // resolved to. A shopper can hold several records in the same
+      // organization, one per cost center, so matching on the organization
+      // alone would pick an arbitrary one and reintroduce the same drift one
+      // level down.
+      const stickyUsers = await getAllUsersByEmail(
+        null,
+        {
+          email: params.email,
+          orgId: params.stickyOrgId,
+          ...(params.stickyCostId ? { costId: params.stickyCostId } : {}),
+        },
+        ctx
+      )
+
+      userFound = stickyUsers[0]
+
+      if (!userFound && params.stickyCostId) {
+        // The cost center is gone, but the organization itself may still be
+        // available to this shopper: stay in it rather than falling all the
+        // way back to an unrelated organization.
+        const sameOrgUsers = await getAllUsersByEmail(
+          null,
+          { email: params.email, orgId: params.stickyOrgId },
+          ctx
+        )
+
+        userFound = sameOrgUsers[0]
+
+        if (userFound) {
+          logger.warn({
+            email: params.email,
+            message: 'getActiveUserByEmail-stickyCostCenterNoLongerAvailable',
+            stickyCostId: params.stickyCostId,
+            stickyOrgId: params.stickyOrgId,
+          })
+        }
+      }
+
+      if (!userFound) {
+        // The user no longer has a record for the organization the session was
+        // pinned to (removed from it, or the record was deleted).
+        logger.warn({
+          email: params.email,
+          message: 'getActiveUserByEmail-stickyOrgNoLongerAvailable',
+          stickyOrgId: params.stickyOrgId,
+        })
+      }
+    }
+
+    if (!userFound) {
+      // Legitimate state: records are created with active=false, so a user who
+      // never picked an organization has none active. Fall back to the first
+      // record of the id-sorted scan, which is deterministic across pods and
+      // requests - an unordered pick would land the shopper in a different
+      // organization from one request to the next.
+      //
+      // Read-only on purpose: which record is active belongs to the shopper
+      // (organization switch) or the account admin, never to this resolution.
+      // setProfile validates the organization downstream and, when it has to
+      // serve a different one, does so for the response only - the session pin
+      // keeps that choice stable across requests without writing anything.
+      const allUsers = await getAllUsersByEmail(null, params, ctx)
+
+      userFound = allUsers[0]
+
+      if (userFound) {
+        logger.warn({
+          email: params.email,
+          fallbackOrgId: userFound.orgId,
+          fallbackRecordId: userFound.id,
+          message: 'getActiveUserByEmail-noActiveRecord',
+          totalRecords: allUsers.length,
+        })
+      }
+    }
 
     if (!userFound) {
       logger.warn({
@@ -179,7 +287,7 @@ export const getActiveUserByEmail = async (
     }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: `getActiveUserByEmail-error`,
     })
 
@@ -231,7 +339,7 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
     return cl ?? null
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getUserById-error',
     })
 
@@ -290,7 +398,7 @@ export const getB2BUserById = async (_: any, params: any, ctx: Context) => {
     return user
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getUserById-error',
     })
 
@@ -349,7 +457,7 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
         }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getUser-error',
     })
 
@@ -384,7 +492,7 @@ export const getUserByRole = async (_: any, params: any, ctx: Context) => {
     })
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getUserByRole-error',
     })
 
@@ -455,7 +563,7 @@ export const listUsers = async (
     return res
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.listUsers-error',
     })
 
@@ -544,7 +652,7 @@ export const listUsersPaginated = async (
     })
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.listUsersPaginated-error',
     })
 
@@ -698,7 +806,7 @@ export const checkUserPermission = async (
   // Only impersonation sessions need the setting, so regular sessions never
   // pay for reading it (cached for 5 minutes when they do).
   const appSettings = await getCachedAppSettings(ctx).catch((error) => {
-    logger.warn({ error, message: 'checkUserPermission-getAppSettingsError' })
+    logger.warn({ error: describeClientError(error), message: 'checkUserPermission-getAppSettingsError' })
 
     return {} as Record<string, unknown>
   })
@@ -838,7 +946,7 @@ export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
     })
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: `getUsersByEmail-error`,
     })
     throw new Error(error)
@@ -868,7 +976,7 @@ export const getOrganizationsByEmail = async (
     )
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: `getOrganizationsByEmail-error`,
     })
 
@@ -907,7 +1015,7 @@ export const getOrganizationsPaginatedByEmail = async (
     return data
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'getOrganizationsPaginatedByEmail-error',
     })
 
@@ -963,7 +1071,7 @@ export const getUserByEmailOrgIdAndCostId = async (
     return (user[0] as UserByEmail) || null
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: `getUsersByEmail-error`,
     })
     throw new Error(error)

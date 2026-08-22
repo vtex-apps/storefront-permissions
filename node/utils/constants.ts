@@ -50,8 +50,8 @@ export const ROLES_CACHE_TTL_IN_MS = 60 * 1000
  * lets the TTL be generous.
  *
  * The TTL is only a safety net for changes that do *not* go through that
- * mutation (an admin editing the user's organizations, or the inactive-org
- * fallback in setProfile). Set `sessionUserCacheTtlMs` to 0 to disable.
+ * mutation, such as an admin editing the user's organizations directly.
+ * Set `sessionUserCacheTtlMs` to 0 to disable.
  */
 export const ACTIVE_USER_CACHE_TTL_IN_MS = 5 * 60 * 1000
 export const ACTIVE_USER_CACHE_TTL_IN_MINUTES = 5
