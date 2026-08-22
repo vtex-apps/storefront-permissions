@@ -1,8 +1,22 @@
 import type { GetOrganizationByEmailBase } from '../../../typings/custom'
+import { describeClientError } from '../../../utils/clientError'
+import {
+  isKnownOrganizationStatus,
+  isOrganizationUsable,
+} from '../../../utils/organizationStatus'
 import { getUserById } from '../../Queries/Users'
 
 // Simple in-memory cache with TTL
 const organizationsCache = new Map<string, { data: any; timestamp: number }>()
+
+/**
+ * A record is only worth adopting when the *same* record pairs a usable
+ * organization with a live cost center: its `costId` is what the recovery
+ * stamps on the session, so an active organization whose cost center was
+ * deleted (`costCenterName === null`) would recover into a broken pair.
+ */
+const isAdoptableRecord = (org: GetOrganizationByEmailBase) =>
+  isOrganizationUsable(org.organizationStatus) && org.costCenterName !== null
 
 export class ErrorResponse extends Error {
   public response: {
@@ -135,7 +149,10 @@ export const generateClUser = async ({
   }
 
   const clUser = await getUserById(null, { id: clId }, ctx).catch((error) => {
-    logger.error({ message: 'setProfile.getUserByIdError', error })
+    logger.error({
+      error: describeClientError(error),
+      message: 'setProfile.getUserByIdError',
+    })
   })
 
   if (!clUser) {
@@ -186,7 +203,11 @@ export const getUserOrganizationsData = async (
   activeOrganization: GetOrganizationByEmailBase | null
 }> => {
   const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
-  const cacheKey = `orgs-${email}`
+
+  // Tenant-scoped: this module-level Map is shared by every account the pod
+  // serves, so a key of just the email would hand one account's organization
+  // ids to the same email on another account.
+  const cacheKey = `${ctx.vtex.account}-${ctx.vtex.workspace}-orgs-${email}`
 
   // Check cache first
   if (useCache) {
@@ -229,9 +250,7 @@ export const getUserOrganizationsData = async (
         (org) => org.costCenterName !== null
       )
 
-      const hasActiveOrg = firstPageData.some(
-        (org) => org.organizationStatus !== 'inactive'
-      )
+      const hasActiveOrg = firstPageData.some(isAdoptableRecord)
 
       // Only fetch more pages if we're missing data
       if (!hasValidCostCenter || !hasActiveOrg) {
@@ -246,7 +265,7 @@ export const getUserOrganizationsData = async (
             organizations
               .getOrganizationsPaginatedByEmail(email, page, 200)
               .catch((error) => {
-                logger.warn({ error, message: 'Failed to fetch page', page })
+                logger.warn({ error: describeClientError(error), message: 'Failed to fetch page', page })
 
                 return null
               })
@@ -269,9 +288,26 @@ export const getUserOrganizationsData = async (
       (org) => org.costCenterName !== null
     )
 
-    const activeOrg = allOrganizations.find(
-      (org) => org.organizationStatus !== 'inactive'
+    const activeOrg = allOrganizations.find(isAdoptableRecord)
+
+    // Surface a status this app does not know about, so a value introduced by
+    // b2b-organizations shows up here instead of silently being treated as
+    // unusable.
+    const unknownStatuses = Array.from(
+      new Set(
+        allOrganizations
+          .map((org) => org.organizationStatus)
+          .filter((status) => !isKnownOrganizationStatus(status))
+      )
     )
+
+    if (unknownStatuses.length) {
+      logger.warn({
+        email,
+        message: 'getUserOrganizationsData.unknownOrganizationStatus',
+        statuses: unknownStatuses,
+      })
+    }
 
     const result = {
       validCostCenterId: validCostCenterOrg?.costId || null,
@@ -300,7 +336,7 @@ export const getUserOrganizationsData = async (
     return result
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'getUserOrganizationsData.error',
       email,
     })

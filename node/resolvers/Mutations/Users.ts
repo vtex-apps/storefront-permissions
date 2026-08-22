@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
+import { describeClientError } from '../../utils/clientError'
 import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
 import type { ChangeTeamParams } from '../../utils/metrics/changeTeam'
 import { sendChangeTeamMetric } from '../../utils/metrics/changeTeam'
@@ -34,7 +35,7 @@ const setChangeSession = async (
     await session.updateSession(publicKey, value, [], sessionCookie)
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'setChangeSession.error',
       attempt: countRetry,
     })
@@ -284,7 +285,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
     return { status: 'success', message: '', id: cId }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'addUser.error',
     })
 
@@ -313,7 +314,7 @@ export const updateUser = async (_: any, params: any, ctx: Context) => {
     return { status: 'success', message: '', id: params.clId }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'updateUser.error',
     })
 
@@ -353,7 +354,7 @@ export const deleteUserProfile = async (_: any, params: any, ctx: Context) => {
         }
 
         logger.error({
-          error,
+          error: describeClientError(error),
           message: 'deleteUserProfile.error',
         })
 
@@ -369,7 +370,7 @@ export const deleteUserProfile = async (_: any, params: any, ctx: Context) => {
     }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'deleteUserProfile.error',
     })
 
@@ -394,7 +395,7 @@ export const deleteUser = async (_: any, params: any, ctx: Context) => {
     return { status: 'success', message: '' }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'deleteUser.error',
     })
 
@@ -420,7 +421,7 @@ export const impersonateUser = async (_: any, params: any, ctx: Context) => {
     return { status: 'success', message: '' }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'impersonateUser.error',
     })
 
@@ -487,7 +488,7 @@ export const addOrganizationToUser = async (
     )
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'addOrganizationToUser.error',
     })
 
@@ -541,7 +542,7 @@ export const addCostCenterToUser = async (
     )
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'addCostCenterToUser.error',
     })
 
@@ -571,7 +572,7 @@ export const setActiveUserByOrganization = async (
       })
       .catch((error: any) => {
         logger.error({
-          error,
+          error: describeClientError(error),
           message: 'orders-getSession-error',
         })
 
@@ -627,7 +628,7 @@ export const setActiveUserByOrganization = async (
     await Promise.all(promises)
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'setActiveUserById.error',
     })
   }
@@ -666,7 +667,7 @@ export const setCurrentOrganization = async (
       'This organization/cost center is not allowed to this current user'
 
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'updateCurrentOrganization.error',
     })
 
@@ -705,7 +706,7 @@ export const setCurrentOrganization = async (
     return { status: 'success', message: '' }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'updateCurrentOrganization.error',
     })
 
@@ -743,7 +744,7 @@ export const setCurrentPriceTable = async (
       const error = 'User not properly authenticated with organization context'
 
       logger.error({
-        error,
+        error: describeClientError(error),
         message: 'setCurrentPriceTable.error.noOrgContext',
       })
 
@@ -764,7 +765,7 @@ export const setCurrentPriceTable = async (
       const error = 'Price table not allowed for this organization'
 
       logger.error({
-        error,
+        error: describeClientError(error),
         message: 'setCurrentPriceTable.error.invalidPriceTable',
         priceTable,
         orgId,
@@ -783,7 +784,7 @@ export const setCurrentPriceTable = async (
     return { status: 'success', message: '' }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'setCurrentPriceTable.error',
     })
 
@@ -816,7 +817,7 @@ export const ignoreB2BSessionData = async (
     return { status: 'success', message: '' }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'removeB2BSessionData.error',
     })
 

@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { getCachedRoles } from '../../services/rolesCache'
 import { currentRoleNames, currentSchema } from '../../utils'
+import { describeClientError } from '../../utils/clientError'
 import { ROLES_VBASE_ID } from '../../utils/constants'
 import { getUserByRole } from './Users'
 
@@ -68,14 +70,18 @@ export const getRole = async (_: any, params: any, ctx: Context) => {
   try {
     const { id, slug } = params
 
+    // Cached: this is the hot path for permission checks. The role mutations and
+    // listRoles keep reading through, so admin writes are never served stale.
+    const roles = await getCachedRoles(ctx, () => searchRoles(null, ctx))
+
     const role: any = id
-      ? (await searchRoles(null, ctx)).find((item: any) => item.id === id)
-      : (await searchRoles(null, ctx)).find((item: any) => item.slug === slug)
+      ? roles.find((item: any) => item.id === id)
+      : roles.find((item: any) => item.slug === slug)
 
     return role
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Roles.getRole',
     })
 

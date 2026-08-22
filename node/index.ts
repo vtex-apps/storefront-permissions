@@ -12,6 +12,7 @@ import { method, Service, AuthType, LRUCache } from '@vtex/api'
 
 import { schemaDirectives } from './directives'
 import { Clients } from './clients'
+import { withRequestTimings } from './middlewares/withRequestTimings'
 import { resolvers } from './resolvers'
 
 const TIMEOUT_MS = 5000
@@ -79,7 +80,10 @@ export default new Service<Clients, RecorderState, ParamsContext>({
       GET: resolvers.Routes.checkPermissions,
     }),
     setProfile: method({
-      POST: resolvers.Routes.setProfile,
+      POST: [
+        withRequestTimings('setProfile.timings'),
+        resolvers.Routes.setProfile,
+      ],
     }),
   },
 })

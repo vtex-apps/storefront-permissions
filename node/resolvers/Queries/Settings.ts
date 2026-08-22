@@ -1,5 +1,6 @@
 import schemas from '../../mdSchema'
 import { toHash } from '../../utils'
+import { describeClientError } from '../../utils/clientError'
 import { syncRoles } from '../Mutations/Roles'
 import type { ErrorResponse } from '../Routes/utils'
 
@@ -65,7 +66,7 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
       .catch((error) => {
         if (error.response.status !== 304) {
           logger.error({
-            error,
+            error: describeClientError(error),
             message: 'getAppSettings-error',
           })
 
@@ -99,7 +100,7 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
     return settings?.sessionWatcher?.active ?? true
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'getSessionWatcher.getSessionWatcherError',
     })
 

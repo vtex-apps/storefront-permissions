@@ -1,5 +1,6 @@
 import type { Metric } from '../../clients/metrics'
 import { B2B_METRIC_NAME, sendMetric } from '../../clients/metrics'
+import { describeClientError } from '../clientError'
 
 type ChangeTeamFieldsMetric = {
   date: string
@@ -51,6 +52,8 @@ export const sendChangeTeamMetric = async (metricParams: ChangeTeamParams) => {
 
     await sendMetric(metric)
   } catch (error) {
-    console.warn('Unable to log metrics', error)
+    // The raw client error carries the request body - here, the metric
+    // payload, which includes the user's email.
+    console.warn('Unable to log metrics', describeClientError(error))
   }
 }

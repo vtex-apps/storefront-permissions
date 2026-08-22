@@ -1,4 +1,5 @@
 import { isUserPartOfBuyerOrg } from '../resolvers/Queries/Users'
+import { describeClientError } from '../utils/clientError'
 import { LICENSE_MANAGER_ROLES, B2B_LM_PRODUCT_CODE } from '../utils/constants'
 
 export const validateAdminToken = async (
@@ -71,7 +72,7 @@ export const validateAdminToken = async (
       // noop so we leave hasValidAdminToken as false
       logger.warn({
         message: 'Error validating admin token',
-        err,
+        err: describeClientError(err),
       })
     }
   }
@@ -158,7 +159,7 @@ export const validateApiToken = async (
       // noop so we leave hasValidApiToken as false
       logger.warn({
         message: 'Error validating API token',
-        err,
+        err: describeClientError(err),
       })
     }
   }
@@ -211,7 +212,7 @@ export const validateStoreToken = async (
       // noop so we leave hasValidStoreToken as false
       logger.warn({
         message: 'Error validating store token:',
-        err,
+        err: describeClientError(err),
       })
     }
   }

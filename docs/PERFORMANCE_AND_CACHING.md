@@ -1,0 +1,123 @@
+# Performance and caching in the session transform
+
+`setProfile` (the `vtex.session` transform) runs on **every session creation and update, several times per storefront navigation, across every account with the B2B Suite installed**. Session Manager gives the transform a hard **2-second budget** — a budget that a chain of serial external calls on a cold pod can easily exceed, which is what the structure and the caching below are designed to prevent. This document explains how the transform is structured, how the caching works, and the rules to follow when changing it.
+
+## Request flow
+
+The transform is ordered around one principle: **only await what the response actually needs, as late as possible, with everything independent already in flight.**
+
+1. `getSessionWatcher` (cached, memory-only) — the kill switch. If off, return the empty response.
+2. Parse body, resolve email; anonymous sessions return before any other call is made.
+3. Kick off (not awaited yet): sales channel list, B2B settings, app settings.
+4. `getActiveUserByEmail` (cached) — everything else depends on `orgId`/`costId`.
+5. Awaited in parallel: `getOrganization` + `getCostCenterById` (the only two calls that need the user).
+6. Await the step-3 promises — by now their latency is hidden behind steps 4–5.
+7. Sales channel / region / facets logic; region lookup cached or handed off (see [Region resolution](REGION_RESOLUTION.md)).
+8. Fire-and-forget cart updates (`promises` array): marketing data, shipping address, CL profile. **These must never be awaited** — they are why `getMarketingTags` and `generateClUser` are not on the critical path.
+
+### Rules when touching this flow
+
+- A new external call must justify its position: does the **response** need its result? If it only feeds a cart update or another side effect, chain it into `promises` instead of awaiting it.
+- Every fire-and-forget promise must carry a `.catch` that logs through `ctx.vtex.logger` with a distinct `setProfile.*` message. A promise that can reject unawaited without a catch crashes the worker (unhandled rejection).
+- Closures pushed into `promises` must not capture reassigned `let` variables (`user`, `businessName`, ...). Read them into `const`s first — the platform builder compiles stricter than local `tsc` and flags these as implicit `any`.
+
+## Caching architecture
+
+All caches are built by `createCachedResource` (`node/services/cache.ts`), with up to two layers:
+
+1. **Per-pod in-memory LRU** — a warm pod does zero I/O. This is what makes the repeated transforms within one navigation cheap.
+2. **Cross-pod VBase stale-while-revalidate** (`node/utils/staleFromVBaseWhileRevalidate.ts`) — on a memory miss, the pod reads the entry a sibling pod populated instead of calling the origin. Stale entries are returned immediately and refreshed in the background, so the origin call never lands on a request after first population.
+
+**Rule: only add the VBase layer when the origin is expensive** (Apps API, Master Data, another app's GraphQL, checkout). For data that already lives in VBase — the session watcher flag, roles — a VBase-backed cache would just swap one VBase read for another; those caches are memory-only.
+
+### Cache correctness rules
+
+Caching here has one failure mode worth internalizing, and every rule below is a variant of it: **letting the cache hold a state the origin never produced.** A cache entry is a claim — "this is what the origin returned for this key" — and each rule below protects that claim. Break one and the cache serves wrong responses repeatedly, for the full TTL, to every request that hits it.
+
+1. **Never cache a failure.** A fetcher must rethrow errors, not swallow them into `undefined`/`null`. A swallowed failure gets stored by both layers, turning one transient Master Data blip into minutes of errors served from cache — after the origin has already recovered. Log at the fetcher if useful, but always rethrow; handle the failure *outside* the cached call so the next request retries. (Guarded by the "does not cache a failed organization lookup" test.)
+
+2. **Never cache a miss that can be transient.** "User not found" during replication lag — right after someone is added to an organization — is not a fact, it is a race. Caching it pins that shopper to an empty B2B session for the whole TTL. When a miss can be transient, throw a typed marker from the fetcher so nothing is stored, and translate it back at the call site; the cost is one origin lookup per request for that population, which is exactly the pre-cache behavior. (Guarded by the "does not cache a user that was not found" test.)
+
+3. **Never mutate an object returned by a cache.** The memory layer hands out the *same object reference* on every hit, so reassigning a field on it rewrites the shared entry under its original key — every later request receives request-local surgery the origin never returned, and the VBase layer (which stored a serialized snapshot) now *disagrees* with memory, making behavior depend on which layer answers. Treat cached values as read-only; if a request needs to modify one, shallow-clone at the boundary (`{ ...cached }`) — and remember nested arrays/objects are still shared, so deeper mutation needs a deeper copy. (Guarded by the "does not let fallback branches mutate the cached user entry" test.)
+
+Corollary for reviews: when a change touches a fetcher or anything downstream of a cached read, ask "can this store or corrupt a state the origin didn't produce?" before asking anything about performance.
+
+### Current resources
+
+| Resource | Origin | Layers | Memory TTL | VBase TTL | Bound | Key |
+|---|---|---|---|---|---|---|
+| `app-settings` | Apps API | both | 5min | 5min | 50 entries | appId |
+| `sales-channel` | catalog `pvt` REST | both | 5min | 6h | 100 | `list` |
+| `b2b-settings` | b2b-organizations GraphQL | both | 5min | 5min | 100 | `settings` |
+| `organization` | Master Data | both | 60s | 2min | 10000 | orgId |
+| `cost-center` | b2b-organizations GraphQL | both | 60s | 2min | **8MB byte budget** | costId |
+| `active-user` | Master Data (paginated) | both | 5min¹ | 5min | 10000 | `email\|b2bCurrentCostCenter` |
+| `active-user-permissions` | Master Data (paginated) | memory only | 60s | — | 10000 | email |
+| `region` | checkout REST | both | 30min | 30min | 10000 | `country\|postalCode\|sc\|geo` |
+| `session-watcher` | VBase | memory only | 60s | — | 100 | `active` |
+| `roles` | VBase (MD fallback) | memory only | 60s | — | 100 | `all` |
+
+¹ Configurable via the `sessionUserCacheTtlMs` app setting; `0` disables.
+
+### Why the TTLs are what they are
+
+- **Sales channel list (6h):** effectively static account data.
+- **App settings (5+5min):** feature flags an operator may flip; worst-case propagation is roughly memory TTL + VBase TTL (~10 minutes), because the memory layer holds its entry for its TTL and then may read a stale VBase entry once before the background refresh lands.
+- **Organization / cost center (60s/2min):** deliberately short — an organization that is not `active` blocks the user (`ForbiddenError`), so deactivating one must take effect within minutes.
+- **Session watcher (60s):** it is the operational kill switch; disabling it must bite quickly.
+- **Roles (60s):** authorization data. Role mutations write VBase but cannot invalidate other pods' memory caches, so this TTL is the upper bound on how long a revoked permission stays effective.
+- **Active user:** the TTL is only a safety net. The cache key contains the session's `public.b2bCurrentCostCenter`, which `setCurrentOrganization` writes on every organization switch — so a switch changes the key and misses the cache immediately, regardless of TTL. The TTL covers changes that bypass that mutation, such as an admin editing a user's organizations directly.
+- **`active-user-permissions` (60s, memory only):** the `checkPermissions` route receives only `app` + `email`, so there is no cost center to key on and no key-based invalidation. Short TTL bounds how long stale permissions can survive an organization switch; no VBase layer so nothing extends that window.
+
+### Why the cost center cache is bounded by bytes
+
+Measured on a real account: organization documents span **187–480 bytes** (tight), while cost center documents span **~400 bytes to 29KB** (~70x, driven by the addresses list). A fixed entry count therefore makes the cost-center cache's memory footprint swing by 70x with the data. With a byte budget, `lru-cache` treats `max` as total serialized size: one unusually large document evicts others — and a document larger than the whole budget is *refused*, never stored. Note a parsed object costs roughly 2–3x its serialized length in heap; size budgets accordingly.
+
+## Organization data: Master Data instead of b2b-organizations
+
+The organization document is read **straight from Master Data** (`masterDataExtended.getDocumentById('organizations', ...)`) rather than through `b2b-organizations-graphql`, which owns that entity. That substitution came from the `setProfile` performance refactors, and it is deliberate — measured against a real account:
+
+| Read | Samples | Median |
+|---|---|---|
+| Master Data document | 0.40 / 0.40 / 0.39 / 0.44 / 0.41 / 0.60s | **~0.40s** |
+| `b2b-organizations` `getOrganizationById` | 0.99 / 1.19 / 1.80 / 1.87 / 2.24 / 2.35s | **~1.8s** |
+
+The extra app hop costs roughly **1.4s**, and individual samples exceeded **2.2s** — the transform's entire budget on their own. The variance is the disqualifying part, not the median. (Measured from a workstation, so both figures include the same client RTT; the delta is server-side. An in-cluster call would be faster in absolute terms, but the spread still rules it out for this path.)
+
+The trade-off is that the organization status rule then exists in two implementations. `b2b-organizations` owns the vocabulary (`ORGANIZATION_STATUSES`) and its `checkOrganizationIsActive` defines the semantics — only an `active` organization is usable — and this app mirrors it.
+
+Rules that follow from this:
+
+- **The status rule lives in exactly one module**, `node/utils/organizationStatus.ts`, which mirrors `b2b-organizations`' `ORGANIZATION_STATUSES` vocabulary and its `=== 'active'` semantics. Never write a status comparison at a call site.
+- **Any change to this rule — here or in `b2b-organizations` — must be applied in both apps.** They are two copies of one rule; a change to one is a divergence until the other follows.
+- **An unrecognized status fails closed and is logged** (`setProfile.unknownOrganizationStatus`, `getUserOrganizationsData.unknownOrganizationStatus`). Divergence cannot be prevented structurally without paying for the hop, so the fallback is to make it loud: a status introduced upstream shows up in the logs rather than silently landing in the "not usable" branch.
+
+**TODO:** extract this rule into a shared package consumed by both `storefront-permissions` and `b2b-organizations-graphql`, so there is one implementation instead of two copies kept in sync by convention. Requires agreement with the `b2b-organizations` owners, since nothing in the suite is published as a consumable library today.
+
+## Multi-tenancy
+
+A pod serves **more than one account** (the service route carries `{account}/{workspace}`), and the LRUs are module-level singletons shared by every request the pod handles. Two consequences:
+
+- **Memory keys must be tenant-scoped.** `createCachedResource` prefixes every key with `${account}-${workspace}` automatically. Never build a cache outside it without doing the same — a missing prefix is a cross-tenant data leak.
+- **VBase keys must NOT contain the account.** The VBase client is itself scoped to account + workspace (its path is `/vbase/v2/{account}/{workspace}/...`), so adding the account would be redundant; the app already relies on this for `b2b_roles` and `b2b_settings`.
+
+Entry bounds are **global budgets across all tenants on the pod**, not per account. Hit rates are reported per pod every five minutes (see [Observability](OBSERVABILITY.md), `cacheStats`) — tune bounds from those numbers, not guesses.
+
+## Service sizing (`node/service.json`)
+
+`memory: 1024`, `ttl: 300`, `timeout: 60` — the same profile as `b2b-organizations-graphql` and `b2b-checkout-settings`. Two settings that look tunable but should not be changed casually:
+
+- **`workers: 1` is intentional.** Each worker is a separate Node process with its own LRUs; two workers would duplicate every cache (double memory) and halve the hit rate. Scale with replicas, not workers.
+- **`timeout: 60` vs the 2s session budget:** Session Manager stops waiting at 2s, but this service also hosts the admin GraphQL routes (user/role listing, bulk operations) that legitimately need the headroom, so the global timeout stays at the suite standard.
+
+## Known measurements (Aug 2026, B2B account with multi-organization users)
+
+| Scenario | Before | After |
+|---|---|---|
+| Warm pod, server-side | ~1240ms | **~50–150ms** |
+| Cold pod, warm VBase (scale-up) | ~1870ms | **~950ms** |
+| Cold pod, cold VBase (first pod after deploy) | ~1870ms | ~1900ms (pays origin once, then warms VBase for all pods) |
+
+## One platform gotcha worth knowing
+
+Saved app settings are scoped to the app's **major version range** (`vtex.storefront-permissions@3.x`). They persist across minor/patch releases and start **empty** on a new major — every merchant silently reverts to `settingsSchema` defaults until settings are re-applied. Plan a settings re-apply step into any major-version upgrade, and prefer fail-safe defaults (losing the stored value should degrade behavior, not change it).
