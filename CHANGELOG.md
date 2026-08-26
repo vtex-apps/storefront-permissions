@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.8.1] - 2026-08-26
+
 ### Changed
 
 - GraphQL `checkUserPermission` / `getUserByEmail` reuse the memory `active-user-permissions` cache already used by the REST `checkPermissions` route (TTL 5 minutes), so sibling B2B apps (and repeated hops in the same navigation) no longer hit Master Data on every call.
