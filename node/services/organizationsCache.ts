@@ -9,10 +9,12 @@ import {
 import { createCachedResource } from './cache'
 
 /**
- * These are all cross-app calls into vtex.b2b-organizations / Master Data. Once
- * the account-level lookups were cached they became the most expensive remaining
- * steps of the session transform (getCostCenterById alone measured around a
- * second), and the transform runs several times per navigation.
+ * These are all Master Data (or, for B2B settings, cross-app GraphQL) lookups.
+ * Once the account-level lookups were cached they became the most expensive
+ * remaining steps of the session transform (the GraphQL getCostCenterById hop
+ * alone measured around a second), and the transform runs several times per
+ * navigation. Cost center documents are now read the same way as organizations:
+ * `masterDataExtended.getDocumentById`, with this cache in front.
  *
  * Both layers are used: warm pods do no I/O, and cold pods read the entry a
  * sibling pod already populated instead of paying the cross-app cost.

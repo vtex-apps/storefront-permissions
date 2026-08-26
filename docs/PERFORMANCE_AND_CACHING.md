@@ -34,28 +34,28 @@ All caches are built by `createCachedResource` (`node/services/cache.ts`), with 
 
 Caching here has one failure mode worth internalizing, and every rule below is a variant of it: **letting the cache hold a state the origin never produced.** A cache entry is a claim — "this is what the origin returned for this key" — and each rule below protects that claim. Break one and the cache serves wrong responses repeatedly, for the full TTL, to every request that hits it.
 
-1. **Never cache a failure.** A fetcher must rethrow errors, not swallow them into `undefined`/`null`. A swallowed failure gets stored by both layers, turning one transient Master Data blip into minutes of errors served from cache — after the origin has already recovered. Log at the fetcher if useful, but always rethrow; handle the failure *outside* the cached call so the next request retries. (Guarded by the "does not cache a failed organization lookup" test.)
+1. **Never cache a failure.** A fetcher must rethrow errors, not swallow them into `undefined`/`null`. A swallowed failure gets stored by both layers, turning one transient Master Data blip into minutes of errors served from cache — after the origin has already recovered. Log at the fetcher if useful, but always rethrow; handle the failure _outside_ the cached call so the next request retries. (Guarded by the "does not cache a failed organization lookup" test.)
 
 2. **Never cache a miss that can be transient.** "User not found" during replication lag — right after someone is added to an organization — is not a fact, it is a race. Caching it pins that shopper to an empty B2B session for the whole TTL. When a miss can be transient, throw a typed marker from the fetcher so nothing is stored, and translate it back at the call site; the cost is one origin lookup per request for that population, which is exactly the pre-cache behavior. (Guarded by the "does not cache a user that was not found" test.)
 
-3. **Never mutate an object returned by a cache.** The memory layer hands out the *same object reference* on every hit, so reassigning a field on it rewrites the shared entry under its original key — every later request receives request-local surgery the origin never returned, and the VBase layer (which stored a serialized snapshot) now *disagrees* with memory, making behavior depend on which layer answers. Treat cached values as read-only; if a request needs to modify one, shallow-clone at the boundary (`{ ...cached }`) — and remember nested arrays/objects are still shared, so deeper mutation needs a deeper copy. (Guarded by the "does not let fallback branches mutate the cached user entry" test.)
+3. **Never mutate an object returned by a cache.** The memory layer hands out the _same object reference_ on every hit, so reassigning a field on it rewrites the shared entry under its original key — every later request receives request-local surgery the origin never returned, and the VBase layer (which stored a serialized snapshot) now _disagrees_ with memory, making behavior depend on which layer answers. Treat cached values as read-only; if a request needs to modify one, shallow-clone at the boundary (`{ ...cached }`) — and remember nested arrays/objects are still shared, so deeper mutation needs a deeper copy. (Guarded by the "does not let fallback branches mutate the cached user entry" test.)
 
 Corollary for reviews: when a change touches a fetcher or anything downstream of a cached read, ask "can this store or corrupt a state the origin didn't produce?" before asking anything about performance.
 
 ### Current resources
 
-| Resource | Origin | Layers | Memory TTL | VBase TTL | Bound | Key |
-|---|---|---|---|---|---|---|
-| `app-settings` | Apps API | both | 5min | 5min | 50 entries | appId |
-| `sales-channel` | catalog `pvt` REST | both | 5min | 6h | 100 | `list` |
-| `b2b-settings` | b2b-organizations GraphQL | both | 5min | 5min | 100 | `settings` |
-| `organization` | Master Data | both | 60s | 2min | 10000 | orgId |
-| `cost-center` | b2b-organizations GraphQL | both | 60s | 2min | **8MB byte budget** | costId |
-| `active-user` | Master Data (paginated) | both | 5min¹ | 5min | 10000 | `email\|b2bCurrentCostCenter` |
-| `active-user-permissions` | Master Data (paginated) | memory only | 60s | — | 10000 | email |
-| `region` | checkout REST | both | 30min | 30min | 10000 | `country\|postalCode\|sc\|geo` |
-| `session-watcher` | VBase | memory only | 60s | — | 100 | `active` |
-| `roles` | VBase (MD fallback) | memory only | 60s | — | 100 | `all` |
+| Resource                  | Origin                    | Layers      | Memory TTL | VBase TTL | Bound               | Key                            |
+| ------------------------- | ------------------------- | ----------- | ---------- | --------- | ------------------- | ------------------------------ |
+| `app-settings`            | Apps API                  | both        | 5min       | 5min      | 50 entries          | appId                          |
+| `sales-channel`           | catalog `pvt` REST        | both        | 5min       | 6h        | 100                 | `list`                         |
+| `b2b-settings`            | b2b-organizations GraphQL | both        | 5min       | 5min      | 100                 | `settings`                     |
+| `organization`            | Master Data               | both        | 60s        | 2min      | 10000               | orgId                          |
+| `cost-center`             | Master Data               | both        | 60s        | 2min      | **8MB byte budget** | costId                         |
+| `active-user`             | Master Data (paginated)   | both        | 5min¹      | 5min      | 10000               | `email\|b2bCurrentCostCenter`  |
+| `active-user-permissions` | Master Data (paginated)   | memory only | 60s        | —         | 10000               | email                          |
+| `region`                  | checkout REST             | both        | 30min      | 30min     | 10000               | `country\|postalCode\|sc\|geo` |
+| `session-watcher`         | VBase                     | memory only | 60s        | —         | 100                 | `active`                       |
+| `roles`                   | VBase (MD fallback)       | memory only | 60s        | —         | 100                 | `all`                          |
 
 ¹ Configurable via the `sessionUserCacheTtlMs` app setting; `0` disables.
 
@@ -71,18 +71,22 @@ Corollary for reviews: when a change touches a fetcher or anything downstream of
 
 ### Why the cost center cache is bounded by bytes
 
-Measured on a real account: organization documents span **187–480 bytes** (tight), while cost center documents span **~400 bytes to 29KB** (~70x, driven by the addresses list). A fixed entry count therefore makes the cost-center cache's memory footprint swing by 70x with the data. With a byte budget, `lru-cache` treats `max` as total serialized size: one unusually large document evicts others — and a document larger than the whole budget is *refused*, never stored. Note a parsed object costs roughly 2–3x its serialized length in heap; size budgets accordingly.
+Measured on a real account: organization documents span **187–480 bytes** (tight), while cost center documents span **~400 bytes to 29KB** (~70x, driven by the addresses list). A fixed entry count therefore makes the cost-center cache's memory footprint swing by 70x with the data. With a byte budget, `lru-cache` treats `max` as total serialized size: one unusually large document evicts others — and a document larger than the whole budget is _refused_, never stored. Note a parsed object costs roughly 2–3x its serialized length in heap; size budgets accordingly.
 
 ## Organization data: Master Data instead of b2b-organizations
 
 The organization document is read **straight from Master Data** (`masterDataExtended.getDocumentById('organizations', ...)`) rather than through `b2b-organizations-graphql`, which owns that entity. That substitution came from the `setProfile` performance refactors, and it is deliberate — measured against a real account:
 
-| Read | Samples | Median |
-|---|---|---|
-| Master Data document | 0.40 / 0.40 / 0.39 / 0.44 / 0.41 / 0.60s | **~0.40s** |
-| `b2b-organizations` `getOrganizationById` | 0.99 / 1.19 / 1.80 / 1.87 / 2.24 / 2.35s | **~1.8s** |
+| Read                                      | Samples                                  | Median     |
+| ----------------------------------------- | ---------------------------------------- | ---------- |
+| Master Data document                      | 0.40 / 0.40 / 0.39 / 0.44 / 0.41 / 0.60s | **~0.40s** |
+| `b2b-organizations` `getOrganizationById` | 0.99 / 1.19 / 1.80 / 1.87 / 2.24 / 2.35s | **~1.8s**  |
 
 The extra app hop costs roughly **1.4s**, and individual samples exceeded **2.2s** — the transform's entire budget on their own. The variance is the disqualifying part, not the median. (Measured from a workstation, so both figures include the same client RTT; the delta is server-side. An in-cluster call would be faster in absolute terms, but the spread still rules it out for this path.)
+
+Cost center documents use the same Master Data path (`masterDataExtended.getDocumentById('cost_centers', ...)`). The GraphQL `getCostCenterById` hop was the remaining expensive origin on a cache miss.
+
+The fallback that lists a shopper's organizations when the current cost center is gone or the organization is unusable also reads Master Data (`b2b_users` search + GET-by-id of `cost_centers` / `organizations`) instead of GraphQL through `b2b-organizations-graphql`, which called back into this app.
 
 The trade-off is that the organization status rule then exists in two implementations. `b2b-organizations` owns the vocabulary (`ORGANIZATION_STATUSES`) and its `checkOrganizationIsActive` defines the semantics — only an `active` organization is usable — and this app mirrors it.
 
@@ -112,10 +116,10 @@ Entry bounds are **global budgets across all tenants on the pod**, not per accou
 
 ## Known measurements (Aug 2026, B2B account with multi-organization users)
 
-| Scenario | Before | After |
-|---|---|---|
-| Warm pod, server-side | ~1240ms | **~50–150ms** |
-| Cold pod, warm VBase (scale-up) | ~1870ms | **~950ms** |
+| Scenario                                      | Before  | After                                                     |
+| --------------------------------------------- | ------- | --------------------------------------------------------- |
+| Warm pod, server-side                         | ~1240ms | **~50–150ms**                                             |
+| Cold pod, warm VBase (scale-up)               | ~1870ms | **~950ms**                                                |
 | Cold pod, cold VBase (first pod after deploy) | ~1870ms | ~1900ms (pays origin once, then warms VBase for all pods) |
 
 ## One platform gotcha worth knowing

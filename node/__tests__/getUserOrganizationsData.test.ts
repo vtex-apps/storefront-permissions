@@ -1,25 +1,5 @@
 import { getUserOrganizationsData } from '../resolvers/Routes/utils'
 
-const makeCtx = (records: any[], account = 'acc'): any => ({
-  clients: {
-    organizations: {
-      getOrganizationsPaginatedByEmail: jest.fn().mockResolvedValue({
-        data: {
-          getOrganizationsPaginatedByEmail: {
-            data: records,
-            pagination: { page: 1, pageSize: 200, total: records.length },
-          },
-        },
-      }),
-    },
-  },
-  vtex: {
-    account,
-    logger: { error: jest.fn(), warn: jest.fn() },
-    workspace: 'master',
-  },
-})
-
 const record = (overrides: Record<string, unknown>) => ({
   costCenterName: 'CC',
   costId: 'cc1',
@@ -27,6 +7,53 @@ const record = (overrides: Record<string, unknown>) => ({
   orgId: 'org1',
   organizationStatus: 'active',
   ...overrides,
+})
+
+const makeCtx = (records: any[], account = 'acc'): any => ({
+  clients: {
+    masterDataExtended: {
+      getDocumentById: jest
+        .fn()
+        .mockImplementation((entity: string, id: string) => {
+          const match = records.find((row) =>
+            entity === 'cost_centers' ? row.costId === id : row.orgId === id
+          )
+
+          if (!match) {
+            return Promise.resolve(null)
+          }
+
+          if (entity === 'cost_centers') {
+            return Promise.resolve(
+              match.costCenterName === null
+                ? null
+                : { id, name: match.costCenterName }
+            )
+          }
+
+          if (entity === 'organizations') {
+            return Promise.resolve({
+              id,
+              status: match.organizationStatus,
+            })
+          }
+
+          return Promise.resolve(null)
+        }),
+      searchDocuments: jest.fn().mockResolvedValue(
+        records.map((row) => ({
+          costId: row.costId,
+          id: row.id,
+          orgId: row.orgId,
+        }))
+      ),
+    },
+  },
+  vtex: {
+    account,
+    logger: { error: jest.fn(), warn: jest.fn() },
+    workspace: 'master',
+  },
 })
 
 // The module keeps a per-email in-memory cache, so each test uses its own
@@ -40,7 +67,12 @@ describe('getUserOrganizationsData', () => {
     // adopted: its costId is what gets stamped on the session, so the pair
     // would be broken. The usable pair further down the list wins.
     const ctx = makeCtx([
-      record({ costCenterName: null, costId: 'ccGone', id: 'rA', orgId: 'orgA' }),
+      record({
+        costCenterName: null,
+        costId: 'ccGone',
+        id: 'rA',
+        orgId: 'orgA',
+      }),
       record({ costId: 'ccB', id: 'rB', orgId: 'orgB' }),
     ])
 
@@ -56,7 +88,12 @@ describe('getUserOrganizationsData', () => {
     // One record has the organization, the other has the cost center - but no
     // single record has both, and the costId comes from the nominated record.
     const ctx = makeCtx([
-      record({ costCenterName: null, id: 'rA', orgId: 'orgA' }),
+      record({
+        costCenterName: null,
+        costId: 'ccGone',
+        id: 'rA',
+        orgId: 'orgA',
+      }),
       record({ id: 'rB', organizationStatus: 'inactive', orgId: 'orgB' }),
     ])
 
@@ -89,8 +126,6 @@ describe('getUserOrganizationsData', () => {
     expect(first.activeOrganization).toMatchObject({ orgId: 'orgA' })
     expect(second.activeOrganization).toMatchObject({ orgId: 'orgB' })
     // And the second call must have hit its own origin, not account A's cache.
-    expect(
-      ctxB.clients.organizations.getOrganizationsPaginatedByEmail
-    ).toHaveBeenCalled()
+    expect(ctxB.clients.masterDataExtended.searchDocuments).toHaveBeenCalled()
   })
 })

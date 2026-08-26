@@ -55,6 +55,20 @@ const defaultAddress = {
   postalCode: '12345',
 }
 
+const costCenterDoc = (
+  addresses: any[] = [defaultAddress],
+  overrides: Record<string, unknown> = {}
+) => ({
+  addresses,
+  businessDocument: null,
+  name: 'CC',
+  organization: 'org1',
+  phoneNumber: null,
+  sellers: null,
+  stateRegistration: null,
+  ...overrides,
+})
+
 const makeCtx = (scenario: Scenario = {}) => {
   const {
     appSettings = {},
@@ -101,6 +115,14 @@ const makeCtx = (scenario: Scenario = {}) => {
         // example the b2b_users record id 'u2') returns undefined, exactly like
         // Master Data would - which is how the wrong-id lookup bug is caught.
         getDocumentById: jest.fn().mockImplementation((entity, id) => {
+          if (entity === 'cost_centers') {
+            return Promise.resolve(costCenterDoc(costCenterAddresses, { id }))
+          }
+
+          // Deliberately id-exact: the recovered organization only resolves for
+          // its real organization id ('org2'). Fetching with any other id (for
+          // example the b2b_users record id 'u2') returns undefined, exactly like
+          // Master Data would - which is how the wrong-id lookup bug is caught.
           if (entity !== 'organizations') {
             return Promise.resolve(undefined)
           }
@@ -148,7 +170,8 @@ const makeCtx = (scenario: Scenario = {}) => {
               matching = matching.filter((doc: any) => !doc.active)
             }
 
-            const { page = 1, pageSize = 50 } = pagination ?? {}
+            const page: number = pagination?.page ?? 1
+            const pageSize: number = pagination?.pageSize ?? 50
             const start = (page - 1) * pageSize
 
             return Promise.resolve({
@@ -161,21 +184,9 @@ const makeCtx = (scenario: Scenario = {}) => {
         getB2BSettings: jest.fn().mockResolvedValue({
           data: { getB2BSettings: { uiSettings: { clearCart: false } } },
         }),
-        getCostCenterById: jest.fn().mockResolvedValue({
-          data: {
-            getCostCenterById: {
-              addresses: costCenterAddresses,
-              businessDocument: null,
-              phoneNumber: null,
-              sellers: null,
-              stateRegistration: null,
-            },
-          },
-        }),
         getMarketingTags: jest
           .fn()
           .mockResolvedValue({ data: { getMarketingTags: { tags: [] } } }),
-        getOrganizationsByEmail: jest.fn(),
       },
       profileSystem: {},
       salesChannel: {
@@ -344,8 +355,10 @@ describe('setProfile', () => {
     // inactive one the stored selection points at.
     expect(response['storefront-permissions'].organization.value).toBe('org2')
     expect(response['storefront-permissions'].costcenter.value).toBe('cost2')
-    expect(ctx.clients.organizations.getCostCenterById).toHaveBeenCalledWith(
-      'cost2'
+    expect(ctx.clients.masterDataExtended.getDocumentById).toHaveBeenCalledWith(
+      'cost_centers',
+      'cost2',
+      expect.any(Array)
     )
 
     // The record id follows the adopted pair: the emitted userId must agree
@@ -507,6 +520,10 @@ describe('setProfile', () => {
     // The sticky organization must resolve as usable too.
     ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
       (entity: string, id: string) => {
+        if (entity === 'cost_centers') {
+          return Promise.resolve(costCenterDoc([defaultAddress], { id }))
+        }
+
         if (entity !== 'organizations') {
           return Promise.resolve(undefined)
         }
@@ -601,6 +618,14 @@ describe('setProfile', () => {
 
     ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
       (entity: string, id: string) => {
+        if (entity === 'cost_centers') {
+          if (id === 'costGone') {
+            return Promise.resolve(undefined)
+          }
+
+          return Promise.resolve(costCenterDoc([defaultAddress], { id }))
+        }
+
         if (entity !== 'organizations') {
           return Promise.resolve(undefined)
         }
@@ -627,35 +652,6 @@ describe('setProfile', () => {
 
         return Promise.resolve(undefined)
       }
-    )
-
-    // The pinned record's cost center was deleted: Master Data answers a
-    // document whose fields are all null.
-    ctx.clients.organizations.getCostCenterById.mockImplementation(
-      (id: string) =>
-        id === 'costGone'
-          ? Promise.resolve({
-              data: {
-                getCostCenterById: {
-                  addresses: null,
-                  businessDocument: null,
-                  phoneNumber: null,
-                  sellers: null,
-                  stateRegistration: null,
-                },
-              },
-            })
-          : Promise.resolve({
-              data: {
-                getCostCenterById: {
-                  addresses: [defaultAddress],
-                  businessDocument: null,
-                  phoneNumber: null,
-                  sellers: null,
-                  stateRegistration: null,
-                },
-              },
-            })
     )
 
     const response = await run(ctx, {
@@ -1232,8 +1228,7 @@ describe('setProfile', () => {
 
     await run(ctx)
 
-    const sent =
-      ctx.clients.checkout.updateOrderFormShipping.mock.calls[0]?.[1]
+    const sent = ctx.clients.checkout.updateOrderFormShipping.mock.calls[0]?.[1]
 
     // Checkout must receive the cleaned value, otherwise it answers CHK0040 and
     // discards the whole attachment, leaving the previous address on the cart.
@@ -1272,8 +1267,7 @@ describe('setProfile', () => {
     })
 
     // Never rewritten: a stripped postal code is a different location.
-    const sent =
-      ctx.clients.checkout.updateOrderFormShipping.mock.calls[0]?.[1]
+    const sent = ctx.clients.checkout.updateOrderFormShipping.mock.calls[0]?.[1]
 
     expect(sent.address.postalCode).toBe('12345%')
   })
@@ -1301,9 +1295,7 @@ describe('setProfile', () => {
 
   it('tags a cart address update that still fails after sanitizing', async () => {
     const ctx = makeCtx({
-      costCenterAddresses: [
-        { ...defaultAddress, reference: 'has "quotes"' },
-      ],
+      costCenterAddresses: [{ ...defaultAddress, reference: 'has "quotes"' }],
     })
 
     // Shaped like a real axios rejection: `config.data` carries the request

@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 import { describeClientError } from '../../utils/clientError'
-import { CUSTOMER_SCHEMA_NAME } from '../../utils/constants'
+import {
+  COST_CENTER_DATA_ENTITY,
+  COST_CENTER_FIELDS,
+  CUSTOMER_SCHEMA_NAME,
+} from '../../utils/constants'
 import type { ChangeTeamParams } from '../../utils/metrics/changeTeam'
 import { sendChangeTeamMetric } from '../../utils/metrics/changeTeam'
 import {
@@ -238,17 +242,17 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
   } = ctx
 
   try {
-    const costCenter = await ctx.clients.organizations.getCostCenterById(
-      params.costId
-    )
+    const costCenter: { name?: string; organization?: string } =
+      await ctx.clients.masterDataExtended.getDocumentById(
+        COST_CENTER_DATA_ENTITY,
+        params.costId,
+        COST_CENTER_FIELDS
+      )
 
     // before adding an user to a cost center we check if the cost
     // center exists and if it has a valid name, otherwise both
     // login and UI might break.
-    if (
-      !costCenter?.data?.getCostCenterById?.name ||
-      params.orgId !== costCenter?.data?.getCostCenterById?.organization
-    ) {
+    if (!costCenter?.name || params.orgId !== costCenter?.organization) {
       throw new Error(`Invalid cost center`)
     }
 

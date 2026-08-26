@@ -18,6 +18,12 @@ import { getCachedSessionWatcher } from '../../services/sessionWatcherCache'
 import { toHash } from '../../utils'
 import { sanitizeAddressForCheckout } from '../../utils/checkoutAddress'
 import { describeClientError } from '../../utils/clientError'
+import {
+  COST_CENTER_DATA_ENTITY,
+  COST_CENTER_FIELDS,
+  ORGANIZATION_DATA_ENTITY,
+  ORGANIZATION_FIELDS,
+} from '../../utils/constants'
 import { sendObservabilityEvent } from '../../utils/observabilityEvent'
 import {
   isKnownOrganizationStatus,
@@ -327,6 +333,7 @@ export const Routes = {
       'getSalesChannel',
       getCachedSalesChannel(ctx)
     )
+
     // b2bSettings is only consumed by the (conditional) clearCart branch, so it
     // may never be awaited; guard against unhandled rejections.
     const b2bSettingsPromise = timer
@@ -335,10 +342,14 @@ export const Routes = {
         getCachedB2BSettings(ctx, () => organizations.getB2BSettings())
       )
       .catch((error) => {
-        logger.error({ error: describeClientError(error), message: 'setProfile.getB2BSettings' })
+        logger.error({
+          error: describeClientError(error),
+          message: 'setProfile.getB2BSettings',
+        })
 
         return null
       })
+
     const appSettingsPromise = timer.track(
       'getCachedAppSettings',
       getCachedAppSettings(ctx)
@@ -430,15 +441,7 @@ export const Routes = {
     const getOrganization = async (orgId: any): Promise<any> => {
       return getCachedOrganization(ctx, String(orgId), () =>
         masterDataExtended
-          .getDocumentById('organizations', orgId, [
-            'name',
-            'tradeName',
-            'status',
-            'priceTables',
-            'salesChannel',
-            'collections',
-            'sellers',
-          ])
+          .getDocumentById(ORGANIZATION_DATA_ENTITY, orgId, ORGANIZATION_FIELDS)
           .then((document: any) => {
             // Master Data answers a missing document with an empty result
             // rather than an error. Throwing keeps the miss out of both cache
@@ -485,6 +488,46 @@ export const Routes = {
         throw error
       })
 
+    const getCostCenter = async (costId: any): Promise<any> => {
+      return getCachedCostCenter(ctx, String(costId), () =>
+        masterDataExtended
+          .getDocumentById(COST_CENTER_DATA_ENTITY, costId, COST_CENTER_FIELDS)
+          .then((document: any) => {
+            if (!document) {
+              const notFound: any = new Error('costCenterNotFound')
+
+              notFound.costCenterNotFound = true
+              throw notFound
+            }
+
+            return document
+          })
+          .catch((error) => {
+            if (!error?.costCenterNotFound) {
+              logger.error({
+                error: describeClientError(error),
+                message: 'setProfile.getCostCenterById',
+              })
+            }
+
+            throw error
+          })
+      )
+    }
+
+    const getCostCenterOrNull = async (costId: any): Promise<any> =>
+      getCostCenter(costId).catch((error: any) => {
+        const status = error?.response?.status ?? error?.status
+
+        if (error?.costCenterNotFound || status === 404) {
+          return null
+        }
+
+        throw error
+      })
+
+    const isCostCenterValid = (costCenter: any) => Boolean(costCenter?.name)
+
     // Reassigned by the inactive-organization fallback below.
     const hash = toHash(`${user.orgId}|${user.costId}`)
     let hashChanged = body?.['storefront-permissions']?.hash?.value !== hash
@@ -509,12 +552,7 @@ export const Routes = {
     const [organizationResponse, initialCostCenterResponse] = await Promise.all(
       [
         timer.track('getOrganization', getOrganizationOrNull(user.orgId)),
-        timer.track(
-          'getCostCenterById',
-          getCachedCostCenter(ctx, String(resolvedCostId), () =>
-            organizations.getCostCenterById(resolvedCostId)
-          )
-        ),
+        timer.track('getCostCenterById', getCostCenterOrNull(resolvedCostId)),
       ]
     )
 
@@ -532,48 +570,24 @@ export const Routes = {
 
     // Hand the account's limits to the middleware that emits the timings.
     timer.meta.sampleRate = (appSettings as any)?.sessionTimingsSampleRate
-    timer.meta.slowThresholdMs = (appSettings as any)
-      ?.sessionTimingsSlowThresholdMs
-
-    // in case the cost center is not found, we need to find a valid cost center for the user
-    if (
-      Object.values(costCenterResponse.data?.getCostCenterById ?? {}).every(
-        (value) => value === null
-      )
-    ) {
-      try {
-        const usersByEmail = await timer.track(
-          'getOrganizationsByEmail',
-          organizations.getOrganizationsByEmail(email)
-        )
-
-        // when cost center comes without a name, it's because the cost center is deleted
-        const usersData = usersByEmail.data.getOrganizationsByEmail.find(
-          (userByEmail) => userByEmail.costCenterName !== null
-        )
-
-        user.costId = usersData?.costId ?? user.costId
-      } catch (error) {
-        logger.error({
-          error: describeClientError(error),
-          message: 'setProfile.graphqlGetOrganizationById',
-        })
-      }
-    }
+    timer.meta.slowThresholdMs = (
+      appSettings as any
+    )?.sessionTimingsSlowThresholdMs
 
     let organization: any = organizationResponse
     let userOrgsData: any = null
 
-    // Check if we need to fetch user organizations (for inactive org or invalid cost center)
-    const costCenterInvalid = Object.values(
-      costCenterResponse.data?.getCostCenterById ?? {}
-    ).every((value) => value === null)
+    // A missing document, or one with no name (deleted cost center), cannot
+    // be stamped on the session. GraphQL used to answer the latter as an
+    // object whose fields were all null.
+    const costCenterInvalid = !isCostCenterValid(costCenterResponse)
 
     // Null means the lookup 404'd: the record points at an organization that
     // no longer exists. Both states are unusable and share the same recovery.
     const organizationMissing = !organization
     const organizationInactive =
       !organizationMissing && !isOrganizationUsable(organization?.status)
+
     const organizationUnusable = organizationMissing || organizationInactive
 
     if (
@@ -586,6 +600,7 @@ export const Routes = {
         status: organization?.status,
       })
     }
+
     const needsOrgData = organizationUnusable || costCenterInvalid
 
     if (needsOrgData) {
@@ -602,9 +617,18 @@ export const Routes = {
       )
     }
 
-    // Handle invalid cost center first
+    // Handle invalid cost center first. Refetch when the organization itself
+    // is still usable: otherwise the sellers/addresses below would still come
+    // from the missing document. The inactive-org branch refetches on its own.
     if (costCenterInvalid && userOrgsData?.validCostCenterId) {
       user.costId = userOrgsData.validCostCenterId
+
+      if (!organizationUnusable) {
+        costCenterResponse = await timer.track(
+          'getCostCenterById.invalidFallback',
+          getCostCenterOrNull(user.costId)
+        )
+      }
     }
 
     // Handle an organization that is inactive or no longer exists.
@@ -653,14 +677,10 @@ export const Routes = {
             // cost center that no longer exists.
             const stickyCostCenter = await timer.track(
               'getCostCenterById.stickyValidation',
-              getCachedCostCenter(ctx, String(stickyRecord.costId), () =>
-                organizations.getCostCenterById(stickyRecord.costId)
-              )
+              getCostCenterOrNull(stickyRecord.costId)
             )
 
-            const stickyCostCenterValid = !Object.values(
-              stickyCostCenter?.data?.getCostCenterById ?? {}
-            ).every((value) => value === null)
+            const stickyCostCenterValid = isCostCenterValid(stickyCostCenter)
 
             if (stickyCostCenterValid) {
               validOrganization = {
@@ -728,9 +748,7 @@ export const Routes = {
 
         costCenterResponse = await timer.track(
           'getCostCenterById.inactiveFallback',
-          getCachedCostCenter(ctx, String(fallbackCostId), () =>
-            organizations.getCostCenterById(fallbackCostId)
-          )
+          getCostCenterOrNull(fallbackCostId)
         )
 
         // Visible on purpose: the shopper's stored selection points at an
@@ -840,8 +858,7 @@ export const Routes = {
     }
 
     const orgSellers = organization.sellers
-    const costCenterSellers =
-      costCenterResponse?.data?.getCostCenterById?.sellers
+    const costCenterSellers = costCenterResponse?.sellers
 
     const sellersArray = Array.isArray(costCenterSellers)
       ? costCenterSellers
@@ -856,6 +873,7 @@ export const Routes = {
       // second, uncached getAppSettings round-trip on the sellers path.
       const disableSellersNameFacets = (appSettings as any)
         ?.disableSellersNameFacets
+
       const disablePrivateSellersFacets = (appSettings as any)
         ?.disablePrivateSellersFacets
 
@@ -882,7 +900,7 @@ export const Routes = {
     response.public.facets.value = facets ? `${facets.join(';')};` : null
 
     response['storefront-permissions'].costcenter.value = user.costId
-    const costCenterData = costCenterResponse?.data?.getCostCenterById
+    const costCenterData = costCenterResponse
 
     phoneNumber = costCenterData?.phoneNumber
 
