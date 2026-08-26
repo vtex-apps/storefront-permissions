@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-08-26
+
 ### Added
 
 - Two-layer caching (per-pod in-memory LRU + cross-pod VBase stale-while-revalidate) for the data `setProfile` reads on every session transform: app settings, sales channel list, B2B settings, organization, cost center, active user, region lookup, session watcher flag (memory-only, it already lives in VBase) and roles (memory-only, same reason). Warm-pod transform time drops from roughly 1.2s to under 150ms, and a cold pod reads the entry a sibling pod populated instead of paying the origin call. The cost center cache is bounded by bytes rather than entry count, because its documents were measured spanning 400B to 29KB.
