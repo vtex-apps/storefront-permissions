@@ -70,11 +70,12 @@ export const getCachedActiveUserByEmail = async (
   )
 
 /**
- * Variant for permission checks (checkPermissions route). Those requests carry
- * only app + email, so there is no session cost center to key on and an
- * organization switch cannot invalidate by key. Memory-only with a short TTL,
- * so stale permissions are bounded to that window and never extended by a
- * cross-pod layer.
+ * Variant for permission checks (REST checkPermissions and GraphQL
+ * checkUserPermission / getUserByEmail). Those requests carry only app + email,
+ * so there is no session cost center to key on and an organization switch
+ * cannot invalidate by key. Memory-only with a 5-minute TTL, so stale
+ * permissions are bounded to that window and never extended by a cross-pod
+ * layer. REST and GraphQL share the cache.
  */
 const cachedPermissionsUser = createCachedResource<any>(
   'active-user-permissions',

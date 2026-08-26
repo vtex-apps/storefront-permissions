@@ -54,13 +54,14 @@ export const createTimer = (): Timer => {
  * its final statement. Keyed weakly by the request context, so entries disappear
  * with the request.
  */
-const timers = new WeakMap<object, Timer>()
+const timers = new WeakMap<Record<string, unknown>, Timer>()
 
-export const attachTimer = (ctx: object, timer: Timer) => {
+export const attachTimer = (ctx: Record<string, unknown>, timer: Timer) => {
   timers.set(ctx, timer)
 }
 
-export const getTimer = (ctx: object): Timer | undefined => timers.get(ctx)
+export const getTimer = (ctx: Record<string, unknown>): Timer | undefined =>
+  timers.get(ctx)
 
 export interface LogRequestTimingsArgs {
   extra?: Record<string, unknown>
@@ -115,4 +116,34 @@ export const logRequestTimings = ({
   } else {
     logger.info(payload)
   }
+}
+
+/**
+ * Always-on timings for GraphQL hops we are investigating (not sampled like
+ * the default setProfile path).
+ */
+export const emitTimerTrace = (
+  logger: Logger,
+  message: string,
+  timer: Timer,
+  extra: Record<string, unknown> = {}
+) => {
+  const totalMs = timer.totalMs()
+  const steps = Object.keys(timer.timings)
+  const slowestStep = steps.reduce(
+    (slowest, step) =>
+      timer.timings[step] > (timer.timings[slowest] ?? -1) ? step : slowest,
+    steps[0] ?? ''
+  )
+
+  const payload = {
+    message,
+    slowestStep,
+    slowestStepMs: timer.timings[slowestStep] ?? 0,
+    timings: timer.timings,
+    totalMs,
+    ...extra,
+  }
+
+  logger.info(payload)
 }

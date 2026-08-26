@@ -43,7 +43,9 @@ describe('withRequestTimings', () => {
     })
 
     expect(ctx.vtex.logger.warn).toHaveBeenCalledTimes(1)
-    expect(ctx.vtex.logger.warn.mock.calls[0][0].orgId).toBe('org1')
+    const [[successPayload]] = ctx.vtex.logger.warn.mock.calls
+
+    expect(successPayload.orgId).toBe('org1')
   })
 
   it('always logs a failure and rethrows, regardless of threshold', async () => {
@@ -64,9 +66,35 @@ describe('withRequestTimings', () => {
     ).rejects.toThrow('handler exploded')
 
     expect(ctx.vtex.logger.warn).toHaveBeenCalledTimes(1)
-    const payload = ctx.vtex.logger.warn.mock.calls[0][0]
+    const [[payload]] = ctx.vtex.logger.warn.mock.calls
 
     expect(payload.failed).toBe(true)
     expect(payload.orgId).toBe('org1')
+  })
+
+  it('always traces when alwaysTrace is set, even if fast', async () => {
+    const ctx = makeCtx()
+
+    await withRequestTimings('setProfile.timings', { alwaysTrace: true })(
+      ctx,
+      async () => {
+        const timer = getTimer(ctx)
+
+        if (timer) {
+          await timer.track('getActiveUserByEmail', Promise.resolve(1))
+          timer.meta.extra = { hashChanged: true, orgId: 'org1' }
+        }
+      }
+    )
+
+    expect(ctx.vtex.logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hashChanged: true,
+        message: 'setProfile.timings',
+        orgId: 'org1',
+        slowestStep: 'getActiveUserByEmail',
+      })
+    )
+    expect(ctx.vtex.logger.warn).not.toHaveBeenCalled()
   })
 })

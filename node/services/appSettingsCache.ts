@@ -23,7 +23,9 @@ export const getCachedAppSettings = async (
   const appId = process.env.VTEX_APP_ID ?? ''
 
   const cached = await cachedAppSettings(ctx, appId, () =>
-    ctx.clients.apps.getAppSettings(appId).then((res) => (res ?? {}) as AppSettings)
+    ctx.clients.apps
+      .getAppSettings(appId)
+      .then((res) => (res ?? {}) as AppSettings)
   )
 
   return cached != null && typeof cached === 'object' ? cached : {}

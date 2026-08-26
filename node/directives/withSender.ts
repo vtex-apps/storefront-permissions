@@ -1,4 +1,3 @@
-/* eslint-disable max-params */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'

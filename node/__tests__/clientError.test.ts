@@ -100,7 +100,10 @@ describe('describeClientError', () => {
       '\n'
     )
 
-    const described: any = describeClientError({ message: 'x', stack: longStack })
+    const described: any = describeClientError({
+      message: 'x',
+      stack: longStack,
+    })
 
     expect(described.stack.split('\n')).toHaveLength(5)
   })

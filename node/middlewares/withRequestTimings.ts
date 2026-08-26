@@ -3,6 +3,7 @@ import type { Timer } from '../utils/requestTimings'
 import {
   attachTimer,
   createTimer,
+  emitTimerTrace,
   logRequestTimings,
 } from '../utils/requestTimings'
 
@@ -41,9 +42,13 @@ const maybeEmitCacheStats = (ctx: Context) => {
  * handed to the handler, and emitted from here for both outcomes:
  *
  * - success: only when slow or sampled, using the account's configured limits
+ *   (unless `alwaysTrace`, used while diagnosing setProfile)
  * - failure: always, regardless of those limits
  */
-export const withRequestTimings = (message: string) =>
+export const withRequestTimings = (
+  message: string,
+  options: { alwaysTrace?: boolean } = {}
+) =>
   // Named rather than an anonymous arrow: service-node reports per-handler
   // metrics by function name and logs an error for unnamed handlers.
   async function requestTimings(ctx: Context, next: () => Promise<void>) {
@@ -52,22 +57,37 @@ export const withRequestTimings = (message: string) =>
     attachTimer(ctx, timer)
     maybeEmitCacheStats(ctx)
 
+    const extraFields = () => timer.meta.extra ?? {}
+
     try {
       await next()
     } catch (error) {
-      logRequestTimings({
-        extra: { ...timer.meta.extra, failed: true },
-        logger: ctx.vtex.logger,
-        message,
-        slowThresholdMs: 0,
-        timer,
-      })
+      if (options.alwaysTrace) {
+        emitTimerTrace(ctx.vtex.logger, message, timer, {
+          ...extraFields(),
+          failed: true,
+        })
+      } else {
+        logRequestTimings({
+          extra: { ...extraFields(), failed: true },
+          logger: ctx.vtex.logger,
+          message,
+          slowThresholdMs: 0,
+          timer,
+        })
+      }
 
       throw error
     }
 
+    if (options.alwaysTrace) {
+      emitTimerTrace(ctx.vtex.logger, message, timer, extraFields())
+
+      return
+    }
+
     logRequestTimings({
-      extra: timer.meta.extra,
+      extra: extraFields(),
       logger: ctx.vtex.logger,
       message,
       sampleRate: timer.meta.sampleRate,

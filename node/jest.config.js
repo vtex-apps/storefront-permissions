@@ -7,7 +7,8 @@ module.exports = {
     // package `exports` subpaths that jest 26's resolver (pinned by
     // TypeScript 3.9 -> ts-jest 26) predates. Tests never exercise the log
     // exporter, so the whole package is stubbed.
-    '^@vtex/diagnostics-nodejs(/.*)?$': '<rootDir>/__tests__/stubs/diagnostics.js',
+    '^@vtex/diagnostics-nodejs(/.*)?$':
+      '<rootDir>/__tests__/stubs/diagnostics.js',
   },
   // Keep the stub itself from being collected as a test file.
   testPathIgnorePatterns: ['/node_modules/', '/__tests__/stubs/'],

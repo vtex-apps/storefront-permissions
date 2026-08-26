@@ -1,4 +1,3 @@
-/* eslint-disable max-params */
 import { createHash } from 'crypto'
 
 import type { VBase } from '@vtex/api'

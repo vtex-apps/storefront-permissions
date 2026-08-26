@@ -1332,7 +1332,7 @@ describe('setProfile', () => {
     await run(quiet)
 
     const quietPayloads = quiet.vtex.logger.info.mock.calls.filter(
-      (call: any[]) => call[0] && call[0]['setProfile.body']
+      (call: any[]) => call[0]?.['setProfile.body']
     )
 
     expect(quietPayloads).toHaveLength(0)
@@ -1342,7 +1342,7 @@ describe('setProfile', () => {
     await run(verbose)
 
     const verbosePayloads = verbose.vtex.logger.info.mock.calls.filter(
-      (call: any[]) => call[0] && call[0]['setProfile.body']
+      (call: any[]) => call[0]?.['setProfile.body']
     )
 
     expect(verbosePayloads).toHaveLength(1)
@@ -1355,12 +1355,12 @@ describe('setProfile', () => {
     const lookups = ctx.clients.masterdata.searchDocumentsWithPaginationInfo
 
     await run(ctx)
-    // One resolution = two Master Data calls (count probe + one page).
-    expect(lookups).toHaveBeenCalledTimes(2)
+    // One resolution = one Master Data call (the result fits in a single page).
+    expect(lookups).toHaveBeenCalledTimes(1)
 
     await run(ctx)
     // Same email, same cost center: served from cache, no new lookup.
-    expect(lookups).toHaveBeenCalledTimes(2)
+    expect(lookups).toHaveBeenCalledTimes(1)
 
     await run(ctx, {
       ...makeBody(),
@@ -1368,7 +1368,7 @@ describe('setProfile', () => {
     })
     // setCurrentOrganization writes b2bCurrentCostCenter on an organization
     // switch; a different value must change the key and force a fresh lookup.
-    expect(lookups).toHaveBeenCalledTimes(4)
+    expect(lookups).toHaveBeenCalledTimes(2)
   })
 
   it('does not block the response on the CL profile update', async () => {

@@ -26,7 +26,7 @@ describe('staleFromVBaseWhileRevalidate', () => {
     await flush()
     expect(vbase.saveJSON).toHaveBeenCalledTimes(1)
 
-    const [, , saved] = vbase.saveJSON.mock.calls[0]
+    const [[, , saved]] = vbase.saveJSON.mock.calls
 
     expect(saved.data).toEqual({ some: 'data' })
     expect(new Date(saved.ttl).getTime()).toBeGreaterThan(Date.now())
@@ -137,7 +137,7 @@ describe('staleFromVBaseWhileRevalidate', () => {
     await flush()
     expect(logger.error).toHaveBeenCalledTimes(1)
 
-    const payload = logger.error.mock.calls[0][0]
+    const [[payload]] = logger.error.mock.calls
 
     expect(payload.message).toBe('staleFromVBase.revalidateError')
 

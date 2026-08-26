@@ -1,6 +1,7 @@
 import {
   attachTimer,
   createTimer,
+  emitTimerTrace,
   getTimer,
   logRequestTimings,
 } from '../utils/requestTimings'
@@ -50,7 +51,7 @@ describe('logRequestTimings', () => {
     })
 
     expect(logger.warn).toHaveBeenCalledTimes(1)
-    const payload = logger.warn.mock.calls[0][0]
+    const [[payload]] = logger.warn.mock.calls
 
     expect(payload.message).toBe('test.timings')
     expect(payload.slowestStep).toBe('slowStep')
@@ -98,9 +99,33 @@ describe('logRequestTimings', () => {
       timer: createTimer(),
     })
 
-    const payload = logger.warn.mock.calls[0][0]
+    const [[payload]] = logger.warn.mock.calls
 
     expect(payload.failed).toBe(true)
     expect(payload.orgId).toBe('org1')
+  })
+})
+
+describe('emitTimerTrace', () => {
+  it('always logs the collected timings', async () => {
+    const timer = createTimer()
+
+    await timer.track('listUsers', Promise.resolve(1))
+    timer.timings.listUsers = 42
+
+    const logger = makeLogger()
+
+    emitTimerTrace(logger, 'getOrganizationsByEmail.timings', timer, {
+      listedCount: 3,
+    })
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        listedCount: 3,
+        message: 'getOrganizationsByEmail.timings',
+        slowestStep: 'listUsers',
+        totalMs: expect.any(Number),
+      })
+    )
   })
 })

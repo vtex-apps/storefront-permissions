@@ -41,7 +41,10 @@ describe('sanitizeAddressForCheckout', () => {
     expect(serialized).not.toContain('Apt 4')
     expect(
       [...invalid, ...sanitized].every(
-        (entry) => Object.keys(entry).sort().join() === 'field,removed'
+        (entry) =>
+          Object.keys(entry)
+            .sort((left, right) => left.localeCompare(right))
+            .join() === 'field,removed'
       )
     ).toBe(true)
   })
@@ -54,10 +57,11 @@ describe('sanitizeAddressForCheckout', () => {
       reference: 'has "quotes"',
     })
 
-    expect(sanitized.map(({ field }) => field).sort()).toEqual([
-      'complement',
-      'reference',
-    ])
+    expect(
+      sanitized
+        .map(({ field }) => field)
+        .sort((left, right) => left.localeCompare(right))
+    ).toEqual(['complement', 'reference'])
     expect(address.complement).toBe('Suite 100')
     expect(address.reference).toBe('has quotes')
   })
@@ -76,12 +80,19 @@ describe('sanitizeAddressForCheckout', () => {
       street: 'MQRG+59 Nairobi',
     }
 
-    const { address: result, invalid, sanitized } =
-      sanitizeAddressForCheckout(address)
+    const {
+      address: result,
+      invalid,
+      sanitized,
+    } = sanitizeAddressForCheckout(address)
 
     expect(sanitized).toHaveLength(0)
     expect(result).toEqual(address)
-    expect(invalid.map(({ field }) => field).sort()).toEqual([
+    expect(
+      invalid
+        .map(({ field }) => field)
+        .sort((left, right) => left.localeCompare(right))
+    ).toEqual([
       'city',
       'neighborhood',
       'number',
@@ -100,8 +111,11 @@ describe('sanitizeAddressForCheckout', () => {
       addressType: 'BillingAddress',
     }
 
-    const { address: result, invalid, sanitized } =
-      sanitizeAddressForCheckout(address)
+    const {
+      address: result,
+      invalid,
+      sanitized,
+    } = sanitizeAddressForCheckout(address)
 
     expect(sanitized).toHaveLength(0)
     expect(invalid).toHaveLength(0)
@@ -115,8 +129,11 @@ describe('sanitizeAddressForCheckout', () => {
     // rather than ship to the wrong place.
     const address = { country: 'US"A', postalCode: '12345%' }
 
-    const { address: result, invalid, sanitized } =
-      sanitizeAddressForCheckout(address)
+    const {
+      address: result,
+      invalid,
+      sanitized,
+    } = sanitizeAddressForCheckout(address)
 
     expect(sanitized).toHaveLength(0)
     expect(result.postalCode).toBe('12345%')

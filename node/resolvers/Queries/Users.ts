@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { removeVersionFromAppId } from '@vtex/api'
 
+import { getCachedActiveUserForPermissions } from '../../services/activeUserCache'
 import { getCachedAppSettings } from '../../services/appSettingsCache'
 import type { GetOrganizationsPaginatedByEmailResponse } from '../../typings/custom'
 import { currentSchema } from '../../utils'
@@ -10,6 +11,8 @@ import {
   CUSTOMER_SCHEMA_NAME,
 } from '../../utils/constants'
 import GraphQLError from '../../utils/GraphQLError'
+import type { Timer } from '../../utils/requestTimings'
+import { createTimer, emitTimerTrace } from '../../utils/requestTimings'
 import { getRole } from './Roles'
 
 const config: any = currentSchema('b2b_users')
@@ -18,6 +21,19 @@ const PAGINATION = {
   page: 1,
   pageSize: 50,
 }
+
+const USER_SEARCH_FIELDS = [
+  'id',
+  'roleId',
+  'clId',
+  'email',
+  'name',
+  'orgId',
+  'costId',
+  'userId',
+  'canImpersonate',
+  'active',
+]
 
 // This function checks if given email is an user part of a buyer org.
 export const isUserPartOfBuyerOrg = async (email: string, ctx: Context) => {
@@ -77,50 +93,49 @@ export const getAllUsers = async ({
   where?: string
 }) => {
   try {
-    const initialResp = await masterdata.searchDocumentsWithPaginationInfo({
+    // Fetch page 1 with the fields callers need. When the result fits in one
+    // page (the active-user path is 0..1 records; most emails hold a handful)
+    // this is the only Master Data round-trip. The previous count probe
+    // (`fields: ['id']`) then re-fetched page 1 in full, doubling the cost of
+    // every small search.
+    const firstPage = await masterdata.searchDocumentsWithPaginationInfo({
       dataEntity: config.name,
-      fields: ['id'],
+      fields: USER_SEARCH_FIELDS,
       pagination: { page: 1, pageSize: PAGINATION.pageSize },
       schema: config.version,
+      sort: 'id asc',
       ...(where ? { where } : {}),
     })
 
-    const totalItems = initialResp.pagination.total
-    const totalPages = Math.ceil(totalItems / PAGINATION.pageSize)
+    const users: any[] = [...(firstPage.data ?? [])]
+    const totalPages = Math.ceil(
+      (firstPage.pagination?.total ?? 0) / PAGINATION.pageSize
+    )
 
-    const requests = Array.from(
-      { length: totalPages },
+    if (totalPages <= 1) {
+      return users
+    }
+
+    const remaining = Array.from(
+      { length: totalPages - 1 },
       (_, i) => async () =>
         masterdata.searchDocumentsWithPaginationInfo({
           dataEntity: config.name,
-          fields: [
-            'id',
-            'roleId',
-            'clId',
-            'email',
-            'name',
-            'orgId',
-            'costId',
-            'userId',
-            'canImpersonate',
-            'active',
-          ],
-          pagination: { page: i + 1, pageSize: PAGINATION.pageSize },
+          fields: USER_SEARCH_FIELDS,
+          pagination: { page: i + 2, pageSize: PAGINATION.pageSize },
           schema: config.version,
           sort: 'id asc',
           ...(where ? { where } : {}),
         })
     )
 
-    const responses = await processChunks(requests)
+    const responses = await processChunks(remaining)
 
-    const users = responses.reduce((acc: any[], resp: { data: any }) => {
+    return responses.reduce((acc: any[], resp: { data: any }) => {
       acc.push(...resp.data)
 
       return acc
-    }, [])
-
-    return users
+    }, users)
   } catch (error) {
     logger.error({
       error: describeClientError(error),
@@ -187,7 +202,7 @@ export const getActiveUserByEmail = async (
       })
     }
 
-    let userFound = activeUsers[0]
+    let [userFound] = activeUsers
 
     // No explicit selection, but the session already carries an organization
     // from a previous transform: keep it. Without this the resolution below is
@@ -302,9 +317,44 @@ export const getActiveUserByEmail = async (
  * @param ctx
  */
 export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
-  const user = await getActiveUserByEmail(_, params, ctx)
+  const email = params?.email
 
-  return [user]
+  if (!email) {
+    const unresolved = await getActiveUserByEmail(_, params, ctx)
+
+    return [unresolved]
+  }
+
+  // Same 5-minute memory cache as the REST checkPermissions route: GraphQL
+  // checkUserPermission is called per request by sibling B2B apps (and often
+  // several times in the same navigation) with only email, so there is no
+  // cost-center key to invalidate on an organization switch.
+  const cachedUser = await getCachedActiveUserForPermissions(
+    ctx,
+    email,
+    async () => {
+      const activeUser: any = await getActiveUserByEmail(_, { email }, ctx)
+
+      if (activeUser?.status === 'error') {
+        throw activeUser.message
+      }
+
+      if (!activeUser?.id) {
+        const notFound: any = new Error('getUserByEmail.userNotFound')
+
+        notFound.userNotFound = true
+        throw notFound
+      }
+
+      return activeUser
+    }
+  ).catch((error) =>
+    error?.userNotFound
+      ? { email: '', name: '' }
+      : { message: error, status: 'error' }
+  )
+
+  return [cachedUser]
 }
 
 export const getUserById = async (_: any, params: any, ctx: Context) => {
@@ -665,15 +715,22 @@ const getRoleAndPermissionsByEmail = async ({
   module,
   skipError = false,
   ctx,
+  stepPrefix = '',
+  timer,
 }: {
   email: string
   module: string
   skipError: boolean
   ctx: Context
+  stepPrefix?: string
+  timer?: Timer
 }) => {
   const {
     vtex: { logger },
   } = ctx
+
+  const track = <T>(step: string, promise: Promise<T>): Promise<T> =>
+    timer ? timer.track(`${stepPrefix}${step}`, promise) : promise
 
   const defaultResponse = {
     permissions: [],
@@ -688,7 +745,10 @@ const getRoleAndPermissionsByEmail = async ({
     return defaultResponse
   }
 
-  const userData: any = await getUserByEmail(null, { email }, ctx)
+  const userData: any = await track(
+    'getUserByEmail',
+    getUserByEmail(null, { email }, ctx)
+  )
 
   if (!userData.length && !skipError) {
     logger.warn({
@@ -702,7 +762,10 @@ const getRoleAndPermissionsByEmail = async ({
     return defaultResponse
   }
 
-  const userRole: any = await getRole(null, { id: userData[0].roleId }, ctx)
+  const userRole: any = await track(
+    'getRole',
+    getRole(null, { id: userData[0].roleId }, ctx)
+  )
 
   if (!userRole && !skipError) {
     logger.warn({
@@ -740,117 +803,164 @@ export const checkUserPermission = async (
     vtex: { logger },
   } = ctx
 
-  const { sessionData, sender }: any = ctx.vtex
+  const timer = createTimer()
+  const extra: Record<string, unknown> = {}
 
-  const skipError = params?.skipError ?? false
+  try {
+    const { sessionData, sender }: any = ctx.vtex
 
-  if (!sessionData?.namespaces && !skipError) {
-    logger.warn({
-      message: `checkUserPermission-userNotAuthenticated`,
-    })
-    throw new GraphQLError(
-      'User not authenticated, make sure the query is private',
-      {
-        logLevel: 'warn',
-      }
+    const skipError = params?.skipError ?? false
+
+    if (!sessionData?.namespaces && !skipError) {
+      extra.reason = 'userNotAuthenticated'
+      logger.warn({
+        message: `checkUserPermission-userNotAuthenticated`,
+      })
+      throw new GraphQLError(
+        'User not authenticated, make sure the query is private',
+        {
+          logLevel: 'warn',
+        }
+      )
+    }
+
+    if (!sender && !skipError) {
+      extra.reason = 'senderNotFound'
+      logger.warn({
+        message: `checkUserPermission-senderNotFound`,
+      })
+      throw new GraphQLError(
+        'Sender not available, make sure the query is private',
+        {
+          logLevel: 'warn',
+        }
+      )
+    }
+
+    const authEmail =
+      sessionData?.namespaces?.authentication?.storeUserEmail?.value
+
+    const profileEmail = sessionData?.namespaces?.profile?.email?.value
+
+    const defaultResponse = {
+      permissions: [],
+      role: {
+        id: '',
+        name: '',
+        slug: '',
+      },
+    }
+
+    if (!sender) {
+      extra.reason = 'noSender'
+
+      return defaultResponse
+    }
+
+    const module = removeVersionFromAppId(sender)
+
+    extra.module = module
+
+    // Both impersonation flows (vtex.telemarketing and the Organizations app)
+    // switch the profile namespace to the impersonated user while
+    // authentication.storeUserEmail keeps holding the acting user, so a
+    // divergence between the two is what identifies an impersonation session.
+    const isImpersonating = Boolean(profileEmail) && authEmail !== profileEmail
+
+    extra.impersonating = isImpersonating
+
+    if (!isImpersonating) {
+      const sessionPermissions = await getRoleAndPermissionsByEmail({
+        ctx,
+        email: authEmail,
+        module,
+        skipError: true,
+        timer,
+      })
+
+      extra.permissionCount = sessionPermissions.permissions.length
+      extra.roleId = sessionPermissions.role.id || null
+
+      return sessionPermissions
+    }
+
+    // Only impersonation sessions need the setting, so regular sessions never
+    // pay for reading it (cached for 5 minutes when they do).
+    const appSettings = await timer.track(
+      'getAppSettings',
+      getCachedAppSettings(ctx).catch((error) => {
+        logger.warn({
+          error: describeClientError(error),
+          message: 'checkUserPermission-getAppSettingsError',
+        })
+
+        return {} as Record<string, unknown>
+      })
     )
-  }
 
-  if (!sender && !skipError) {
-    logger.warn({
-      message: `checkUserPermission-senderNotFound`,
-    })
-    throw new GraphQLError(
-      'Sender not available, make sure the query is private',
-      {
-        logLevel: 'warn',
-      }
-    )
-  }
+    // Strict mode: scope the evaluation to the impersonated profile so the
+    // acting user's elevated permissions never reach the storefront.
+    if ((appSettings as any)?.strictImpersonationPermissions) {
+      extra.strictImpersonation = true
 
-  const authEmail =
-    sessionData?.namespaces?.authentication?.storeUserEmail?.value
+      const impersonatedPermissions = await getRoleAndPermissionsByEmail({
+        ctx,
+        email: profileEmail,
+        module,
+        skipError: true,
+        stepPrefix: 'profile.',
+        timer,
+      })
 
-  const profileEmail = sessionData?.namespaces?.profile?.email?.value
+      extra.permissionCount = impersonatedPermissions.permissions.length
+      extra.roleId = impersonatedPermissions.role.id || null
 
-  const defaultResponse = {
-    permissions: [],
-    role: {
-      id: '',
-      name: '',
-      slug: '',
-    },
-  }
+      return impersonatedPermissions
+    }
 
-  if (!sender) {
-    return defaultResponse
-  }
+    extra.strictImpersonation = false
 
-  const module = removeVersionFromAppId(sender)
+    // Aggregated mode (default): keep the legacy union, which flows relying on
+    // the acting user's rights while impersonating depend on - for example a
+    // sales representative completing checkout for a buyer role that has no
+    // can-checkout permission, or an approver retaining approval power.
+    const [authPermissions, profilePermissions] = await Promise.all([
+      getRoleAndPermissionsByEmail({
+        ctx,
+        email: authEmail,
+        module,
+        skipError: true,
+        stepPrefix: 'auth.',
+        timer,
+      }),
+      getRoleAndPermissionsByEmail({
+        ctx,
+        email: profileEmail,
+        module,
+        skipError: true,
+        stepPrefix: 'profile.',
+        timer,
+      }),
+    ])
 
-  // Both impersonation flows (vtex.telemarketing and the Organizations app)
-  // switch the profile namespace to the impersonated user while
-  // authentication.storeUserEmail keeps holding the acting user, so a
-  // divergence between the two is what identifies an impersonation session.
-  const isImpersonating = Boolean(profileEmail) && authEmail !== profileEmail
+    const aggregatedPermissions = {
+      permissions: [
+        ...new Set([
+          ...authPermissions.permissions,
+          ...profilePermissions.permissions,
+        ]),
+      ],
+      role: authPermissions.role.id
+        ? authPermissions.role
+        : profilePermissions.role,
+    }
 
-  if (!isImpersonating) {
-    return getRoleAndPermissionsByEmail({
-      ctx,
-      email: authEmail,
-      module,
-      skipError: true,
-    })
-  }
+    extra.permissionCount = aggregatedPermissions.permissions.length
+    extra.roleId = aggregatedPermissions.role.id || null
 
-  // Only impersonation sessions need the setting, so regular sessions never
-  // pay for reading it (cached for 5 minutes when they do).
-  const appSettings = await getCachedAppSettings(ctx).catch((error) => {
-    logger.warn({ error: describeClientError(error), message: 'checkUserPermission-getAppSettingsError' })
-
-    return {} as Record<string, unknown>
-  })
-
-  // Strict mode: scope the evaluation to the impersonated profile so the
-  // acting user's elevated permissions never reach the storefront.
-  if ((appSettings as any)?.strictImpersonationPermissions) {
-    return getRoleAndPermissionsByEmail({
-      ctx,
-      email: profileEmail,
-      module,
-      skipError: true,
-    })
-  }
-
-  // Aggregated mode (default): keep the legacy union, which flows relying on
-  // the acting user's rights while impersonating depend on - for example a
-  // sales representative completing checkout for a buyer role that has no
-  // can-checkout permission, or an approver retaining approval power.
-  const [authPermissions, profilePermissions] = await Promise.all([
-    getRoleAndPermissionsByEmail({
-      ctx,
-      email: authEmail,
-      module,
-      skipError: true,
-    }),
-    getRoleAndPermissionsByEmail({
-      ctx,
-      email: profileEmail,
-      module,
-      skipError: true,
-    }),
-  ])
-
-  return {
-    permissions: [
-      ...new Set([
-        ...authPermissions.permissions,
-        ...profilePermissions.permissions,
-      ]),
-    ],
-    role: authPermissions.role.id
-      ? authPermissions.role
-      : profilePermissions.role,
+    return aggregatedPermissions
+  } finally {
+    emitTimerTrace(logger, 'checkUserPermission.timings', timer, extra)
   }
 }
 
@@ -962,25 +1072,40 @@ export const getOrganizationsByEmail = async (
     vtex: { logger },
   } = ctx
 
-  const { email } = params
+  const timer = createTimer()
+  const extra: Record<string, unknown> = {}
 
   try {
-    return (await getAllUsersByEmail(null, { email }, ctx)).map(
-      (user: any) => ({
-        clId: user.clId,
-        costId: user.costId,
-        id: user.id,
-        orgId: user.orgId,
-        roleId: user.roleId,
-      })
+    const { email } = params
+
+    const users = await timer.track(
+      'listUsers',
+      getAllUsersByEmail(null, { email }, ctx)
     )
+
+    const listedCount = Array.isArray(users) ? users.length : 0
+
+    extra.listedCount = listedCount
+    extra.searchPagesEstimate =
+      listedCount > 0 ? Math.ceil(listedCount / PAGINATION.pageSize) : 1
+
+    return users.map((user: any) => ({
+      clId: user.clId,
+      costId: user.costId,
+      id: user.id,
+      orgId: user.orgId,
+      roleId: user.roleId,
+    }))
   } catch (error) {
+    extra.error = true
     logger.error({
       error: describeClientError(error),
       message: `getOrganizationsByEmail-error`,
     })
 
     return { status: 'error', message: error }
+  } finally {
+    emitTimerTrace(logger, 'getOrganizationsByEmail.timings', timer, extra)
   }
 }
 

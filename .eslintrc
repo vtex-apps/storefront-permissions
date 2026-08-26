@@ -5,6 +5,15 @@
     "node": true
   },
   "rules": {
-    "@typescript-eslint/no-explicit-any": "off"
-  }
+    "@typescript-eslint/no-explicit-any": "off",
+    "max-params": "off"
+  },
+  "overrides": [
+    {
+      "files": ["node/typings/**/*.ts"],
+      "rules": {
+        "@typescript-eslint/no-unused-vars": "off"
+      }
+    }
+  ]
 }

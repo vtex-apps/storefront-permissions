@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- GraphQL `checkUserPermission` / `getUserByEmail` reuse the memory `active-user-permissions` cache already used by the REST `checkPermissions` route (TTL 5 minutes), so sibling B2B apps (and repeated hops in the same navigation) no longer hit Master Data on every call.
+- `getAllUsers` fetches page 1 with the fields callers need and only requests further pages when `total` exceeds the page size. The previous count probe (`fields: ['id']`) then re-fetched page 1 in full, doubling the cost of every small search — including the `active=true` lookup that returns 0..1 records.
+- `setProfile.timings` is emitted on every transform while diagnosing session latency. Production still has the slow/sampled logger path behind `sessionTimingsSlowThresholdMs`; this always-on trace is temporary.
+
 ## [3.8.0] - 2026-08-26
 
 ## [3.7.0] - 2026-08-26

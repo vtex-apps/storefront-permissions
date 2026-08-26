@@ -97,13 +97,13 @@ describe('checkPermissions', () => {
     const lookups = ctx.clients.masterdata.searchDocumentsWithPaginationInfo
 
     await run(ctx)
-    // One resolution = two Master Data calls (count probe + one page).
-    expect(lookups).toHaveBeenCalledTimes(2)
+    // One resolution = one Master Data call (the result fits in a single page).
+    expect(lookups).toHaveBeenCalledTimes(1)
 
     await run(ctx)
     // This route is called per request by sibling B2B apps, so the second
     // check must be a cache hit.
-    expect(lookups).toHaveBeenCalledTimes(2)
+    expect(lookups).toHaveBeenCalledTimes(1)
   })
 
   it('does not share cached users between accounts', async () => {
@@ -115,10 +115,10 @@ describe('checkPermissions', () => {
 
     expect(
       first.clients.masterdata.searchDocumentsWithPaginationInfo
-    ).toHaveBeenCalledTimes(2)
+    ).toHaveBeenCalledTimes(1)
     expect(
       second.clients.masterdata.searchDocumentsWithPaginationInfo
-    ).toHaveBeenCalledTimes(2)
+    ).toHaveBeenCalledTimes(1)
   })
 
   it('rejects requests without an app or an email', async () => {

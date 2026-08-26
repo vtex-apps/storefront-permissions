@@ -52,7 +52,7 @@ Corollary for reviews: when a change touches a fetcher or anything downstream of
 | `organization`            | Master Data               | both        | 60s        | 2min      | 10000               | orgId                          |
 | `cost-center`             | Master Data               | both        | 60s        | 2min      | **8MB byte budget** | costId                         |
 | `active-user`             | Master Data (paginated)   | both        | 5min¹      | 5min      | 10000               | `email\|b2bCurrentCostCenter`  |
-| `active-user-permissions` | Master Data (paginated)   | memory only | 60s        | —         | 10000               | email                          |
+| `active-user-permissions` | Master Data (paginated)   | memory only | 5min       | —         | 10000               | email                          |
 | `region`                  | checkout REST             | both        | 30min      | 30min     | 10000               | `country\|postalCode\|sc\|geo` |
 | `session-watcher`         | VBase                     | memory only | 60s        | —         | 100                 | `active`                       |
 | `roles`                   | VBase (MD fallback)       | memory only | 60s        | —         | 100                 | `all`                          |
@@ -67,7 +67,7 @@ Corollary for reviews: when a change touches a fetcher or anything downstream of
 - **Session watcher (60s):** it is the operational kill switch; disabling it must bite quickly.
 - **Roles (60s):** authorization data. Role mutations write VBase but cannot invalidate other pods' memory caches, so this TTL is the upper bound on how long a revoked permission stays effective.
 - **Active user:** the TTL is only a safety net. The cache key contains the session's `public.b2bCurrentCostCenter`, which `setCurrentOrganization` writes on every organization switch — so a switch changes the key and misses the cache immediately, regardless of TTL. The TTL covers changes that bypass that mutation, such as an admin editing a user's organizations directly.
-- **`active-user-permissions` (60s, memory only):** the `checkPermissions` route receives only `app` + `email`, so there is no cost center to key on and no key-based invalidation. Short TTL bounds how long stale permissions can survive an organization switch; no VBase layer so nothing extends that window.
+- **`active-user-permissions` (5min, memory only):** the REST `checkPermissions` route and the GraphQL `checkUserPermission` / `getUserByEmail` path receive only `app` + `email`, so there is no cost center to key on and no key-based invalidation. The TTL bounds how long stale permissions can survive an organization switch; no VBase layer so nothing extends that window. REST and GraphQL share this cache, so a burst of sibling-app hops in the same navigation hits Master Data once.
 
 ### Why the cost center cache is bounded by bytes
 

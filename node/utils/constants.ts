@@ -86,10 +86,11 @@ export const ACTIVE_USER_CACHE_TTL_IN_MINUTES = 5
 
 /**
  * Variant used by permission checks, which have no session cost center to key
- * on, so an organization switch cannot invalidate by key. Kept memory-only and
- * short so stale permissions are bounded to this window.
+ * on, so an organization switch cannot invalidate by key. Memory-only, matching
+ * the in-memory half of the session active-user cache. No VBase layer, so this
+ * window is the upper bound on stale permissions after an organization switch.
  */
-export const PERMISSIONS_USER_CACHE_TTL_IN_MS = 60 * 1000
+export const PERMISSIONS_USER_CACHE_TTL_IN_MS = 5 * 60 * 1000
 
 /**
  * The region lookup is a deterministic function of country, postal code, sales

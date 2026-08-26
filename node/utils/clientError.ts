@@ -52,8 +52,7 @@ export const describeClientError = (error: any) => {
     code: error?.code ?? null,
     message: redact(error?.message),
     method: error?.config?.method ?? null,
-    operationId:
-      headers['x-vtex-operation-id'] ?? body?.operationId ?? null,
+    operationId: headers['x-vtex-operation-id'] ?? body?.operationId ?? null,
     path: stripQuery(error?.config?.url),
     requestId: headers['x-request-id'] ?? null,
     // Redacted like `message`: a stack's first line repeats the error message,

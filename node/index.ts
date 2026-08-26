@@ -81,7 +81,7 @@ export default new Service<Clients, RecorderState, ParamsContext>({
     }),
     setProfile: method({
       POST: [
-        withRequestTimings('setProfile.timings'),
+        withRequestTimings('setProfile.timings', { alwaysTrace: true }),
         resolvers.Routes.setProfile,
       ],
     }),

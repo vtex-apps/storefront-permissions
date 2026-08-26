@@ -8,6 +8,8 @@ import {
 } from '../../utils/constants'
 import type { ChangeTeamParams } from '../../utils/metrics/changeTeam'
 import { sendChangeTeamMetric } from '../../utils/metrics/changeTeam'
+import { sendObservabilityEvent } from '../../utils/observabilityEvent'
+import { createTimer } from '../../utils/requestTimings'
 import {
   getAllUsersByEmail,
   getOrganizationsByEmail,
@@ -554,6 +556,8 @@ export const addCostCenterToUser = async (
   }
 }
 
+const B2B_USERS_SEARCH_PAGE_SIZE = 50
+
 export const setActiveUserByOrganization = async (
   _: any,
   params: any,
@@ -564,76 +568,152 @@ export const setActiveUserByOrganization = async (
     vtex: { logger, adminUserAuthToken, sessionToken },
   } = ctx
 
-  let userId = null
-
-  if (adminUserAuthToken) {
-    userId = params.userId
-  } else {
-    const sessionData = await session
-      .getSession(sessionToken as string, ['*'])
-      .then((currentSession: any) => {
-        return currentSession.sessionData
-      })
-      .catch((error: any) => {
-        logger.error({
-          error: describeClientError(error),
-          message: 'orders-getSession-error',
-        })
-
-        return null
-      })
-
-    const currentUserEmail =
-      sessionData?.namespaces?.profile?.email?.value ?? params.email
-
-    const userByEmail = (await getUserByEmailOrgIdAndCostId(
-      masterdata,
-      {
-        email: currentUserEmail,
-        costId: params.costId,
-        orgId: params.orgId,
-      },
-      ctx
-    )) as any
-
-    userId = userByEmail
-      ? userByEmail.id
-      : sessionData?.namespaces?.['storefront-permissions']?.userId?.value
+  const timer = createTimer()
+  const extra: Record<string, unknown> = {
+    costId: params.costId ?? null,
+    orgId: params.orgId ?? null,
   }
-
-  const user = await getUser({ masterdata, params: { userId } })
-
-  if (!user) {
-    throw new Error('User not found')
-  }
-
-  await updateUserFields({
-    fields: { ...user, active: true },
-    id: userId,
-    masterdata,
-  })
-
-  const users = await getAllUsersByEmail(_, { email: user.email }, ctx)
 
   try {
-    const promises = users.map(async (userSecondary: any) => {
-      if (userSecondary.id !== user.id) {
-        await updateUserFields({
-          fields: {
-            ...userSecondary,
-            active: false,
-          },
-          id: userSecondary.id,
+    let userId = null
+
+    if (adminUserAuthToken) {
+      userId = params.userId
+    } else {
+      const sessionData = await timer.track(
+        'getSession',
+        session
+          .getSession(sessionToken as string, ['*'])
+          .then((currentSession: any) => {
+            return currentSession.sessionData
+          })
+          .catch((error: any) => {
+            logger.error({
+              error: describeClientError(error),
+              message: 'orders-getSession-error',
+            })
+
+            return null
+          })
+      )
+
+      const currentUserEmail =
+        sessionData?.namespaces?.profile?.email?.value ?? params.email
+
+      const userByEmail = (await timer.track(
+        'getUserByEmailOrgIdAndCostId',
+        getUserByEmailOrgIdAndCostId(
           masterdata,
-        })
-      }
+          {
+            costId: params.costId,
+            email: currentUserEmail,
+            orgId: params.orgId,
+          },
+          ctx
+        )
+      )) as any
+
+      userId = userByEmail
+        ? userByEmail.id
+        : sessionData?.namespaces?.['storefront-permissions']?.userId?.value
+    }
+
+    const user = await timer.track(
+      'getUser',
+      getUser({ masterdata, params: { userId } })
+    )
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    extra.costId = user.costId
+    extra.orgId = user.orgId
+    extra.userId = user.id
+
+    await timer.track(
+      'activate',
+      updateUserFields({
+        fields: { ...user, active: true },
+        id: userId,
+        masterdata,
+      })
+    )
+
+    const users = await timer.track(
+      'listUsers',
+      getAllUsersByEmail(_, { email: user.email }, ctx)
+    )
+
+    const listed = Array.isArray(users) ? users : []
+    const deactivateTargets = listed.filter(
+      (userSecondary: any) => userSecondary.id !== user.id
+    )
+
+    extra.currentlyActiveCount = listed.filter(
+      (userSecondary: any) => userSecondary.active
+    ).length
+    extra.deactivateWrites = deactivateTargets.length
+    extra.listedCount = listed.length
+    extra.searchPagesEstimate =
+      listed.length > 0
+        ? Math.ceil(listed.length / B2B_USERS_SEARCH_PAGE_SIZE)
+        : 1
+
+    try {
+      await timer.track(
+        'deactivateOthers',
+        Promise.all(
+          deactivateTargets.map((userSecondary: any) =>
+            updateUserFields({
+              fields: {
+                ...userSecondary,
+                active: false,
+              },
+              id: userSecondary.id,
+              masterdata,
+            })
+          )
+        )
+      )
+    } catch (error) {
+      logger.error({
+        error: describeClientError(error),
+        message: 'setActiveUserById.error',
+      })
+    }
+  } finally {
+    const totalMs = timer.totalMs()
+    const steps = Object.keys(timer.timings)
+    const slowestStep = steps.reduce(
+      (slowest, step) =>
+        timer.timings[step] > (timer.timings[slowest] ?? -1) ? step : slowest,
+      steps[0] ?? ''
+    )
+
+    // Org switch is rare enough to log every call. No email: the listedCount
+    // vs deactivateWrites vs currentlyActiveCount is what confirms the MD
+    // fan-out (full scan + N-1 entire-document writes).
+    logger.info({
+      costId: extra.costId ?? null,
+      currentlyActiveCount: extra.currentlyActiveCount ?? 0,
+      deactivateWrites: extra.deactivateWrites ?? 0,
+      listedCount: extra.listedCount ?? 0,
+      message: 'setActiveUserByOrganization.timings',
+      orgId: extra.orgId ?? null,
+      searchPagesEstimate: extra.searchPagesEstimate ?? 0,
+      slowestStep,
+      slowestStepMs: timer.timings[slowestStep] ?? 0,
+      timings: timer.timings,
+      totalMs,
+      userId: extra.userId ?? null,
     })
 
-    await Promise.all(promises)
-  } catch (error) {
-    logger.error({
-      error: describeClientError(error),
-      message: 'setActiveUserById.error',
+    sendObservabilityEvent(ctx, 'set-active-user-by-organization', {
+      currentlyActiveCount: Number(extra.currentlyActiveCount ?? 0),
+      deactivateWrites: Number(extra.deactivateWrites ?? 0),
+      listedCount: Number(extra.listedCount ?? 0),
+      totalMs,
     })
   }
 }
