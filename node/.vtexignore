@@ -3,3 +3,5 @@ node_modules/
 .eslintrc
 .gitignore
 README.md
+__tests__/
+jest.config.js

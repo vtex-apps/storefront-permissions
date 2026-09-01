@@ -40,7 +40,7 @@ Save. Changes can take up to the app settings cache TTL (see `COST_CENTER_ADDRES
 The session transform is called by the session backend. You can also call it directly for debugging (same body shape the session sends):
 
 - **URL:** `POST https://{workspace}--{account}.myvtex.com/_v/storefront-permissions/session/transform`
-- **Headers:** Same as a normal storefront request (cookies/session as needed; the route is public but the handler uses the request body).
+- **Headers:** Same as a normal storefront request (cookies/session as needed).
 - **Body (JSON):** Session-like payload, e.g.:
 
 ```json

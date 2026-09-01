@@ -1,14 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { removeVersionFromAppId } from '@vtex/api'
 
+import { getCachedActiveUserForPermissions } from '../../services/activeUserCache'
 import { getCachedAppSettings } from '../../services/appSettingsCache'
 import type { GetOrganizationsPaginatedByEmailResponse } from '../../typings/custom'
 import { currentSchema } from '../../utils'
+import { describeClientError } from '../../utils/clientError'
 import {
   CUSTOMER_REQUIRED_FIELDS,
   CUSTOMER_SCHEMA_NAME,
 } from '../../utils/constants'
 import GraphQLError from '../../utils/GraphQLError'
+import type { Timer } from '../../utils/requestTimings'
+import { createTimer, emitTimerTrace } from '../../utils/requestTimings'
 import { getRole } from './Roles'
 
 const config: any = currentSchema('b2b_users')
@@ -17,6 +21,19 @@ const PAGINATION = {
   page: 1,
   pageSize: 50,
 }
+
+const USER_SEARCH_FIELDS = [
+  'id',
+  'roleId',
+  'clId',
+  'email',
+  'name',
+  'orgId',
+  'costId',
+  'userId',
+  'canImpersonate',
+  'active',
+]
 
 // This function checks if given email is an user part of a buyer org.
 export const isUserPartOfBuyerOrg = async (email: string, ctx: Context) => {
@@ -76,53 +93,52 @@ export const getAllUsers = async ({
   where?: string
 }) => {
   try {
-    const initialResp = await masterdata.searchDocumentsWithPaginationInfo({
+    // Fetch page 1 with the fields callers need. When the result fits in one
+    // page (the active-user path is 0..1 records; most emails hold a handful)
+    // this is the only Master Data round-trip. The previous count probe
+    // (`fields: ['id']`) then re-fetched page 1 in full, doubling the cost of
+    // every small search.
+    const firstPage = await masterdata.searchDocumentsWithPaginationInfo({
       dataEntity: config.name,
-      fields: ['id'],
+      fields: USER_SEARCH_FIELDS,
       pagination: { page: 1, pageSize: PAGINATION.pageSize },
       schema: config.version,
+      sort: 'id asc',
       ...(where ? { where } : {}),
     })
 
-    const totalItems = initialResp.pagination.total
-    const totalPages = Math.ceil(totalItems / PAGINATION.pageSize)
+    const users: any[] = [...(firstPage.data ?? [])]
+    const totalPages = Math.ceil(
+      (firstPage.pagination?.total ?? 0) / PAGINATION.pageSize
+    )
 
-    const requests = Array.from(
-      { length: totalPages },
+    if (totalPages <= 1) {
+      return users
+    }
+
+    const remaining = Array.from(
+      { length: totalPages - 1 },
       (_, i) => async () =>
         masterdata.searchDocumentsWithPaginationInfo({
           dataEntity: config.name,
-          fields: [
-            'id',
-            'roleId',
-            'clId',
-            'email',
-            'name',
-            'orgId',
-            'costId',
-            'userId',
-            'canImpersonate',
-            'active',
-          ],
-          pagination: { page: i + 1, pageSize: PAGINATION.pageSize },
+          fields: USER_SEARCH_FIELDS,
+          pagination: { page: i + 2, pageSize: PAGINATION.pageSize },
           schema: config.version,
           sort: 'id asc',
           ...(where ? { where } : {}),
         })
     )
 
-    const responses = await processChunks(requests)
+    const responses = await processChunks(remaining)
 
-    const users = responses.reduce((acc: any[], resp: { data: any }) => {
+    return responses.reduce((acc: any[], resp: { data: any }) => {
       acc.push(...resp.data)
 
       return acc
-    }, [])
-
-    return users
+    }, users)
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getAllUsersByEmail-error',
     })
     throw new Error(error)
@@ -135,7 +151,7 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
     vtex: { logger },
   } = ctx
 
-  const { email, orgId, costId } = params
+  const { email, orgId, costId, active } = params
 
   let where = `email=${email}`
 
@@ -145,6 +161,10 @@ export const getAllUsersByEmail = async (_: any, params: any, ctx: Context) => {
 
   if (costId) {
     where += ` AND costId=${costId}`
+  }
+
+  if (active !== undefined) {
+    where += ` AND active=${active}`
   }
 
   return getAllUsers({ masterdata, logger, where })
@@ -160,10 +180,113 @@ export const getActiveUserByEmail = async (
   } = ctx
 
   try {
-    const users = await getAllUsersByEmail(null, params, ctx)
-    const activeUser = users.find((user: any) => user.active)
+    // Fast path: setActiveUserByOrganization keeps at most one record active
+    // per email, so filtering in Master Data returns 0..1 records in a single
+    // call. Scanning every record for the email instead (3+ pages for
+    // multi-organization users) is both slower and unsafe: whenever the
+    // paginated scan misses the active row, a `users[0]` fallback lands the
+    // shopper in an arbitrary organization.
+    const activeUsers = await getAllUsersByEmail(
+      null,
+      { ...params, active: true },
+      ctx
+    )
 
-    const userFound = activeUser || users[0]
+    if (activeUsers.length > 1) {
+      // Data corruption (e.g. a race between two organization switches).
+      // getAllUsers sorts by id, so picking the first is still deterministic.
+      logger.warn({
+        email: params.email,
+        message: 'getActiveUserByEmail-multipleActiveRecords',
+        recordIds: activeUsers.map((user: any) => user.id),
+      })
+    }
+
+    let [userFound] = activeUsers
+
+    // No explicit selection, but the session already carries an organization
+    // from a previous transform: keep it. Without this the resolution below is
+    // re-derived on every transform. For a shopper holding many records the
+    // scan below is not stable, so re-deriving lets the organization change
+    // between requests: stickiness breaks and switching cost center looks like
+    // it does nothing. Targeted lookup, so it stays a single Master Data call.
+    if (!userFound && params.stickyOrgId) {
+      // Match the exact organization *and* cost center the session was
+      // resolved to. A shopper can hold several records in the same
+      // organization, one per cost center, so matching on the organization
+      // alone would pick an arbitrary one and reintroduce the same drift one
+      // level down.
+      const stickyUsers = await getAllUsersByEmail(
+        null,
+        {
+          email: params.email,
+          orgId: params.stickyOrgId,
+          ...(params.stickyCostId ? { costId: params.stickyCostId } : {}),
+        },
+        ctx
+      )
+
+      userFound = stickyUsers[0]
+
+      if (!userFound && params.stickyCostId) {
+        // The cost center is gone, but the organization itself may still be
+        // available to this shopper: stay in it rather than falling all the
+        // way back to an unrelated organization.
+        const sameOrgUsers = await getAllUsersByEmail(
+          null,
+          { email: params.email, orgId: params.stickyOrgId },
+          ctx
+        )
+
+        userFound = sameOrgUsers[0]
+
+        if (userFound) {
+          logger.warn({
+            email: params.email,
+            message: 'getActiveUserByEmail-stickyCostCenterNoLongerAvailable',
+            stickyCostId: params.stickyCostId,
+            stickyOrgId: params.stickyOrgId,
+          })
+        }
+      }
+
+      if (!userFound) {
+        // The user no longer has a record for the organization the session was
+        // pinned to (removed from it, or the record was deleted).
+        logger.warn({
+          email: params.email,
+          message: 'getActiveUserByEmail-stickyOrgNoLongerAvailable',
+          stickyOrgId: params.stickyOrgId,
+        })
+      }
+    }
+
+    if (!userFound) {
+      // Legitimate state: records are created with active=false, so a user who
+      // never picked an organization has none active. Fall back to the first
+      // record of the id-sorted scan, which is deterministic across pods and
+      // requests - an unordered pick would land the shopper in a different
+      // organization from one request to the next.
+      //
+      // Read-only on purpose: which record is active belongs to the shopper
+      // (organization switch) or the account admin, never to this resolution.
+      // setProfile validates the organization downstream and, when it has to
+      // serve a different one, does so for the response only - the session pin
+      // keeps that choice stable across requests without writing anything.
+      const allUsers = await getAllUsersByEmail(null, params, ctx)
+
+      userFound = allUsers[0]
+
+      if (userFound) {
+        logger.warn({
+          email: params.email,
+          fallbackOrgId: userFound.orgId,
+          fallbackRecordId: userFound.id,
+          message: 'getActiveUserByEmail-noActiveRecord',
+          totalRecords: allUsers.length,
+        })
+      }
+    }
 
     if (!userFound) {
       logger.warn({
@@ -179,7 +302,7 @@ export const getActiveUserByEmail = async (
     }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: `getActiveUserByEmail-error`,
     })
 
@@ -194,9 +317,44 @@ export const getActiveUserByEmail = async (
  * @param ctx
  */
 export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
-  const user = await getActiveUserByEmail(_, params, ctx)
+  const email = params?.email
 
-  return [user]
+  if (!email) {
+    const unresolved = await getActiveUserByEmail(_, params, ctx)
+
+    return [unresolved]
+  }
+
+  // Same 5-minute memory cache as the REST checkPermissions route: GraphQL
+  // checkUserPermission is called per request by sibling B2B apps (and often
+  // several times in the same navigation) with only email, so there is no
+  // cost-center key to invalidate on an organization switch.
+  const cachedUser = await getCachedActiveUserForPermissions(
+    ctx,
+    email,
+    async () => {
+      const activeUser: any = await getActiveUserByEmail(_, { email }, ctx)
+
+      if (activeUser?.status === 'error') {
+        throw activeUser.message
+      }
+
+      if (!activeUser?.id) {
+        const notFound: any = new Error('getUserByEmail.userNotFound')
+
+        notFound.userNotFound = true
+        throw notFound
+      }
+
+      return activeUser
+    }
+  ).catch((error) =>
+    error?.userNotFound
+      ? { email: '', name: '' }
+      : { message: error, status: 'error' }
+  )
+
+  return [cachedUser]
 }
 
 export const getUserById = async (_: any, params: any, ctx: Context) => {
@@ -231,7 +389,7 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
     return cl ?? null
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getUserById-error',
     })
 
@@ -290,7 +448,7 @@ export const getB2BUserById = async (_: any, params: any, ctx: Context) => {
     return user
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getUserById-error',
     })
 
@@ -349,7 +507,7 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
         }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getUser-error',
     })
 
@@ -384,7 +542,7 @@ export const getUserByRole = async (_: any, params: any, ctx: Context) => {
     })
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getUserByRole-error',
     })
 
@@ -455,7 +613,7 @@ export const listUsers = async (
     return res
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.listUsers-error',
     })
 
@@ -544,7 +702,7 @@ export const listUsersPaginated = async (
     })
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.listUsersPaginated-error',
     })
 
@@ -557,15 +715,22 @@ const getRoleAndPermissionsByEmail = async ({
   module,
   skipError = false,
   ctx,
+  stepPrefix = '',
+  timer,
 }: {
   email: string
   module: string
   skipError: boolean
   ctx: Context
+  stepPrefix?: string
+  timer?: Timer
 }) => {
   const {
     vtex: { logger },
   } = ctx
+
+  const track = <T>(step: string, promise: Promise<T>): Promise<T> =>
+    timer ? timer.track(`${stepPrefix}${step}`, promise) : promise
 
   const defaultResponse = {
     permissions: [],
@@ -580,7 +745,10 @@ const getRoleAndPermissionsByEmail = async ({
     return defaultResponse
   }
 
-  const userData: any = await getUserByEmail(null, { email }, ctx)
+  const userData: any = await track(
+    'getUserByEmail',
+    getUserByEmail(null, { email }, ctx)
+  )
 
   if (!userData.length && !skipError) {
     logger.warn({
@@ -594,7 +762,10 @@ const getRoleAndPermissionsByEmail = async ({
     return defaultResponse
   }
 
-  const userRole: any = await getRole(null, { id: userData[0].roleId }, ctx)
+  const userRole: any = await track(
+    'getRole',
+    getRole(null, { id: userData[0].roleId }, ctx)
+  )
 
   if (!userRole && !skipError) {
     logger.warn({
@@ -632,117 +803,164 @@ export const checkUserPermission = async (
     vtex: { logger },
   } = ctx
 
-  const { sessionData, sender }: any = ctx.vtex
+  const timer = createTimer()
+  const extra: Record<string, unknown> = {}
 
-  const skipError = params?.skipError ?? false
+  try {
+    const { sessionData, sender }: any = ctx.vtex
 
-  if (!sessionData?.namespaces && !skipError) {
-    logger.warn({
-      message: `checkUserPermission-userNotAuthenticated`,
-    })
-    throw new GraphQLError(
-      'User not authenticated, make sure the query is private',
-      {
-        logLevel: 'warn',
-      }
+    const skipError = params?.skipError ?? false
+
+    if (!sessionData?.namespaces && !skipError) {
+      extra.reason = 'userNotAuthenticated'
+      logger.warn({
+        message: `checkUserPermission-userNotAuthenticated`,
+      })
+      throw new GraphQLError(
+        'User not authenticated, make sure the query is private',
+        {
+          logLevel: 'warn',
+        }
+      )
+    }
+
+    if (!sender && !skipError) {
+      extra.reason = 'senderNotFound'
+      logger.warn({
+        message: `checkUserPermission-senderNotFound`,
+      })
+      throw new GraphQLError(
+        'Sender not available, make sure the query is private',
+        {
+          logLevel: 'warn',
+        }
+      )
+    }
+
+    const authEmail =
+      sessionData?.namespaces?.authentication?.storeUserEmail?.value
+
+    const profileEmail = sessionData?.namespaces?.profile?.email?.value
+
+    const defaultResponse = {
+      permissions: [],
+      role: {
+        id: '',
+        name: '',
+        slug: '',
+      },
+    }
+
+    if (!sender) {
+      extra.reason = 'noSender'
+
+      return defaultResponse
+    }
+
+    const module = removeVersionFromAppId(sender)
+
+    extra.module = module
+
+    // Both impersonation flows (vtex.telemarketing and the Organizations app)
+    // switch the profile namespace to the impersonated user while
+    // authentication.storeUserEmail keeps holding the acting user, so a
+    // divergence between the two is what identifies an impersonation session.
+    const isImpersonating = Boolean(profileEmail) && authEmail !== profileEmail
+
+    extra.impersonating = isImpersonating
+
+    if (!isImpersonating) {
+      const sessionPermissions = await getRoleAndPermissionsByEmail({
+        ctx,
+        email: authEmail,
+        module,
+        skipError: true,
+        timer,
+      })
+
+      extra.permissionCount = sessionPermissions.permissions.length
+      extra.roleId = sessionPermissions.role.id || null
+
+      return sessionPermissions
+    }
+
+    // Only impersonation sessions need the setting, so regular sessions never
+    // pay for reading it (cached for 5 minutes when they do).
+    const appSettings = await timer.track(
+      'getAppSettings',
+      getCachedAppSettings(ctx).catch((error) => {
+        logger.warn({
+          error: describeClientError(error),
+          message: 'checkUserPermission-getAppSettingsError',
+        })
+
+        return {} as Record<string, unknown>
+      })
     )
-  }
 
-  if (!sender && !skipError) {
-    logger.warn({
-      message: `checkUserPermission-senderNotFound`,
-    })
-    throw new GraphQLError(
-      'Sender not available, make sure the query is private',
-      {
-        logLevel: 'warn',
-      }
-    )
-  }
+    // Strict mode: scope the evaluation to the impersonated profile so the
+    // acting user's elevated permissions never reach the storefront.
+    if ((appSettings as any)?.strictImpersonationPermissions) {
+      extra.strictImpersonation = true
 
-  const authEmail =
-    sessionData?.namespaces?.authentication?.storeUserEmail?.value
+      const impersonatedPermissions = await getRoleAndPermissionsByEmail({
+        ctx,
+        email: profileEmail,
+        module,
+        skipError: true,
+        stepPrefix: 'profile.',
+        timer,
+      })
 
-  const profileEmail = sessionData?.namespaces?.profile?.email?.value
+      extra.permissionCount = impersonatedPermissions.permissions.length
+      extra.roleId = impersonatedPermissions.role.id || null
 
-  const defaultResponse = {
-    permissions: [],
-    role: {
-      id: '',
-      name: '',
-      slug: '',
-    },
-  }
+      return impersonatedPermissions
+    }
 
-  if (!sender) {
-    return defaultResponse
-  }
+    extra.strictImpersonation = false
 
-  const module = removeVersionFromAppId(sender)
+    // Aggregated mode (default): keep the legacy union, which flows relying on
+    // the acting user's rights while impersonating depend on - for example a
+    // sales representative completing checkout for a buyer role that has no
+    // can-checkout permission, or an approver retaining approval power.
+    const [authPermissions, profilePermissions] = await Promise.all([
+      getRoleAndPermissionsByEmail({
+        ctx,
+        email: authEmail,
+        module,
+        skipError: true,
+        stepPrefix: 'auth.',
+        timer,
+      }),
+      getRoleAndPermissionsByEmail({
+        ctx,
+        email: profileEmail,
+        module,
+        skipError: true,
+        stepPrefix: 'profile.',
+        timer,
+      }),
+    ])
 
-  // Both impersonation flows (vtex.telemarketing and the Organizations app)
-  // switch the profile namespace to the impersonated user while
-  // authentication.storeUserEmail keeps holding the acting user, so a
-  // divergence between the two is what identifies an impersonation session.
-  const isImpersonating = Boolean(profileEmail) && authEmail !== profileEmail
+    const aggregatedPermissions = {
+      permissions: [
+        ...new Set([
+          ...authPermissions.permissions,
+          ...profilePermissions.permissions,
+        ]),
+      ],
+      role: authPermissions.role.id
+        ? authPermissions.role
+        : profilePermissions.role,
+    }
 
-  if (!isImpersonating) {
-    return getRoleAndPermissionsByEmail({
-      ctx,
-      email: authEmail,
-      module,
-      skipError: true,
-    })
-  }
+    extra.permissionCount = aggregatedPermissions.permissions.length
+    extra.roleId = aggregatedPermissions.role.id || null
 
-  // Only impersonation sessions need the setting, so regular sessions never
-  // pay for reading it (cached for 5 minutes when they do).
-  const appSettings = await getCachedAppSettings(ctx).catch((error) => {
-    logger.warn({ error, message: 'checkUserPermission-getAppSettingsError' })
-
-    return {} as Record<string, unknown>
-  })
-
-  // Strict mode: scope the evaluation to the impersonated profile so the
-  // acting user's elevated permissions never reach the storefront.
-  if ((appSettings as any)?.strictImpersonationPermissions) {
-    return getRoleAndPermissionsByEmail({
-      ctx,
-      email: profileEmail,
-      module,
-      skipError: true,
-    })
-  }
-
-  // Aggregated mode (default): keep the legacy union, which flows relying on
-  // the acting user's rights while impersonating depend on - for example a
-  // sales representative completing checkout for a buyer role that has no
-  // can-checkout permission, or an approver retaining approval power.
-  const [authPermissions, profilePermissions] = await Promise.all([
-    getRoleAndPermissionsByEmail({
-      ctx,
-      email: authEmail,
-      module,
-      skipError: true,
-    }),
-    getRoleAndPermissionsByEmail({
-      ctx,
-      email: profileEmail,
-      module,
-      skipError: true,
-    }),
-  ])
-
-  return {
-    permissions: [
-      ...new Set([
-        ...authPermissions.permissions,
-        ...profilePermissions.permissions,
-      ]),
-    ],
-    role: authPermissions.role.id
-      ? authPermissions.role
-      : profilePermissions.role,
+    return aggregatedPermissions
+  } finally {
+    emitTimerTrace(logger, 'checkUserPermission.timings', timer, extra)
   }
 }
 
@@ -838,7 +1056,7 @@ export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
     })
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: `getUsersByEmail-error`,
     })
     throw new Error(error)
@@ -854,25 +1072,40 @@ export const getOrganizationsByEmail = async (
     vtex: { logger },
   } = ctx
 
-  const { email } = params
+  const timer = createTimer()
+  const extra: Record<string, unknown> = {}
 
   try {
-    return (await getAllUsersByEmail(null, { email }, ctx)).map(
-      (user: any) => ({
-        clId: user.clId,
-        costId: user.costId,
-        id: user.id,
-        orgId: user.orgId,
-        roleId: user.roleId,
-      })
+    const { email } = params
+
+    const users = await timer.track(
+      'listUsers',
+      getAllUsersByEmail(null, { email }, ctx)
     )
+
+    const listedCount = Array.isArray(users) ? users.length : 0
+
+    extra.listedCount = listedCount
+    extra.searchPagesEstimate =
+      listedCount > 0 ? Math.ceil(listedCount / PAGINATION.pageSize) : 1
+
+    return users.map((user: any) => ({
+      clId: user.clId,
+      costId: user.costId,
+      id: user.id,
+      orgId: user.orgId,
+      roleId: user.roleId,
+    }))
   } catch (error) {
+    extra.error = true
     logger.error({
-      error,
+      error: describeClientError(error),
       message: `getOrganizationsByEmail-error`,
     })
 
     return { status: 'error', message: error }
+  } finally {
+    emitTimerTrace(logger, 'getOrganizationsByEmail.timings', timer, extra)
   }
 }
 
@@ -907,7 +1140,7 @@ export const getOrganizationsPaginatedByEmail = async (
     return data
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'getOrganizationsPaginatedByEmail-error',
     })
 
@@ -963,7 +1196,7 @@ export const getUserByEmailOrgIdAndCostId = async (
     return (user[0] as UserByEmail) || null
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: `getUsersByEmail-error`,
     })
     throw new Error(error)

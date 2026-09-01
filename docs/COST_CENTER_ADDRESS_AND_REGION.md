@@ -2,6 +2,8 @@
 
 This document describes how **Storefront Permissions** handles multiple cost center addresses and optional region overwrite in the `setProfile` session transform. It is intended for developers integrating with the session or debugging region/address behavior.
 
+> For the full picture of who resolves the session region — including the `deferRegionToCheckoutSession` handoff that lets `vtex.checkout-session` resolve it instead of this app, and how it composes with the region overwrite described here — see [Region resolution](REGION_RESOLUTION.md).
+
 ## Overview
 
 When a B2B user has a cost center with **multiple addresses**, the storefront may let them choose which address to use for shipping, region (e.g. delivery options, pricing), and document type (e.g. Brazil CPF). In addition, the user may temporarily **override** the region (e.g. “check delivery to another location”) by entering a postal code and country, without changing the cost center’s selected address. This app supports both behaviors in an **opt-in** way via app settings.

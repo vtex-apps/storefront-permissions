@@ -39,6 +39,16 @@ It also allows you to configure available permissions when developing your own a
 
 For B2B session behavior related to **cost center address selection** and **region overwrite** (multiple addresses per cost center, optional region from postal code/country), see [Cost center address and region](COST_CENTER_ADDRESS_AND_REGION.md).
 
+### Technical documentation
+
+| Document | Covers |
+|---|---|
+| [Performance and caching](PERFORMANCE_AND_CACHING.md) | How the `setProfile` session transform is structured, the two-layer cache architecture, TTLs and bounds, multi-tenancy rules, service sizing, and the rules to follow when changing the transform |
+| [Observability](OBSERVABILITY.md) | Every log signal the app emits, the tunable settings, how to debug a slow or failing session transform, and suggested alerts |
+| [Region resolution](REGION_RESOLUTION.md) | Who resolves the session region and from which address: the default flow, the `deferRegionToCheckoutSession` handoff, the shopper-driven region overwrite, and how they compose |
+| [Cost center address and region](COST_CENTER_ADDRESS_AND_REGION.md) | Cost center address selection and the region overwrite input contract |
+| [Sales channel and binding coexistence](SALES_CHANNEL_BINDING_COEXISTENCE.md) | The `deferSalesChannelToBinding` setting and how this app coexists with `vtex.binding-selector` |
+
 For B2B session behavior related to **sales channel coexistence with binding selection** (multi-binding stores using `vtex.binding-selector`), see [Sales channel coexistence with binding selection](SALES_CHANNEL_BINDING_COEXISTENCE.md).
 
 The **Storefront Permissions** app does not contain an interface – it operates “backstage”, storing the predefined roles and serving as a bridge to communicate with other apps in order to check user permissions. If you would like to manage roles and app permissions using the VTEX Admin interface, you must also install the [Storefront Permissions UI](https://developers.vtex.com/vtex-developer-docs/docs/vtex-storefront-permissions-ui) app. As an optional feature, you can install the [Admin Customers](https://developers.vtex.com/vtex-developer-docs/docs/vtex-admin-customers) app for additional customer management capabilities.

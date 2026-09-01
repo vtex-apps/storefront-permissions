@@ -1,8 +1,33 @@
 import type { GetOrganizationByEmailBase } from '../../../typings/custom'
+import { currentSchema } from '../../../utils'
+import { describeClientError } from '../../../utils/clientError'
+import {
+  COST_CENTER_DATA_ENTITY,
+  ORGANIZATION_DATA_ENTITY,
+} from '../../../utils/constants'
+import {
+  isKnownOrganizationStatus,
+  isOrganizationUsable,
+} from '../../../utils/organizationStatus'
 import { getUserById } from '../../Queries/Users'
+
+const B2B_USERS_SCHEMA = currentSchema('b2b_users') as any
+
+const USER_ORG_FIELDS = ['id', 'orgId', 'costId']
+const MD_SEARCH_PAGE_SIZE = 100
+const MD_SEARCH_MAX_PAGES = 5
 
 // Simple in-memory cache with TTL
 const organizationsCache = new Map<string, { data: any; timestamp: number }>()
+
+/**
+ * A record is only worth adopting when the *same* record pairs a usable
+ * organization with a live cost center: its `costId` is what the recovery
+ * stamps on the session, so an active organization whose cost center was
+ * deleted (`costCenterName === null`) would recover into a broken pair.
+ */
+const isAdoptableRecord = (org: GetOrganizationByEmailBase) =>
+  isOrganizationUsable(org.organizationStatus) && org.costCenterName !== null
 
 export class ErrorResponse extends Error {
   public response: {
@@ -20,39 +45,6 @@ export const QUERIES = {
         }
       }
   }`,
-  getCostCenterById: `query Costcenter($id: ID!) {
-      getCostCenterById(id: $id) {
-        paymentTerms {
-          id
-          name
-        }
-        name
-        organization
-        addresses {
-          addressId
-          addressType
-          addressQuery
-          postalCode
-          country
-          receiverName
-          city
-          state
-          street
-          number
-          complement
-          neighborhood
-          geoCoordinates
-          reference
-        }
-        phoneNumber
-        businessDocument
-        stateRegistration
-        sellers {
-          id
-          name
-        }
-      }
-    }`,
   getMarketingTags: `
     query ($costId: ID!) {
       getMarketingTags(costId: $costId){
@@ -60,51 +52,6 @@ export const QUERIES = {
       }
     }
   `,
-  getOrganizationById: `query Organization($id: ID!){
-      getOrganizationById(id: $id){
-        name
-        tradeName
-        status
-        priceTables
-        salesChannel
-        sellers {
-          id
-          name
-        }
-        collections {
-          id
-        }
-      }
-    }`,
-  getOrganizationsByEmail: `query Organizations($email: String!) {
-       getOrganizationsByEmail(email: $email){
-          id
-          organizationStatus
-          costId
-          orgId
-          costCenterName
-       }
-  }`,
-  getOrganizationsPaginatedByEmail: `query OrganizationsPaginated($email: String!, $page: Int, $pageSize: Int) {
-    getOrganizationsPaginatedByEmail(
-      email: $email
-      page: $page
-      pageSize: $pageSize
-    ) {
-      data {
-        id
-        organizationStatus
-        costId
-        orgId
-        costCenterName
-      }
-      pagination {
-        page
-        pageSize
-        total
-      }
-    }
-  }`,
 }
 
 export const generateClUser = async ({
@@ -135,7 +82,10 @@ export const generateClUser = async ({
   }
 
   const clUser = await getUserById(null, { id: clId }, ctx).catch((error) => {
-    logger.error({ message: 'setProfile.getUserByIdError', error })
+    logger.error({
+      error: describeClientError(error),
+      message: 'setProfile.getUserByIdError',
+    })
   })
 
   if (!clUser) {
@@ -168,6 +118,174 @@ export const generateClUser = async ({
   return clUser
 }
 
+interface UserOrgProfile {
+  costId: string
+  id: string
+  orgId: string
+}
+
+const getDocumentOrNull = async <T>(
+  getDocument: () => Promise<T>,
+  logger: Context['vtex']['logger'],
+  message: string
+): Promise<T | null> => {
+  try {
+    return await getDocument()
+  } catch (error) {
+    if ((error as ErrorResponse)?.response?.status !== 404) {
+      logger.error({ error: describeClientError(error), message })
+    }
+
+    return null
+  }
+}
+
+const toUserOrgRow = (
+  user: UserOrgProfile,
+  costCenterNames: Map<string, string | null>,
+  organizationStatuses: Map<string, string | null>
+): GetOrganizationByEmailBase => ({
+  costCenterName: costCenterNames.get(user.costId) ?? null,
+  costId: user.costId,
+  id: user.id,
+  orgId: user.orgId,
+  organizationStatus: organizationStatuses.get(user.orgId) ?? '',
+})
+
+/**
+ * Lists the caller's `b2b_users` profiles for an email and hydrates
+ * `costCenterName` / `organizationStatus` from Master Data (`cost_centers`,
+ * `organizations`). Replaces the GraphQL hop through
+ * `b2b-organizations-graphql` (which called back into this app).
+ */
+export const listUserOrganizationsByEmail = async (
+  email: string,
+  ctx: Context
+): Promise<GetOrganizationByEmailBase[]> => {
+  const {
+    clients: { masterDataExtended },
+    vtex: { logger },
+  } = ctx
+
+  const costCenterNames = new Map<string, string | null>()
+  const organizationStatuses = new Map<string, string | null>()
+  const users: UserOrgProfile[] = []
+
+  const hydrateNewIds = async (batch: UserOrgProfile[]) => {
+    const newCostIds = [
+      ...new Set(
+        batch
+          .map((user) => user.costId)
+          .filter((id) => id && !costCenterNames.has(id))
+      ),
+    ]
+
+    const newOrgIds = [
+      ...new Set(
+        batch
+          .map((user) => user.orgId)
+          .filter((id) => id && !organizationStatuses.has(id))
+      ),
+    ]
+
+    await Promise.all([
+      ...newCostIds.map(async (id) => {
+        const costCenter: { name?: string | null } | null =
+          await getDocumentOrNull(
+            () =>
+              masterDataExtended.getDocumentById(COST_CENTER_DATA_ENTITY, id, [
+                'id',
+                'name',
+              ]),
+            logger,
+            'listUserOrganizationsByEmail.getCostCenter'
+          )
+
+        costCenterNames.set(id, costCenter ? costCenter.name ?? null : null)
+      }),
+      ...newOrgIds.map(async (id) => {
+        const organization: { status?: string | null } | null =
+          await getDocumentOrNull(
+            () =>
+              masterDataExtended.getDocumentById(ORGANIZATION_DATA_ENTITY, id, [
+                'id',
+                'status',
+              ]),
+            logger,
+            'listUserOrganizationsByEmail.getOrganization'
+          )
+
+        organizationStatuses.set(
+          id,
+          organization ? organization.status ?? null : null
+        )
+      }),
+    ])
+  }
+
+  const searchPage = (page: number) =>
+    masterDataExtended.searchDocuments<UserOrgProfile>({
+      dataEntity: B2B_USERS_SCHEMA.name,
+      fields: USER_ORG_FIELDS,
+      pagination: { page, pageSize: MD_SEARCH_PAGE_SIZE },
+      schema: B2B_USERS_SCHEMA.version,
+      where: `email=${email}`,
+    })
+
+  const firstPage = await searchPage(1)
+
+  if (!firstPage?.length) {
+    return []
+  }
+
+  users.push(...firstPage)
+  await hydrateNewIds(firstPage)
+
+  const hasValidCostCenter = users.some(
+    (user) => (costCenterNames.get(user.costId) ?? null) !== null
+  )
+
+  const hasActiveOrg = users.some((user) =>
+    isAdoptableRecord(toUserOrgRow(user, costCenterNames, organizationStatuses))
+  )
+
+  if (
+    firstPage.length === MD_SEARCH_PAGE_SIZE &&
+    (!hasValidCostCenter || !hasActiveOrg)
+  ) {
+    const remainingPages = Array.from(
+      { length: MD_SEARCH_MAX_PAGES - 1 },
+      (_, i) => i + 2
+    )
+
+    const additionalBatches = await Promise.all(
+      remainingPages.map((page) =>
+        searchPage(page).catch((error) => {
+          logger.warn({
+            error: describeClientError(error),
+            message: 'Failed to fetch page',
+            page,
+          })
+
+          return [] as UserOrgProfile[]
+        })
+      )
+    )
+
+    const extraUsers = additionalBatches.reduce(
+      (acc, batch) => acc.concat(batch),
+      [] as UserOrgProfile[]
+    )
+
+    users.push(...extraUsers)
+    await hydrateNewIds(extraUsers)
+  }
+
+  return users.map((user) =>
+    toUserOrgRow(user, costCenterNames, organizationStatuses)
+  )
+}
+
 /**
  * Unified method to get user organizations data with caching.
  * Fetches all organizations for an email and returns relevant data for different validations.
@@ -186,7 +304,11 @@ export const getUserOrganizationsData = async (
   activeOrganization: GetOrganizationByEmailBase | null
 }> => {
   const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
-  const cacheKey = `orgs-${email}`
+
+  // Tenant-scoped: this module-level Map is shared by every account the pod
+  // serves, so a key of just the email would hand one account's organization
+  // ids to the same email on another account.
+  const cacheKey = `${ctx.vtex.account}-${ctx.vtex.workspace}-orgs-${email}`
 
   // Check cache first
   if (useCache) {
@@ -199,83 +321,41 @@ export const getUserOrganizationsData = async (
     }
   }
 
-  const { organizations } = ctx.clients
   const {
     vtex: { logger },
   } = ctx
 
   try {
-    const firstResponse = await organizations.getOrganizationsPaginatedByEmail(
-      email,
-      1,
-      200 // Most users have < 200 orgs, this usually gets everything in one call
-    )
+    const allOrganizations = await listUserOrganizationsByEmail(email, ctx)
 
-    const { data: firstPageData, pagination } =
-      firstResponse?.data?.getOrganizationsPaginatedByEmail || {}
-
-    if (!firstPageData?.length) {
-      return { validCostCenterId: null, activeOrganization: null }
-    }
-
-    const allOrganizations = [...firstPageData]
-
-    // Only paginate if there are more pages and we haven't found both values
-    const totalPages = Math.ceil((pagination?.total || 0) / 200)
-
-    if (totalPages > 1) {
-      // Check if we already have what we need from first page
-      const hasValidCostCenter = firstPageData.some(
-        (org) => org.costCenterName !== null
-      )
-
-      const hasActiveOrg = firstPageData.some(
-        (org) => org.organizationStatus !== 'inactive'
-      )
-
-      // Only fetch more pages if we're missing data
-      if (!hasValidCostCenter || !hasActiveOrg) {
-        // Fetch remaining pages in parallel for better performance
-        const remainingPages = Array.from(
-          { length: Math.min(totalPages - 1, 4) }, // Limit to 5 total pages max
-          (_, i) => i + 2
-        )
-
-        const additionalResponses = await Promise.all(
-          remainingPages.map((page) =>
-            organizations
-              .getOrganizationsPaginatedByEmail(email, page, 200)
-              .catch((error) => {
-                logger.warn({ error, message: 'Failed to fetch page', page })
-
-                return null
-              })
-          )
-        )
-
-        // Combine all results
-        for (const response of additionalResponses) {
-          if (response?.data?.getOrganizationsPaginatedByEmail?.data) {
-            allOrganizations.push(
-              ...response.data.getOrganizationsPaginatedByEmail.data
-            )
-          }
-        }
-      }
-    }
-
-    // Find required values from all organizations
     const validCostCenterOrg = allOrganizations.find(
       (org) => org.costCenterName !== null
     )
 
-    const activeOrg = allOrganizations.find(
-      (org) => org.organizationStatus !== 'inactive'
+    const activeOrg = allOrganizations.find(isAdoptableRecord)
+
+    // Surface a status this app does not know about, so a value introduced by
+    // b2b-organizations shows up here instead of silently being treated as
+    // unusable.
+    const unknownStatuses = Array.from(
+      new Set(
+        allOrganizations
+          .map((org) => org.organizationStatus)
+          .filter((status) => !isKnownOrganizationStatus(status))
+      )
     )
 
+    if (unknownStatuses.length) {
+      logger.warn({
+        email,
+        message: 'getUserOrganizationsData.unknownOrganizationStatus',
+        statuses: unknownStatuses,
+      })
+    }
+
     const result = {
-      validCostCenterId: validCostCenterOrg?.costId || null,
-      activeOrganization: activeOrg || null,
+      activeOrganization: activeOrg ?? null,
+      validCostCenterId: validCostCenterOrg?.costId ?? null,
     }
 
     // Cache the result
@@ -300,11 +380,11 @@ export const getUserOrganizationsData = async (
     return result
   } catch (error) {
     logger.error({
-      error,
-      message: 'getUserOrganizationsData.error',
       email,
+      error: describeClientError(error),
+      message: 'getUserOrganizationsData.error',
     })
 
-    return { validCostCenterId: null, activeOrganization: null }
+    return { activeOrganization: null, validCostCenterId: null }
   }
 }

@@ -1,8 +1,8 @@
 {
   "stack": "nodejs",
-  "memory": 256,
-  "ttl": 60,
-  "timeout": 45,
+  "memory": 1024,
+  "ttl": 300,
+  "timeout": 60,
   "cpu": {
     "type": "shared",
     "value": 5,

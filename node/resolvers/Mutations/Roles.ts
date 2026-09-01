@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentRoleNames, Slugify, toHash } from '../../utils'
+import { describeClientError } from '../../utils/clientError'
 import { ROLES_VBASE_ID } from '../../utils/constants'
 import { groupByRole } from '../Queries/Features'
 import { searchRoles } from '../Queries/Roles'
@@ -38,7 +39,7 @@ export const saveRole = async (_: any, params: any, ctx: Context) => {
     return { status: 'success', message: '', id: data.slug }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Roles.saveRole-error',
     })
 
@@ -138,7 +139,7 @@ export const deleteRole = async (_: any, params: any, ctx: Context) => {
     return { status: 'success', message: '', id: params.id }
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Roles.deleteRole-error',
     })
 

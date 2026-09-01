@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
+import { describeClientError } from '../../utils/clientError'
 import { listRoles } from './Roles'
 
 const config: any = currentSchema('b2b_profiles')
@@ -20,7 +21,7 @@ export const getProfile = async (_: any, params: any, ctx: Context) => {
     })
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getProfile-error',
     })
 
@@ -48,7 +49,7 @@ export const getProfileByRole = async (_: any, params: any, ctx: Context) => {
     return profile
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.getProfileByRole-error',
     })
 
@@ -82,7 +83,7 @@ export const listProfiles = async (_: any, __: any, ctx: Context) => {
     })
   } catch (error) {
     logger.error({
-      error,
+      error: describeClientError(error),
       message: 'Profiles.listProfiles-error',
     })
 

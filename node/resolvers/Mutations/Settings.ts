@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { describeClientError } from '../../utils/clientError'
 import { getAppId } from '../Queries/Settings'
 
 export const sessionWatcher = async (_: any, params: any, ctx: Context) => {
@@ -22,7 +23,7 @@ export const sessionWatcher = async (_: any, params: any, ctx: Context) => {
     .then(() => true)
     .catch((error) => {
       logger.error({
-        error,
+        error: describeClientError(error),
         message: 'sessionWatcher.saveSessionWatcherError',
       })
 
