@@ -53,15 +53,22 @@ export const createTimer = (): Timer => {
  * into it, so timings are emitted even when the handler throws before reaching
  * its final statement. Keyed weakly by the request context, so entries disappear
  * with the request.
+ *
+ * Keyed as `object` rather than `Record<string, unknown>`: the callers pass a
+ * `ServiceContext`, which is an interface with no index signature and therefore
+ * not assignable to a Record. A WeakMap key only has to be an object, so the
+ * wider type is also the accurate one.
  */
-const timers = new WeakMap<Record<string, unknown>, Timer>()
+// eslint-disable-next-line @typescript-eslint/ban-types
+const timers = new WeakMap<object, Timer>()
 
-export const attachTimer = (ctx: Record<string, unknown>, timer: Timer) => {
+// eslint-disable-next-line @typescript-eslint/ban-types
+export const attachTimer = (ctx: object, timer: Timer) => {
   timers.set(ctx, timer)
 }
 
-export const getTimer = (ctx: Record<string, unknown>): Timer | undefined =>
-  timers.get(ctx)
+// eslint-disable-next-line @typescript-eslint/ban-types
+export const getTimer = (ctx: object): Timer | undefined => timers.get(ctx)
 
 export interface LogRequestTimingsArgs {
   extra?: Record<string, unknown>
