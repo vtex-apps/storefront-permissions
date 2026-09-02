@@ -556,8 +556,6 @@ export const addCostCenterToUser = async (
   }
 }
 
-const B2B_USERS_SEARCH_PAGE_SIZE = 50
-
 export const setActiveUserByOrganization = async (
   _: any,
   params: any,
@@ -640,25 +638,42 @@ export const setActiveUserByOrganization = async (
       })
     )
 
-    const users = await timer.track(
-      'listUsers',
-      getAllUsersByEmail(_, { email: user.email }, ctx)
+    /**
+     * Only records that are currently active need a write, so ask Master Data
+     * for those instead of listing everything and filtering here.
+     *
+     * Deactivation used to rewrite every sibling document, which made an
+     * organization switch cost one full-document write per record the shopper
+     * holds - measured on a live account at 63 to 106 writes per switch against
+     * one or two genuinely active records, so ~98% of them set `active: false`
+     * on a record that already had it. Master Data never throttled the burst
+     * (no 429s on this path); it simply takes its time, and `deactivateOthers`
+     * reached 60s - past the CDN's 30s origin timeout, which is what the
+     * shopper saw as an unattributable 504.
+     *
+     * Filtering in the query rather than in memory also drops the read from a
+     * 2-3 page scan to a single page, since the result is 0..2 records.
+     */
+    const activeUsers = await timer.track(
+      'listActiveUsers',
+      getAllUsersByEmail(_, { active: true, email: user.email }, ctx)
     )
 
-    const listed = Array.isArray(users) ? users : []
-    const deactivateTargets = listed.filter(
+    const listedActive = Array.isArray(activeUsers) ? activeUsers : []
+
+    const deactivateTargets = listedActive.filter(
       (userSecondary: any) => userSecondary.id !== user.id
     )
 
-    extra.currentlyActiveCount = listed.filter(
-      (userSecondary: any) => userSecondary.active
-    ).length
+    /**
+     * Expected to be 1 (the record this switch is replacing) or 2 (that record
+     * plus the one just activated, once the search index catches up). Anything
+     * higher means several records were left active, which is the state
+     * `getActiveUserByEmail` resolves by picking the lowest id - so this is the
+     * number to watch for organization switches landing on the wrong org.
+     */
+    extra.activeListedCount = listedActive.length
     extra.deactivateWrites = deactivateTargets.length
-    extra.listedCount = listed.length
-    extra.searchPagesEstimate =
-      listed.length > 0
-        ? Math.ceil(listed.length / B2B_USERS_SEARCH_PAGE_SIZE)
-        : 1
 
     try {
       await timer.track(
@@ -691,17 +706,21 @@ export const setActiveUserByOrganization = async (
       steps[0] ?? ''
     )
 
-    // Org switch is rare enough to log every call. No email: the listedCount
-    // vs deactivateWrites vs currentlyActiveCount is what confirms the MD
-    // fan-out (full scan + N-1 entire-document writes).
+    // Org switch is rare enough to log every call. No email.
+    //
+    // `activeListedCount` replaces the former `listedCount` /
+    // `currentlyActiveCount` / `searchPagesEstimate` triplet, which described a
+    // read that no longer happens: the search is filtered by `active` now, so a
+    // total-record count and a page estimate are no longer available and the
+    // active count is the whole result. Renamed rather than reused, so a field
+    // that used to mean "every record this shopper holds" cannot be read as
+    // that after quietly changing to mean "the active ones".
     logger.info({
+      activeListedCount: extra.activeListedCount ?? 0,
       costId: extra.costId ?? null,
-      currentlyActiveCount: extra.currentlyActiveCount ?? 0,
       deactivateWrites: extra.deactivateWrites ?? 0,
-      listedCount: extra.listedCount ?? 0,
       message: 'setActiveUserByOrganization.timings',
       orgId: extra.orgId ?? null,
-      searchPagesEstimate: extra.searchPagesEstimate ?? 0,
       slowestStep,
       slowestStepMs: timer.timings[slowestStep] ?? 0,
       timings: timer.timings,
@@ -710,9 +729,8 @@ export const setActiveUserByOrganization = async (
     })
 
     sendObservabilityEvent(ctx, 'set-active-user-by-organization', {
-      currentlyActiveCount: Number(extra.currentlyActiveCount ?? 0),
+      activeListedCount: Number(extra.activeListedCount ?? 0),
       deactivateWrites: Number(extra.deactivateWrites ?? 0),
-      listedCount: Number(extra.listedCount ?? 0),
       totalMs,
     })
   }

@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- `setActiveUserByOrganization` asks Master Data for the active records instead of listing every record for the email and rewriting each sibling. Deactivation used to cost one full-document write per record the shopper holds - measured on a live account at 63 to 106 writes per switch against one or two genuinely active records, so roughly 98% of them set `active: false` on a record that already had it. `deactivateOthers` was the slowest step in every sampled call, 25% of switches exceeded 1s and one reached 60.5s, past the CDN's 30s origin timeout: the shopper saw an unattributable `504 Gateway Timeout` from CloudFront while the app kept working for another 30 seconds, so the timings log landed well after the error. Master Data was never throttling - no 429s on this path - it simply takes its time under a 79-way parallel write burst. Filtering in the query rather than in memory also drops the read from a 2-3 page scan to a single page. A switch is now one activation plus 0-2 deactivations. Covered by tests proven to fail against the previous code.
+
+### Changed
+
+- `setActiveUserByOrganization.timings` reports `activeListedCount` and times the read as `listActiveUsers`. This replaces `listedCount`, `currentlyActiveCount` and `searchPagesEstimate`, which described a full scan that no longer happens: with the search filtered by `active`, a total-record count and a page estimate are not available and the active count is the whole result. The fields were renamed rather than reused, so nothing that used to mean "every record this shopper holds" can be read as that after quietly changing meaning. The same rename applies to the `set-active-user-by-organization` analytics event. Dashboards reading the old field names need updating.
+
+### Notes
+
+- Deliberately kept synchronous. `getActiveUserByEmail` documents "at most one active record per email" as an invariant and, when it is broken, picks the lowest id among the active rows - which can be the organization the shopper just left. Making deactivation fire-and-forget would open that window on every switch, and `setCurrentOrganization` triggers a session transform immediately afterwards, so the race would be near-certain rather than theoretical (`getActiveUserByEmail-multipleActiveRecords` already fires on real traffic). After the filter there is nothing left worth deferring: 1-2 writes cost about 200ms.
+
 ## [3.8.1] - 2026-08-26
 
 ### Changed
