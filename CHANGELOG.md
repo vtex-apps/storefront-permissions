@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.8.3-beta.1] - 2026-09-04
+
+### Fixed
+
+- `setCurrentOrganization` guards the profile namespace instead of destructuring it. The sold-to switch runs against exactly the session B2BTEAM-3852 describes: when the transform returns early without an email, `namespaces.profile` is absent and `const { email: { value: email } } = sessionData.namespaces.profile` threw `Cannot read properties of undefined (reading 'profile')`. Observed on live traffic immediately after an empty transform. That TypeError was the worst available outcome - it aborted the switch with a stack trace naming no organization, no cost center and no namespace, so the failure was unreadable in the logs and indistinguishable from any other crash on the route. It now answers `{ status: 'error' }` and logs `setCurrentOrganization.error.noSessionEmail` with `orgId`, `costId`, `hasSessionData` and `sessionNamespaces`, which is what lets a failed switch be matched against the transform's own `earlyReturn` in the same window. The request failed either way; only its legibility changes.
+- `setCurrentPriceTable` reads the `storefront-permissions` namespace through optional chaining rather than destructuring it, so the incomplete session reaches the named `noOrgContext` error the function already had instead of a TypeError one line earlier. Same for `accountName.value` in the change-team metric, which lacked a `?.` on the final hop.
+
 ## [3.8.3-beta.0] - 2026-09-04
 
 ### Added

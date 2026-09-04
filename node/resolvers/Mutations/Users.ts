@@ -754,9 +754,31 @@ export const setCurrentOrganization = async (
 
   const { orgId, costId } = params
 
-  const {
-    email: { value: email },
-  } = sessionData.namespaces.profile
+  /**
+   * Guarded rather than destructured. This is the sold-to switch, and the
+   * session it runs against is the very thing B2BTEAM-3852 is about: when the
+   * transform returns early without an email, `namespaces.profile` is absent
+   * and the bare destructure threw `Cannot read properties of undefined
+   * (reading 'profile')`. That TypeError is the worst possible outcome here -
+   * it aborts the switch with a stack trace that names no organization, no
+   * cost center and no namespace, so the failure is unreadable in the logs
+   * and indistinguishable from any other crash on this route.
+   */
+  const email = sessionData?.namespaces?.profile?.email?.value
+
+  if (!email) {
+    const error = 'No profile email in session for the current user'
+
+    logger.warn({
+      costId: costId ?? null,
+      hasSessionData: !!sessionData,
+      message: 'setCurrentOrganization.error.noSessionEmail',
+      orgId: orgId ?? null,
+      sessionNamespaces: Object.keys(sessionData?.namespaces ?? {}),
+    })
+
+    return { status: 'error', message: error }
+  }
 
   const user = await getUserByEmailOrgIdAndCostId(
     _,
@@ -788,7 +810,7 @@ export const setCurrentOrganization = async (
     )
 
     const metricParams: ChangeTeamParams = {
-      account: sessionData?.namespaces?.account?.accountName.value,
+      account: sessionData?.namespaces?.account?.accountName?.value,
       userId: user.id,
       userEmail: email,
       orgId,
@@ -834,13 +856,14 @@ export const setCurrentPriceTable = async (
     // allow setting user priceTable back to null
     if (priceTable === undefined) priceTable = null
 
-    // Get current user's organization
-    const {
-      'storefront-permissions': {
-        organization: { value: orgId },
-        userId: { value: userId },
-      },
-    } = sessionData.namespaces
+    // Get current user's organization. Guarded for the same reason as
+    // setCurrentOrganization above: the incomplete session under investigation
+    // reaches here too, and the check below already has a named error for it.
+    const orgId =
+      sessionData?.namespaces?.['storefront-permissions']?.organization?.value
+
+    const userId =
+      sessionData?.namespaces?.['storefront-permissions']?.userId?.value
 
     if (!orgId || !userId) {
       const error = 'User not properly authenticated with organization context'
