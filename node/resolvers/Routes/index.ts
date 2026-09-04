@@ -214,6 +214,21 @@ export const Routes = {
     )
 
     if (!isWatchActive) {
+      /**
+       * Which of the four early returns a transform took, when it takes one.
+       *
+       * Without this they are indistinguishable in the timings log: none of
+       * them records a step of its own, so all four produce the same
+       * `{ getSessionWatcher: 0 }, totalMs: 1` line. Diagnosing B2BTEAM-3852
+       * needed comparing that line against other transforms in the same minute
+       * to rule out the kill switch, and even then only by inference. The
+       * distinction matters because the consequences differ: a session left
+       * without an email takes the whole B2B storefront down for that shopper
+       * (empty nav, `userNotAuthenticated`, sold-to switch stuck), while the
+       * watcher being off is the intended behaviour on a non-B2B account.
+       */
+      timer.meta.extra = { ...timer.meta.extra, earlyReturn: 'watcherOff' }
+
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -270,6 +285,9 @@ export const Routes = {
       body?.['storefront-permissions']?.costcenter?.value || null
 
     if (ignoreB2B) {
+      // The storefront asked for B2B to stand down on this request.
+      timer.meta.extra = { ...timer.meta.extra, earlyReturn: 'b2bDisabled' }
+
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -319,6 +337,22 @@ export const Routes = {
     }
 
     if (!email) {
+      /**
+       * The damaging one, and the reason this instrumentation exists. An
+       * anonymous visitor lands here legitimately, but so does an authenticated
+       * shopper whose session reached the transform without
+       * `authentication.storeUserEmail` - and for them the empty response takes
+       * down the whole B2B storefront. `hasStoreToken` separates the two: a
+       * valid store token with no session email is the broken case, since it
+       * means the shopper *is* authenticated and the session simply did not
+       * carry it through.
+       */
+      timer.meta.extra = {
+        ...timer.meta.extra,
+        earlyReturn: 'noSessionEmail',
+        hasStoreToken: !!ctx.vtex.storeUserAuthToken,
+      }
+
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -430,6 +464,18 @@ export const Routes = {
     response['storefront-permissions'].userId.value = user?.id
 
     if (!user?.orgId || !user?.costId) {
+      /**
+       * The shopper was identified but has no usable B2B record. Distinguished
+       * from `noSessionEmail` because the fix is different: this one points at
+       * the account's Master Data (no record, or one without an organization),
+       * not at the session.
+       */
+      timer.meta.extra = {
+        ...timer.meta.extra,
+        earlyReturn: 'noActiveOrgOrCostCenter',
+        hasUser: !!user?.id,
+      }
+
       ctx.response.body = response
       ctx.response.status = 200
 

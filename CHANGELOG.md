@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.8.3-beta.0] - 2026-09-04
+
+### Added
+
+- `setProfile.timings` reports `earlyReturn` naming which of the four early exits a session transform took: `watcherOff`, `b2bDisabled`, `noSessionEmail` or `noActiveOrgOrCostCenter`. None of them records a step of its own, so until now all four produced an identical `{ getSessionWatcher: 0 }, totalMs: 1` line and could only be told apart by comparing a transform against its neighbours in the same minute - by inference, and only where neighbouring lines happened to survive the pipeline's 1:20 sampling. The distinction matters because the consequences differ: the watcher being off is the intended behaviour on a non-B2B account, while a session arriving without `authentication.storeUserEmail` takes the whole B2B storefront down for that shopper (empty organization selector, `userNotAuthenticated` from `checkUserPermission`, sold-to switch stuck) despite the shopper being authenticated.
+- Two qualifiers on the returns where the same exit covers both a healthy and a broken case. `noSessionEmail` carries `hasStoreToken`: an anonymous visitor legitimately has neither, so a valid store token with no session email is the broken case and is now self-evident from one line. `noActiveOrgOrCostCenter` carries `hasUser`, separating a shopper missing from Master Data from an impersonation target that resolves but names no organization.
+
 ## [3.8.2] - 2026-09-02
 
 ### Fixed

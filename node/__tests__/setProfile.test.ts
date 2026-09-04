@@ -2,13 +2,17 @@
 import { json } from 'co-body'
 
 import { sendMetric } from '../clients/metrics'
-import { setActiveUserByOrganization } from '../resolvers/Mutations/Users'
+import {
+  getUser,
+  setActiveUserByOrganization,
+} from '../resolvers/Mutations/Users'
 import { Routes } from '../resolvers/Routes'
 import {
   generateClUser,
   getUserOrganizationsData,
 } from '../resolvers/Routes/utils'
 import { toHash } from '../utils'
+import { attachTimer, createTimer } from '../utils/requestTimings'
 
 jest.mock('co-body', () => ({ json: jest.fn() }))
 
@@ -1396,5 +1400,124 @@ describe('setProfile', () => {
     expect(ctx.response.status).toBe(200)
     // Proves the fire-and-forget update genuinely started while still pending.
     expect(ctx.clients.checkout.updateOrderFormProfile).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * All four early returns emit the same `{ getSessionWatcher: 0 }, totalMs: 1`
+ * timings line, so the log cannot say which one a transform took. Diagnosing
+ * B2BTEAM-3852 - an authenticated shopper whose session arrived without
+ * `authentication.storeUserEmail`, taking the whole B2B storefront down for
+ * them - required comparing that line against neighbouring transforms to rule
+ * out the watcher kill switch, and even then only by inference.
+ */
+describe('setProfile early-return instrumentation', () => {
+  const runWithTimer = async (ctx: any, body?: any) => {
+    const timer = createTimer()
+
+    attachTimer(ctx, timer)
+    await run(ctx, body)
+
+    return timer.meta.extra ?? {}
+  }
+
+  it('names the watcher kill switch', async () => {
+    const extra = await runWithTimer(makeCtx({ sessionWatcherActive: false }))
+
+    expect(extra).toMatchObject({ earlyReturn: 'watcherOff' })
+  })
+
+  it('names the storefront opting out of B2B', async () => {
+    const extra = await runWithTimer(makeCtx(), {
+      ...makeBody(),
+      public: { removeB2B: { value: true } },
+    })
+
+    expect(extra).toMatchObject({ earlyReturn: 'b2bDisabled' })
+  })
+
+  /**
+   * An anonymous visitor: no session email and no store token. Legitimate, and
+   * `hasStoreToken` is what separates it from the damaging case below without
+   * needing a second log line or a cross-app join.
+   */
+  it('names a session without an email, and reports no store token', async () => {
+    const extra = await runWithTimer(makeCtx(), {
+      ...makeBody(),
+      authentication: {},
+    })
+
+    expect(extra).toMatchObject({
+      earlyReturn: 'noSessionEmail',
+      hasStoreToken: false,
+    })
+  })
+
+  it('flags a session without an email that nonetheless carries a store token', async () => {
+    const ctx = makeCtx()
+
+    ctx.vtex.storeUserAuthToken = 'store-token'
+
+    const extra = await runWithTimer(ctx, {
+      ...makeBody(),
+      authentication: {},
+    })
+
+    expect(extra).toMatchObject({
+      earlyReturn: 'noSessionEmail',
+      hasStoreToken: true,
+    })
+  })
+
+  /**
+   * Identified shopper, no usable B2B record. Kept apart from
+   * `noSessionEmail` because the fix lands elsewhere: the account's Master
+   * Data, not the session.
+   */
+  it('names a shopper with no active organization, and reports whether a record was found', async () => {
+    const extra = await runWithTimer(makeCtx({ userDocs: [] }))
+
+    expect(extra).toMatchObject({
+      earlyReturn: 'noActiveOrgOrCostCenter',
+      hasUser: false,
+    })
+  })
+
+  /**
+   * `hasUser` is only ever true on the impersonation path: the ordinary lookup
+   * deliberately throws a record without an organization away as
+   * `userNotFound` rather than caching it, so `user` is still null by the time
+   * this return is reached. Impersonation skips that lookup and assigns `user`
+   * directly, which is exactly the case the flag is there to separate - a
+   * bad impersonation target rather than a shopper missing from Master Data.
+   */
+  it('reports hasUser when impersonating a record that names no organization', async () => {
+    ;(getUser as jest.Mock).mockResolvedValueOnce({
+      clId: 'cl9',
+      costId: null,
+      email: 'buyer@test.com',
+      id: 'u9',
+      name: 'Buyer',
+      orgId: null,
+      userId: 'store-user-9',
+    })
+
+    const extra = await runWithTimer(makeCtx(), {
+      ...makeBody(),
+      public: { impersonate: { value: 'u9' } },
+    })
+
+    expect(extra).toMatchObject({
+      earlyReturn: 'noActiveOrgOrCostCenter',
+      hasUser: true,
+    })
+  })
+
+  it('leaves earlyReturn unset when the transform runs to completion', async () => {
+    const extra = await runWithTimer(makeCtx())
+
+    expect(extra.earlyReturn).toBeUndefined()
+    // Proves the run really was the full path, not a fifth silent exit.
+    expect(extra).toMatchObject({ orgId: 'org1' })
   })
 })
