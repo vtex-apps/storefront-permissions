@@ -165,6 +165,29 @@ export const Routes = {
     // both outcomes. The fallback keeps this callable outside that chain.
     const timer = getTimer(ctx) ?? createTimer()
 
+    /**
+     * Recorded on every transform, not only the ones that return without an
+     * email, because on its own the false case proves nothing.
+     *
+     * The first beta reported this flag only on the `noSessionEmail` return, to
+     * separate an anonymous visitor (no email, no token - legitimate) from an
+     * authenticated shopper whose session lost the email (the B2BTEAM-3852
+     * defect). It came back false 508 times out of 508, which reads as "all
+     * anonymous" but is indistinguishable from "this route never receives a
+     * store token at all": `setProfile` is called by the session service rather
+     * than by the browser, so whether the cookie reaches it was never verified.
+     * With no execution recording a true, there was no control to tell a
+     * working flag from a dead one.
+     *
+     * Reported unconditionally, the transforms that do resolve an email supply
+     * that control: a true on any of them proves the flag works, and its
+     * absence across a busy day proves it does not.
+     */
+    timer.meta.extra = {
+      ...timer.meta.extra,
+      hasStoreToken: !!ctx.vtex.storeUserAuthToken,
+    }
+
     const response: any = {
       public: {
         facets: {
@@ -342,15 +365,14 @@ export const Routes = {
        * anonymous visitor lands here legitimately, but so does an authenticated
        * shopper whose session reached the transform without
        * `authentication.storeUserEmail` - and for them the empty response takes
-       * down the whole B2B storefront. `hasStoreToken` separates the two: a
-       * valid store token with no session email is the broken case, since it
-       * means the shopper *is* authenticated and the session simply did not
-       * carry it through.
+       * down the whole B2B storefront. `hasStoreToken`, recorded at the top of
+       * the handler, separates the two: a valid store token with no session
+       * email is the broken case, since it means the shopper *is*
+       * authenticated and the session simply did not carry it through.
        */
       timer.meta.extra = {
         ...timer.meta.extra,
         earlyReturn: 'noSessionEmail',
-        hasStoreToken: !!ctx.vtex.storeUserAuthToken,
       }
 
       ctx.response.body = response
@@ -582,7 +604,10 @@ export const Routes = {
 
     // Best-effort context, so a request that throws before finishing still
     // reports which organization it was serving. Refined at the end.
+    // Spread, not replaced: this used to overwrite the whole object and drop
+    // anything recorded earlier in the handler.
     timer.meta.extra = {
+      ...timer.meta.extra,
       hasOrderFormId: !!orderFormId,
       hashChanged,
       orgId: user.orgId,
@@ -1376,6 +1401,7 @@ export const Routes = {
     Promise.all(promises)
 
     timer.meta.extra = {
+      ...timer.meta.extra,
       costId: user.costId,
       hasOrderFormId: !!orderFormId,
       hashChanged,

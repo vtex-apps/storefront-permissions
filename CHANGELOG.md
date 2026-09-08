@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.8.3-beta.2] - 2026-09-08
+
+### Fixed
+
+- `hasStoreToken` is recorded on every session transform instead of only on the `noSessionEmail` return. Reported only on that return, the flag could not answer the question it was added for: it came back false on all 508 sampled returns over three days, which reads as "every one of these was an anonymous visitor" but is indistinguishable from "this route never receives a store token at all" - `setProfile` is called by the session service rather than by the browser, and whether the cookie reaches it was never verified. With no execution ever recording a true there was no control to tell a working flag from a dead one. The transforms that do resolve an email now supply that control: a true on any of them proves the flag works, and its absence across a busy day proves it does not.
+- The two `timer.meta.extra` assignments on the full path replaced the object instead of spreading it, discarding anything recorded earlier in the handler. Latent until now - nothing was set before them - but it silently dropped `hasStoreToken` the moment it was, and would have done the same to any later field.
+
 ## [3.8.3-beta.1] - 2026-09-04
 
 ### Fixed

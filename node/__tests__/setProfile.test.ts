@@ -1513,6 +1513,42 @@ describe('setProfile early-return instrumentation', () => {
     })
   })
 
+  /**
+   * The control that the first beta lacked. `hasStoreToken` came back false on
+   * every one of 508 sampled `noSessionEmail` returns, which reads as "all
+   * anonymous" but is indistinguishable from "this route never receives a
+   * store token": `setProfile` is called by the session service, not the
+   * browser. Recording it on the paths that do resolve an email is what makes
+   * a false on the anonymous ones mean anything.
+   */
+  it('records the store token on every path, not only the ones without an email', async () => {
+    const withToken = makeCtx()
+
+    withToken.vtex.storeUserAuthToken = 'store-token'
+
+    expect(await runWithTimer(withToken)).toMatchObject({
+      hasStoreToken: true,
+      orgId: 'org1',
+    })
+
+    // Present, not merely absent, when there is no token - so a missing field
+    // reads as an old version rather than as a shopper without a token.
+    expect(await runWithTimer(makeCtx())).toMatchObject({
+      hasStoreToken: false,
+    })
+  })
+
+  it('records it even on the earliest return, before the body is read', async () => {
+    const ctx = makeCtx({ sessionWatcherActive: false })
+
+    ctx.vtex.storeUserAuthToken = 'store-token'
+
+    expect(await runWithTimer(ctx)).toMatchObject({
+      earlyReturn: 'watcherOff',
+      hasStoreToken: true,
+    })
+  })
+
   it('leaves earlyReturn unset when the transform runs to completion', async () => {
     const extra = await runWithTimer(makeCtx())
 
