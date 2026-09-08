@@ -203,12 +203,21 @@ describe('setActiveUserByOrganization', () => {
   })
 
   /**
-   * The activation write lands before this read, so once the search index has
-   * caught up the target comes back in the active set. It must be excluded by
-   * id - rewriting it with `active: false` would undo the switch.
+   * The activation write lands before this read, so the target comes back in
+   * the active set. It must be excluded by id - rewriting it with
+   * `active: false` would undo the switch.
+   *
+   * The inactive sibling is what makes this discriminating: exclusion by id
+   * alone behaves the same before and after the filter, so without a record
+   * that only an unfiltered read would return, the assertion below holds
+   * against either implementation.
    */
   it('never deactivates the record it just activated', async () => {
-    seedRecords([{ ...targetUser, active: true }, sibling('u1', true)])
+    seedRecords([
+      { ...targetUser, active: true },
+      sibling('u1', true),
+      sibling('u3', false),
+    ])
 
     const ctx = makeCtx()
 
