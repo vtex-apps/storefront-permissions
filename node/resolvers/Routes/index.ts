@@ -536,7 +536,11 @@ export const Routes = {
 
     // Best-effort context, so a request that throws before finishing still
     // reports which organization it was serving. Refined at the end.
+    // Spread, not replaced: replacing the object discards anything recorded
+    // earlier in the handler. Nothing sets a field before this today, so the
+    // bug is latent - but it would silently drop the first one that does.
     timer.meta.extra = {
+      ...timer.meta.extra,
       hasOrderFormId: !!orderFormId,
       hashChanged,
       orgId: user.orgId,
@@ -1330,6 +1334,7 @@ export const Routes = {
     Promise.all(promises)
 
     timer.meta.extra = {
+      ...timer.meta.extra,
       costId: user.costId,
       hasOrderFormId: !!orderFormId,
       hashChanged,

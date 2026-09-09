@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- `setCurrentOrganization` guards the profile namespace instead of destructuring it. `const { email: { value: email } } = sessionData.namespaces.profile` threw `Cannot read properties of undefined (reading 'profile')` whenever the session reached the mutation without that namespace, which is exactly the state a session transform leaves behind when it returns early without an email. Observed on live traffic in three separate captures. The TypeError was the worst available outcome: it aborted the organization switch with a stack trace naming no organization, no cost center and no namespace, so the failure was unreadable in the logs and indistinguishable from any other crash on the route. It now answers `{ status: 'error' }` and logs `setCurrentOrganization.error.noSessionEmail` with `orgId`, `costId`, `hasSessionData` and `sessionNamespaces`. The request failed either way; only its legibility changes. Covered by tests proven to fail against the previous code.
+- `setCurrentPriceTable` reads the `storefront-permissions` namespace through optional chaining rather than destructuring it, so an incomplete session reaches the named `noOrgContext` error the function already had instead of a TypeError one line earlier. Same for `accountName.value` in the change-team metric, which was missing a `?.` on its final hop.
+- The two `timer.meta.extra` assignments on the `setProfile` full path spread the existing object instead of replacing it. Nothing sets a field before them today, so the bug is latent - but it would silently discard the first one that does.
+
 ## [3.8.2] - 2026-09-02
 
 ### Fixed
