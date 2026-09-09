@@ -812,9 +812,29 @@ export const checkUserPermission = async (
     const skipError = params?.skipError ?? false
 
     if (!sessionData?.namespaces && !skipError) {
-      extra.reason = 'userNotAuthenticated'
+      /**
+       * `sessionUnavailable`, not `userNotAuthenticated`: this branch tests
+       * whether the session could be read, never whether the shopper is
+       * signed in. The distinction cost weeks on B2BTEAM-3852 - three
+       * captures show the browser holding a complete session
+       * (`authentication.storeUserEmail` set, `profile.isAuthenticated`
+       * true) at the exact moment this fired, and `getOrganizationsForSelector`
+       * answering with three organizations from the store-token fallback in
+       * the same request. The shopper was authenticated every time; the
+       * session simply did not reach the resolver.
+       *
+       * The two fields below separate the only two explanations, which need
+       * different owners: no token means the request never carried a session,
+       * a token with nothing behind it means the session service returned
+       * empty for a valid one.
+       */
+      extra.reason = 'sessionUnavailable'
+      extra.hasSessionToken = !!ctx.vtex.sessionToken
+      extra.sessionKeys = Object.keys(sessionData ?? {})
       logger.warn({
-        message: `checkUserPermission-userNotAuthenticated`,
+        hasSessionToken: extra.hasSessionToken,
+        message: `checkUserPermission-sessionUnavailable`,
+        sessionKeys: extra.sessionKeys,
       })
       throw new GraphQLError(
         'User not authenticated, make sure the query is private',

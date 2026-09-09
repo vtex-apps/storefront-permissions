@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.8.3-beta.3] - 2026-09-09
+
+### Changed
+
+- `checkUserPermission` reports its refusal as `sessionUnavailable` instead of `userNotAuthenticated`, and carries `hasSessionToken` and `sessionKeys`. The branch tests `!sessionData?.namespaces` - whether the session could be read - and never whether the shopper is signed in, so the old name asserted the opposite of what it checked. Three HAR captures of B2BTEAM-3852 show the browser holding a complete session (`authentication.storeUserEmail` set, `profile.isAuthenticated` true) at the exact moment this fired, with `getOrganizationsForSelector` answering with three organizations from the store-token fallback in the same request: the shopper was authenticated every time, and the session simply did not reach the resolver. The two new fields separate the only two explanations, which have different owners - no token means the request never carried a session, a token with nothing behind it means the session service returned empty for a valid one. The GraphQL error message the storefront receives is unchanged.
+
 ## [3.8.3-beta.2] - 2026-09-08
 
 ### Fixed
