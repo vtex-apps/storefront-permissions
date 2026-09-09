@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.8.3] - 2026-09-09
+
 ### Fixed
 
 - `setCurrentOrganization` guards the profile namespace instead of destructuring it. `const { email: { value: email } } = sessionData.namespaces.profile` threw `Cannot read properties of undefined (reading 'profile')` whenever the session reached the mutation without that namespace, which is exactly the state a session transform leaves behind when it returns early without an email. Observed on live traffic in three separate captures. The TypeError was the worst available outcome: it aborted the organization switch with a stack trace naming no organization, no cost center and no namespace, so the failure was unreadable in the logs and indistinguishable from any other crash on the route. It now answers `{ status: 'error' }` and logs `setCurrentOrganization.error.noSessionEmail` with `orgId`, `costId`, `hasSessionData` and `sessionNamespaces`. The request failed either way; only its legibility changes. Covered by tests proven to fail against the previous code.
