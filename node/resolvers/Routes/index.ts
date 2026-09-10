@@ -405,6 +405,11 @@ export const Routes = {
             )
           : null
 
+        // TEMPORARY - remove before opening the PR. Streams to the `vtex link`
+        // terminal so a linked workspace shows which path answered.
+        // eslint-disable-next-line no-console
+        console.log('[selection] read', { selection, selectionKey })
+
         if (selection) {
           const recordedUser: any = await timer.track(
             'getB2BUserById',

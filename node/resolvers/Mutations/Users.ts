@@ -578,31 +578,57 @@ export const setActiveUserByOrganization = async (
 
   try {
     let userId = null
-    // Hoisted: the selection write below keys on the acting shopper, and the
-    // session is the only place that identifies them. The admin path never
-    // loads one, which is why the write is conditional.
-    let sessionData: any = null
+
+    /**
+     * Loaded for both branches, not just the storefront one.
+     *
+     * The admin branch resolves the target from `params.userId` and used to
+     * skip this entirely, which left the selection write below with no way to
+     * name the acting shopper - `b2b_users.userId` is null on live records and
+     * `clId` is a different identifier space, so the session is the only
+     * source. Skipping it there is not a rare edge case: two of five sampled
+     * live switches took the admin branch, and any VTEX admin testing the
+     * storefront takes it every time, which would make the whole mechanism
+     * look silently broken.
+     *
+     * Costs one session read on a path that previously had none, on a mutation
+     * that already writes one to three Master Data documents. A server-to-
+     * server call with no session cookie fails the fetch, is caught below, and
+     * simply records nothing - the previous behaviour.
+     */
+    const sessionData: any = await timer.track(
+      'getSession',
+      session
+        .getSession(sessionToken as string, ['*'])
+        .then((currentSession: any) => {
+          return currentSession.sessionData
+        })
+        .catch((error: any) => {
+          logger.error({
+            error: describeClientError(error),
+            message: 'orders-getSession-error',
+          })
+
+          return null
+        })
+    )
+
+    // TEMPORARY - remove before opening the PR. Streams to the `vtex link`
+    // terminal so a linked workspace shows the selection write live.
+    // eslint-disable-next-line no-console
+    console.log('[selection] switch', {
+      isAdminPath: !!adminUserAuthToken,
+      hasSessionData: !!sessionData,
+      sessionAuthStoreUserId:
+        sessionData?.namespaces?.authentication?.storeUserId?.value ?? null,
+      sessionActingStoreUserId:
+        sessionData?.namespaces?.['storefront-permissions']?.storeUserId
+          ?.value ?? null,
+    })
 
     if (adminUserAuthToken) {
       userId = params.userId
     } else {
-      sessionData = await timer.track(
-        'getSession',
-        session
-          .getSession(sessionToken as string, ['*'])
-          .then((currentSession: any) => {
-            return currentSession.sessionData
-          })
-          .catch((error: any) => {
-            logger.error({
-              error: describeClientError(error),
-              message: 'orders-getSession-error',
-            })
-
-            return null
-          })
-      )
-
       const currentUserEmail =
         sessionData?.namespaces?.profile?.email?.value ?? params.email
 
@@ -744,6 +770,16 @@ export const setActiveUserByOrganization = async (
         })
       )
     }
+
+    // TEMPORARY - remove before opening the PR.
+    // eslint-disable-next-line no-console
+    console.log('[selection] write', {
+      b2bUserId: user?.id ?? null,
+      costId: user?.costId ?? null,
+      orgId: user?.orgId ?? null,
+      selectionKey,
+      written: extra.selectionWritten ?? false,
+    })
   } finally {
     const totalMs = timer.totalMs()
     const steps = Object.keys(timer.timings)

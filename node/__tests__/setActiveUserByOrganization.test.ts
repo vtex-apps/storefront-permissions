@@ -53,7 +53,11 @@ const makeCtx = (): any => ({
         .mockResolvedValue({ DocumentId: 'u2' }),
       searchDocuments: jest.fn().mockResolvedValue([targetUser]),
     },
-    session: { getSession: jest.fn() },
+    // The admin path now loads the session too: it is the only place that
+    // identifies the acting shopper, and without it an admin-assisted switch
+    // records no selection. Resolves to null here, which is what a call with
+    // no session cookie produces.
+    session: { getSession: jest.fn().mockResolvedValue({ sessionData: null }) },
   },
   vtex: {
     account: 'acc',
