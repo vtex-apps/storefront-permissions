@@ -51,17 +51,17 @@ describe('resolveSelectionKey', () => {
     expect(
       resolveSelectionKey({
         sessionStoreUserId: 'operator-1',
-        telemarketingStoreUserId: 'impersonated-2',
+        platformImpersonatedStoreUserId: 'impersonated-2',
       })
     ).toBe('impersonated-2')
   })
 
-  it('puts the B2B impersonation ahead of the telemarketing one', () => {
+  it('puts this app own impersonation ahead of the platform one', () => {
     expect(
       resolveSelectionKey({
         b2bImpersonatedProfileUserId: 'b2b-1',
         sessionStoreUserId: 'operator-1',
-        telemarketingStoreUserId: 'tele-1',
+        platformImpersonatedStoreUserId: 'tele-1',
       })
     ).toBe('b2b-1')
   })
@@ -72,7 +72,8 @@ describe('resolveSelectionKey', () => {
   })
 
   /**
-   * Shape taken from a live telemarketing impersonation: `authentication`
+   * Shape taken from a live session using the platform's own impersonation
+   * (`vtex.impersonate-session`), not this app's: `authentication`
    * carries the operator (who is also the admin user on that session), while
    * `impersonate` carries the shopper being acted for. `profile` follows the
    * impersonated shopper too, but this app cannot read that namespace - it
@@ -85,7 +86,7 @@ describe('resolveSelectionKey', () => {
     expect(
       resolveSelectionKey({
         sessionStoreUserId: operator,
-        telemarketingStoreUserId: impersonatedShopper,
+        platformImpersonatedStoreUserId: impersonatedShopper,
       })
     ).toBe(impersonatedShopper)
   })
@@ -101,7 +102,7 @@ describe('resolveSelectionKey', () => {
     expect(resolveSelectionKey({ sessionStoreUserId: operator })).not.toBe(
       resolveSelectionKey({
         sessionStoreUserId: operator,
-        telemarketingStoreUserId: 'f4e4eae5-c628-4c0e-8ecc-43139275cd1e',
+        platformImpersonatedStoreUserId: 'f4e4eae5-c628-4c0e-8ecc-43139275cd1e',
       })
     )
   })

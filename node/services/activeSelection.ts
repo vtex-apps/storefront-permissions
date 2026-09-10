@@ -22,14 +22,20 @@ export interface ActiveSelection {
  *
  * The precedence mirrors exactly how `setProfile` resolves the acting email,
  * because the selection has to follow the same person the rest of the
- * transform is resolving. During impersonation `authentication.storeUserId` is
- * the *operator*, so keying on it would file the shopper's selection under
- * whoever is impersonating them.
+ * transform is resolving. Under either impersonation
+ * `authentication.storeUserId` is the *operator*, so keying on it would file
+ * the shopper's selection under whoever is impersonating them.
+ *
+ * There are two distinct impersonations and they arrive differently: the
+ * platform's own (`impersonate.storeUserId`, owned by
+ * `vtex.impersonate-session`) and this app's (`public.impersonate`, written by
+ * the `impersonateUser` mutation). Only the first has been checked against a
+ * live session; the second is read from the code.
  */
 export const resolveSelectionKey = ({
   b2bImpersonatedProfileUserId,
   sessionStoreUserId,
-  telemarketingStoreUserId,
+  platformImpersonatedStoreUserId,
 }: {
   /**
    * The *profile* user id of a B2B-impersonated shopper - `user.userId`, after
@@ -44,17 +50,20 @@ export const resolveSelectionKey = ({
    */
   b2bImpersonatedProfileUserId?: string | null
   /**
-   * `impersonate.storeUserId` - already a profile user id, no resolution
-   * needed. Confirmed on a live telemarketing session: it holds the
-   * impersonated shopper while `authentication.storeUserId` holds the
-   * operator.
+   * `impersonate.storeUserId` - the platform's own impersonation, owned by
+   * `vtex.impersonate-session`. Already a profile user id, so no resolution is
+   * needed. (`setProfile` calls this branch `telemarketingImpersonate`, which
+   * predates the feature being general.)
+   *
+   * Confirmed against a live session: it holds the impersonated shopper while
+   * `authentication.storeUserId` holds the operator.
    */
-  telemarketingStoreUserId?: string | null
+  platformImpersonatedStoreUserId?: string | null
   /** `authentication.storeUserId` - the signed-in shopper, when nobody is impersonating. */
   sessionStoreUserId?: string | null
 }): string | null =>
   b2bImpersonatedProfileUserId ||
-  telemarketingStoreUserId ||
+  platformImpersonatedStoreUserId ||
   sessionStoreUserId ||
   null
 
