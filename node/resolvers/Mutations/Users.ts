@@ -613,19 +613,6 @@ export const setActiveUserByOrganization = async (
         })
     )
 
-    // TEMPORARY - remove before opening the PR. Streams to the `vtex link`
-    // terminal so a linked workspace shows the selection write live.
-    // eslint-disable-next-line no-console
-    console.log('[selection] switch', {
-      isAdminPath: !!adminUserAuthToken,
-      hasSessionData: !!sessionData,
-      sessionAuthStoreUserId:
-        sessionData?.namespaces?.authentication?.storeUserId?.value ?? null,
-      sessionActingStoreUserId:
-        sessionData?.namespaces?.['storefront-permissions']?.storeUserId
-          ?.value ?? null,
-    })
-
     if (adminUserAuthToken) {
       userId = params.userId
     } else {
@@ -747,8 +734,8 @@ export const setActiveUserByOrganization = async (
      * race this exists to win. One document write, measured at 150-300ms,
      * against the 0.8s-35s the index lag costs without it.
      *
-     * Skipped when the session did not identify a shopper - the admin path
-     * (`adminUserAuthToken`) reads no session at all. Those switches fall back
+     * Skipped only when the session identified nobody at all - a
+     * server-to-server call with no session cookie. Those switches fall back
      * to the search on the next transform, exactly as they do today.
      */
     const selectionKey = resolveSelectionKey({
@@ -770,16 +757,6 @@ export const setActiveUserByOrganization = async (
         })
       )
     }
-
-    // TEMPORARY - remove before opening the PR.
-    // eslint-disable-next-line no-console
-    console.log('[selection] write', {
-      b2bUserId: user?.id ?? null,
-      costId: user?.costId ?? null,
-      orgId: user?.orgId ?? null,
-      selectionKey,
-      written: extra.selectionWritten ?? false,
-    })
   } finally {
     const totalMs = timer.totalMs()
     const steps = Object.keys(timer.timings)
@@ -804,6 +781,13 @@ export const setActiveUserByOrganization = async (
       deactivateWrites: extra.deactivateWrites ?? 0,
       message: 'setActiveUserByOrganization.timings',
       orgId: extra.orgId ?? null,
+      // Whether the switch was recorded for the next transform to read. The
+      // field list here is explicit, so anything left off `extra` is silently
+      // dropped - which would have left the selection mechanism with no
+      // production signal at all. `selectionKeyResolved` false means the
+      // session named nobody; written false means the write itself failed.
+      selectionKeyResolved: extra.selectionKeyResolved ?? false,
+      selectionWritten: extra.selectionWritten ?? false,
       slowestStep,
       slowestStepMs: timer.timings[slowestStep] ?? 0,
       timings: timer.timings,
