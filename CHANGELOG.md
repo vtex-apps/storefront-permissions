@@ -8,8 +8,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [3.8.4-beta.0] - 2026-09-10
-
 ### Added
 
 - The session resolves the shopper's organization from a record the switch writes, instead of searching Master Data for `active = true`. That search goes through an index that trails writes: measured at one to three polls (up to ~780ms) on an idle account, 0.8-1.6s on live traffic, and past 30s when a shopper switches several times in a row - which is what leaves the storefront asking for a cost center the session does not yet know about (B2BTEAM-3849, B2BTEAM-3850). A document read by id does not use the index at all: measured on the same account across three runs, visible on the first attempt every time after both create and update, with only the HTTP round trip (123-209ms) in between.
