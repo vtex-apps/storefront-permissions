@@ -43,7 +43,7 @@ describe('resolveSelectionKey', () => {
   it('prefers the impersonated shopper over the operator', () => {
     expect(
       resolveSelectionKey({
-        b2bImpersonatedUserId: 'impersonated-1',
+        b2bImpersonatedProfileUserId: 'impersonated-1',
         sessionStoreUserId: 'operator-1',
       })
     ).toBe('impersonated-1')
@@ -51,7 +51,7 @@ describe('resolveSelectionKey', () => {
     expect(
       resolveSelectionKey({
         sessionStoreUserId: 'operator-1',
-        telemarketingUserId: 'impersonated-2',
+        telemarketingStoreUserId: 'impersonated-2',
       })
     ).toBe('impersonated-2')
   })
@@ -59,9 +59,9 @@ describe('resolveSelectionKey', () => {
   it('puts the B2B impersonation ahead of the telemarketing one', () => {
     expect(
       resolveSelectionKey({
-        b2bImpersonatedUserId: 'b2b-1',
+        b2bImpersonatedProfileUserId: 'b2b-1',
         sessionStoreUserId: 'operator-1',
-        telemarketingUserId: 'tele-1',
+        telemarketingStoreUserId: 'tele-1',
       })
     ).toBe('b2b-1')
   })
@@ -69,6 +69,41 @@ describe('resolveSelectionKey', () => {
   it('answers null when nothing identifies a shopper', () => {
     expect(resolveSelectionKey({})).toBeNull()
     expect(resolveSelectionKey({ sessionStoreUserId: '' })).toBeNull()
+  })
+
+  /**
+   * Shape taken from a live telemarketing impersonation: `authentication`
+   * carries the operator (who is also the admin user on that session), while
+   * `impersonate` carries the shopper being acted for. `profile` follows the
+   * impersonated shopper too, but this app cannot read that namespace - it
+   * would close a cycle with profile-session, which consumes our output.
+   */
+  it('keys by the shopper, not the operator, on a real impersonation session', () => {
+    const operator = '6d3fbda7-dc70-4671-865d-93b8b60fa9cf'
+    const impersonatedShopper = 'f4e4eae5-c628-4c0e-8ecc-43139275cd1e'
+
+    expect(
+      resolveSelectionKey({
+        sessionStoreUserId: operator,
+        telemarketingStoreUserId: impersonatedShopper,
+      })
+    ).toBe(impersonatedShopper)
+  })
+
+  /**
+   * The operator shopping on their own account and the shopper they
+   * impersonate must not share a key, or one would overwrite the other's
+   * selection.
+   */
+  it('separates the operator own selection from the one they impersonate', () => {
+    const operator = '6d3fbda7-dc70-4671-865d-93b8b60fa9cf'
+
+    expect(resolveSelectionKey({ sessionStoreUserId: operator })).not.toBe(
+      resolveSelectionKey({
+        sessionStoreUserId: operator,
+        telemarketingStoreUserId: 'f4e4eae5-c628-4c0e-8ecc-43139275cd1e',
+      })
+    )
   })
 })
 

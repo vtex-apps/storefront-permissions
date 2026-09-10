@@ -27,18 +27,36 @@ export interface ActiveSelection {
  * whoever is impersonating them.
  */
 export const resolveSelectionKey = ({
-  b2bImpersonatedUserId,
+  b2bImpersonatedProfileUserId,
   sessionStoreUserId,
-  telemarketingUserId,
+  telemarketingStoreUserId,
 }: {
-  /** Resolved from `public.impersonate`, which names a b2b_users record. */
-  b2bImpersonatedUserId?: string | null
-  /** `impersonate.storeUserId` - the telemarketing operator's target. */
-  telemarketingUserId?: string | null
-  /** `authentication.storeUserId` - the signed-in shopper. */
+  /**
+   * The *profile* user id of a B2B-impersonated shopper - `user.userId`, after
+   * resolving the record.
+   *
+   * Not `public.impersonate` itself. That value is a `b2b_users` document id,
+   * which is per (person x organization x cost center); passing it here would
+   * key the selection by the record it is supposed to point at, so a shopper
+   * would get a different key in every organization and the lookup would never
+   * hit. `setProfile` already resolves it through `getUser` to reach the email,
+   * and `user.userId` is what falls out of that.
+   */
+  b2bImpersonatedProfileUserId?: string | null
+  /**
+   * `impersonate.storeUserId` - already a profile user id, no resolution
+   * needed. Confirmed on a live telemarketing session: it holds the
+   * impersonated shopper while `authentication.storeUserId` holds the
+   * operator.
+   */
+  telemarketingStoreUserId?: string | null
+  /** `authentication.storeUserId` - the signed-in shopper, when nobody is impersonating. */
   sessionStoreUserId?: string | null
 }): string | null =>
-  b2bImpersonatedUserId || telemarketingUserId || sessionStoreUserId || null
+  b2bImpersonatedProfileUserId ||
+  telemarketingStoreUserId ||
+  sessionStoreUserId ||
+  null
 
 const isCompleteSelection = (value: unknown): value is ActiveSelection => {
   const candidate = value as Partial<ActiveSelection> | null
