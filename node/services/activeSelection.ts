@@ -33,39 +33,38 @@ export interface ActiveSelection {
  * live session; the second is read from the code.
  */
 export const resolveSelectionKey = ({
-  b2bImpersonatedProfileUserId,
+  actingStoreUserId,
   sessionStoreUserId,
-  platformImpersonatedStoreUserId,
 }: {
   /**
-   * The *profile* user id of a B2B-impersonated shopper - `user.userId`, after
-   * resolving the record.
+   * The acting shopper's profile user id, when someone is being impersonated.
    *
-   * Not `public.impersonate` itself. That value is a `b2b_users` document id,
-   * which is per (person x organization x cost center); passing it here would
-   * key the selection by the record it is supposed to point at, so a shopper
-   * would get a different key in every organization and the lookup would never
-   * hit. `setProfile` already resolves it through `getUser` to reach the email,
-   * and `user.userId` is what falls out of that.
-   */
-  b2bImpersonatedProfileUserId?: string | null
-  /**
-   * `impersonate.storeUserId` - the platform's own impersonation, owned by
-   * `vtex.impersonate-session`. Already a profile user id, so no resolution is
-   * needed. (`setProfile` calls this branch `telemarketingImpersonate`, which
-   * predates the feature being general.)
+   * This is deliberately *not* re-derived from the impersonation namespaces.
+   * There are two mechanisms - the platform's (`impersonate.storeUserId`,
+   * owned by `vtex.impersonate-session`) and this app's (`public.impersonate`,
+   * written by the `impersonateUser` mutation) - and `setProfile` picks
+   * between them with a condition that a parallel implementation would get
+   * wrong: the B2B branch is guarded by `email && b2bImpersonate`, so
+   * `public.impersonate` without an `authentication.storeUserEmail` falls
+   * through to the platform branch instead.
    *
-   * Confirmed against a live session: it holds the impersonated shopper while
-   * `authentication.storeUserId` holds the operator.
+   * Rather than restate that, both callers pass the value `setProfile` already
+   * settled on: `storefront-permissions.storeUserId`, which it writes in both
+   * impersonation branches and leaves empty on a plain login. That is the same
+   * field `profile-session` reads to resolve an impersonated profile, so the
+   * three apps agree on who is acting by construction rather than by three
+   * copies of one rule.
+   *
+   * In either mechanism it is already a profile user id: the platform supplies
+   * one directly, and the B2B branch resolves `public.impersonate` - a
+   * `b2b_users` document id, which is per (person x organization x cost
+   * center) and therefore useless as a key - through `getUser` to reach
+   * `user.userId`.
    */
-  platformImpersonatedStoreUserId?: string | null
+  actingStoreUserId?: string | null
   /** `authentication.storeUserId` - the signed-in shopper, when nobody is impersonating. */
   sessionStoreUserId?: string | null
-}): string | null =>
-  b2bImpersonatedProfileUserId ||
-  platformImpersonatedStoreUserId ||
-  sessionStoreUserId ||
-  null
+}): string | null => actingStoreUserId || sessionStoreUserId || null
 
 const isCompleteSelection = (value: unknown): value is ActiveSelection => {
   const candidate = value as Partial<ActiveSelection> | null

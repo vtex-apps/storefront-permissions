@@ -35,35 +35,18 @@ describe('resolveSelectionKey', () => {
   })
 
   /**
-   * During impersonation `authentication.storeUserId` is the operator, so
-   * keying on it would file the shopper's selection under whoever is
+   * Under either impersonation `authentication.storeUserId` is the operator,
+   * so keying on it would file the shopper's selection under whoever is
    * impersonating them - and hand the operator's own selection back to the
    * shopper on the next transform.
    */
-  it('prefers the impersonated shopper over the operator', () => {
+  it('prefers the acting shopper over the operator', () => {
     expect(
       resolveSelectionKey({
-        b2bImpersonatedProfileUserId: 'impersonated-1',
+        actingStoreUserId: 'impersonated-1',
         sessionStoreUserId: 'operator-1',
       })
     ).toBe('impersonated-1')
-
-    expect(
-      resolveSelectionKey({
-        sessionStoreUserId: 'operator-1',
-        platformImpersonatedStoreUserId: 'impersonated-2',
-      })
-    ).toBe('impersonated-2')
-  })
-
-  it('puts this app own impersonation ahead of the platform one', () => {
-    expect(
-      resolveSelectionKey({
-        b2bImpersonatedProfileUserId: 'b2b-1',
-        sessionStoreUserId: 'operator-1',
-        platformImpersonatedStoreUserId: 'tele-1',
-      })
-    ).toBe('b2b-1')
   })
 
   it('answers null when nothing identifies a shopper', () => {
@@ -71,38 +54,80 @@ describe('resolveSelectionKey', () => {
     expect(resolveSelectionKey({ sessionStoreUserId: '' })).toBeNull()
   })
 
+  it('falls back to the signed-in shopper when no impersonation resolved', () => {
+    expect(
+      resolveSelectionKey({
+        actingStoreUserId: '',
+        sessionStoreUserId: 'shopper-1',
+      })
+    ).toBe('shopper-1')
+  })
+
   /**
-   * Shape taken from a live session using the platform's own impersonation
-   * (`vtex.impersonate-session`), not this app's: `authentication`
-   * carries the operator (who is also the admin user on that session), while
-   * `impersonate` carries the shopper being acted for. `profile` follows the
-   * impersonated shopper too, but this app cannot read that namespace - it
-   * would close a cycle with profile-session, which consumes our output.
+   * Both impersonation mechanisms reach this the same way, because the caller
+   * passes what `setProfile` already settled on rather than re-deriving it.
+   *
+   * The platform's arrives as `impersonate.storeUserId`
+   * (vtex.impersonate-session); values here come from a live session, where
+   * `authentication` held the operator and `impersonate` the shopper.
    */
-  it('keys by the shopper, not the operator, on a real impersonation session', () => {
+  it('covers the platform impersonation', () => {
     const operator = '6d3fbda7-dc70-4671-865d-93b8b60fa9cf'
-    const impersonatedShopper = 'f4e4eae5-c628-4c0e-8ecc-43139275cd1e'
+    const shopper = 'f4e4eae5-c628-4c0e-8ecc-43139275cd1e'
 
     expect(
       resolveSelectionKey({
+        actingStoreUserId: shopper,
         sessionStoreUserId: operator,
-        platformImpersonatedStoreUserId: impersonatedShopper,
       })
-    ).toBe(impersonatedShopper)
+    ).toBe(shopper)
+  })
+
+  /**
+   * This app's arrives as `public.impersonate` - a b2b_users document id,
+   * which `setProfile` resolves through `getUser` to `user.userId` before
+   * writing it to `storefront-permissions.storeUserId`. The resolved value is
+   * what reaches here, so the key is a profile user id in both mechanisms.
+   */
+  it('covers this app own impersonation', () => {
+    expect(
+      resolveSelectionKey({
+        actingStoreUserId: 'resolved-profile-user-id',
+        sessionStoreUserId: 'operator-1',
+      })
+    ).toBe('resolved-profile-user-id')
+  })
+
+  /**
+   * The case a parallel precedence would get wrong. `setProfile` guards the
+   * B2B branch with `email && b2bImpersonate`, so `public.impersonate` with no
+   * `authentication.storeUserEmail` falls through to the platform branch. A
+   * key derived independently would pick the B2B value and disagree with the
+   * session the transform actually writes; deriving it from
+   * `storefront-permissions.storeUserId` cannot.
+   */
+  it('follows the branch setProfile actually took, not the one it looks like', () => {
+    const platformShopper = 'platform-shopper'
+
+    expect(
+      resolveSelectionKey({
+        actingStoreUserId: platformShopper,
+        sessionStoreUserId: 'operator-1',
+      })
+    ).toBe(platformShopper)
   })
 
   /**
    * The operator shopping on their own account and the shopper they
-   * impersonate must not share a key, or one would overwrite the other's
-   * selection.
+   * impersonate must not share a key, or one would overwrite the other.
    */
   it('separates the operator own selection from the one they impersonate', () => {
     const operator = '6d3fbda7-dc70-4671-865d-93b8b60fa9cf'
 
     expect(resolveSelectionKey({ sessionStoreUserId: operator })).not.toBe(
       resolveSelectionKey({
+        actingStoreUserId: 'f4e4eae5-c628-4c0e-8ecc-43139275cd1e',
         sessionStoreUserId: operator,
-        platformImpersonatedStoreUserId: 'f4e4eae5-c628-4c0e-8ecc-43139275cd1e',
       })
     )
   })
