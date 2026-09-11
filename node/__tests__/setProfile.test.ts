@@ -142,6 +142,13 @@ const makeCtx = (scenario: Scenario = {}) => {
         createOrUpdatePartialDocument: jest
           .fn()
           .mockResolvedValue({ DocumentId: 'u1' }),
+        // Document read by id - what the selection path uses, and what the
+        // search-based lookup deliberately does not.
+        getDocument: jest
+          .fn()
+          .mockImplementation(({ id }: any) =>
+            Promise.resolve(userDocs.find((doc: any) => doc.id === id) ?? null)
+          ),
         // Applies the `where` clause and the pagination window the way Master
         // Data does, so a test can tell the active-only lookup apart from the
         // full scan instead of getting the same canned list for both.
@@ -1396,5 +1403,104 @@ describe('setProfile', () => {
     expect(ctx.response.status).toBe(200)
     // Proves the fire-and-forget update genuinely started while still pending.
     expect(ctx.clients.checkout.updateOrderFormProfile).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * The session learns which organization a shopper is in by searching
+ * `b2b_users` for `active = true`, and that search trails writes. The switch
+ * already knows the answer, so it records it under the shopper's key and the
+ * transform reads it by document id - no index on either hop.
+ */
+describe('setProfile resolving the active user from the recorded selection', () => {
+  const withSelection = (ctx: any, selection: any) => {
+    ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
+      (entity: string, id: string, fields: string[]) => {
+        if (entity === 'b2b_user_selection') {
+          return Promise.resolve(selection)
+        }
+
+        return Promise.resolve(
+          entity === 'organizations' && id === 'org1'
+            ? { name: 'Test Org', salesChannel: null, status: 'active' }
+            : costCenterDoc(undefined, { id })
+        )
+      }
+    )
+  }
+
+  const bodyWithUser = () => ({
+    ...makeBody(),
+    authentication: {
+      storeUserEmail: { value: 'buyer@test.com' },
+      storeUserId: { value: 'shopper-1' },
+    },
+  })
+
+  it('reads the recorded selection instead of searching for the active record', async () => {
+    const ctx = makeCtx()
+
+    withSelection(ctx, { b2bUserId: 'u1', costId: 'cost1', orgId: 'org1' })
+
+    const response = await run(ctx, bodyWithUser())
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+    expect(ctx.clients.masterdata.getDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u1' })
+    )
+    // The whole point: the active-record search never runs.
+    expect(
+      ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+    ).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A shopper who has never switched has no selection, and Master Data
+   * answers that with an empty body rather than an error. The search still
+   * has to carry them.
+   */
+  it('falls back to the search when nothing was ever recorded', async () => {
+    const ctx = makeCtx()
+
+    withSelection(ctx, '')
+
+    const response = await run(ctx, bodyWithUser())
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+    expect(
+      ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+    ).toHaveBeenCalled()
+  })
+
+  /**
+   * The selection points at a record, not at an organization. If that record
+   * has since lost its organization the selection is unusable, and the search
+   * - which is still the durable truth - has to answer.
+   */
+  it('falls back to the search when the recorded record no longer names an organization', async () => {
+    const ctx = makeCtx()
+
+    withSelection(ctx, { b2bUserId: 'gone', costId: 'cost1', orgId: 'org1' })
+
+    await run(ctx, bodyWithUser())
+
+    expect(
+      ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+    ).toHaveBeenCalled()
+  })
+
+  it('does not look for a selection when the session names no shopper', async () => {
+    const ctx = makeCtx()
+
+    withSelection(ctx, { b2bUserId: 'u1', costId: 'cost1', orgId: 'org1' })
+
+    await run(ctx, makeBody())
+
+    const askedForSelection =
+      ctx.clients.masterDataExtended.getDocumentById.mock.calls.some(
+        (call: any[]) => call[0] === 'b2b_user_selection'
+      )
+
+    expect(askedForSelection).toBe(false)
   })
 })

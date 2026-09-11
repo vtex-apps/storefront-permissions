@@ -30,6 +30,24 @@ export class MasterDataExtended extends JanusClient {
       }
     )
 
+  /**
+   * Write a document under an id the caller chooses.
+   *
+   * Deliberately sends no `_schema`. The entity this is used for carries no
+   * schema at all: it is only ever read by document id, never searched, so
+   * there is nothing for a schema to validate or index. Master Data creates
+   * the entity on the first write, which also means no per-account
+   * provisioning step.
+   */
+  public putDocumentById = async (
+    dataEntity: string,
+    id: string,
+    fields: Record<string, unknown>
+  ) =>
+    this.http.put(`/api/dataentities/${dataEntity}/documents/${id}`, fields, {
+      metric: 'masterdata-put-document',
+    })
+
   public searchDocuments = <T = unknown>(params: {
     dataEntity: string
     fields: string[]

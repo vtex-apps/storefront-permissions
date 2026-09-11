@@ -53,7 +53,15 @@ const makeCtx = (): any => ({
         .mockResolvedValue({ DocumentId: 'u2' }),
       searchDocuments: jest.fn().mockResolvedValue([targetUser]),
     },
-    session: { getSession: jest.fn() },
+    // Where the switch is recorded for the next transform to read by id.
+    masterDataExtended: {
+      putDocumentById: jest.fn().mockResolvedValue(undefined),
+    },
+    // The admin path now loads the session too: it is the only place that
+    // identifies the acting shopper, and without it an admin-assisted switch
+    // records no selection. Resolves to null here, which is what a call with
+    // no session cookie produces.
+    session: { getSession: jest.fn().mockResolvedValue({ sessionData: null }) },
   },
   vtex: {
     account: 'acc',
@@ -223,6 +231,51 @@ describe('setActiveUserByOrganization', () => {
     expect(timingsFrom(ctx)).toMatchObject({
       activeListedCount: 2,
       deactivateWrites: 1,
+    })
+  })
+})
+
+/**
+ * The timings log lists its fields explicitly, so anything set on `extra` and
+ * not named there is silently dropped. That is how the selection mechanism
+ * nearly shipped with no production signal at all.
+ */
+describe('setActiveUserByOrganization selection reporting', () => {
+  const timingsLog = (ctx: any) =>
+    ctx.vtex.logger.info.mock.calls.find(
+      (call: any[]) =>
+        call[0]?.message === 'setActiveUserByOrganization.timings'
+    )?.[0]
+
+  it('reports whether the switch was recorded', async () => {
+    const ctx = makeCtx()
+
+    ctx.clients.session.getSession.mockResolvedValue({
+      sessionData: {
+        namespaces: { authentication: { storeUserId: { value: 'shopper-1' } } },
+      },
+    })
+
+    await setActiveUserByOrganization(null, { userId: 'u2' }, ctx)
+
+    expect(timingsLog(ctx)).toMatchObject({
+      selectionKeyResolved: true,
+      selectionWritten: true,
+    })
+  })
+
+  /**
+   * A server-to-server call carries no session, so nothing names the acting
+   * shopper. The switch still succeeds; only the recording is skipped.
+   */
+  it('says so when the session named nobody', async () => {
+    const ctx = makeCtx()
+
+    await setActiveUserByOrganization(null, { userId: 'u2' }, ctx)
+
+    expect(timingsLog(ctx)).toMatchObject({
+      selectionKeyResolved: false,
+      selectionWritten: false,
     })
   })
 })

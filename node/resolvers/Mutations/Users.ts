@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
+import {
+  resolveSelectionKey,
+  writeActiveSelection,
+} from '../../services/activeSelection'
 import { describeClientError } from '../../utils/clientError'
 import {
   COST_CENTER_DATA_ENTITY,
@@ -575,26 +579,43 @@ export const setActiveUserByOrganization = async (
   try {
     let userId = null
 
+    /**
+     * Loaded for both branches, not just the storefront one.
+     *
+     * The admin branch resolves the target from `params.userId` and used to
+     * skip this entirely, which left the selection write below with no way to
+     * name the acting shopper - `b2b_users.userId` is null on live records and
+     * `clId` is a different identifier space, so the session is the only
+     * source. Skipping it there is not a rare edge case: two of five sampled
+     * live switches took the admin branch, and any VTEX admin testing the
+     * storefront takes it every time, which would make the whole mechanism
+     * look silently broken.
+     *
+     * Costs one session read on a path that previously had none, on a mutation
+     * that already writes one to three Master Data documents. A server-to-
+     * server call with no session cookie fails the fetch, is caught below, and
+     * simply records nothing - the previous behaviour.
+     */
+    const sessionData: any = await timer.track(
+      'getSession',
+      session
+        .getSession(sessionToken as string, ['*'])
+        .then((currentSession: any) => {
+          return currentSession.sessionData
+        })
+        .catch((error: any) => {
+          logger.error({
+            error: describeClientError(error),
+            message: 'orders-getSession-error',
+          })
+
+          return null
+        })
+    )
+
     if (adminUserAuthToken) {
       userId = params.userId
     } else {
-      const sessionData = await timer.track(
-        'getSession',
-        session
-          .getSession(sessionToken as string, ['*'])
-          .then((currentSession: any) => {
-            return currentSession.sessionData
-          })
-          .catch((error: any) => {
-            logger.error({
-              error: describeClientError(error),
-              message: 'orders-getSession-error',
-            })
-
-            return null
-          })
-      )
-
       const currentUserEmail =
         sessionData?.namespaces?.profile?.email?.value ?? params.email
 
@@ -697,6 +718,45 @@ export const setActiveUserByOrganization = async (
         message: 'setActiveUserById.error',
       })
     }
+
+    /**
+     * Record the switch under the shopper's key so the next session transform
+     * can read it by id instead of searching for `active = true`.
+     *
+     * The key comes from the session, never from the record being activated.
+     * `b2b_users.userId` looks like the obvious choice and is not: it is null
+     * on live records (checked), and `clId` is a different identifier space
+     * from `authentication.storeUserId`. Keying on either would write under an
+     * id the transform never reads, and the lookup would silently never hit.
+     *
+     * Awaited: the storefront queries the new organization as soon as this
+     * mutation returns, so a write deferred past the response would lose the
+     * race this exists to win. One document write, measured at 150-300ms,
+     * against the 0.8s-35s the index lag costs without it.
+     *
+     * Skipped only when the session identified nobody at all - a
+     * server-to-server call with no session cookie. Those switches fall back
+     * to the search on the next transform, exactly as they do today.
+     */
+    const selectionKey = resolveSelectionKey({
+      actingStoreUserId:
+        sessionData?.namespaces?.['storefront-permissions']?.storeUserId?.value,
+      sessionStoreUserId:
+        sessionData?.namespaces?.authentication?.storeUserId?.value,
+    })
+
+    extra.selectionKeyResolved = !!selectionKey
+
+    if (selectionKey && user?.id && user?.orgId && user?.costId) {
+      extra.selectionWritten = await timer.track(
+        'writeActiveSelection',
+        writeActiveSelection(ctx, selectionKey, {
+          b2bUserId: user.id,
+          costId: user.costId,
+          orgId: user.orgId,
+        })
+      )
+    }
   } finally {
     const totalMs = timer.totalMs()
     const steps = Object.keys(timer.timings)
@@ -721,6 +781,13 @@ export const setActiveUserByOrganization = async (
       deactivateWrites: extra.deactivateWrites ?? 0,
       message: 'setActiveUserByOrganization.timings',
       orgId: extra.orgId ?? null,
+      // Whether the switch was recorded for the next transform to read. The
+      // field list here is explicit, so anything left off `extra` is silently
+      // dropped - which would have left the selection mechanism with no
+      // production signal at all. `selectionKeyResolved` false means the
+      // session named nobody; written false means the write itself failed.
+      selectionKeyResolved: extra.selectionKeyResolved ?? false,
+      selectionWritten: extra.selectionWritten ?? false,
       slowestStep,
       slowestStepMs: timer.timings[slowestStep] ?? 0,
       timings: timer.timings,

@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- The session resolves the shopper's organization from a record the switch writes, instead of searching Master Data for `active = true`. That search goes through an index that trails writes: measured at one to three polls (up to ~780ms) on an idle account, 0.8-1.6s on live traffic, and past 30s when a shopper switches several times in a row - which is what leaves the storefront asking for a cost center the session does not yet know about (B2BTEAM-3849, B2BTEAM-3850). A document read by id does not use the index at all: measured on the same account across three runs, visible on the first attempt every time after both create and update, with only the HTTP round trip (123-209ms) in between.
+- `setActiveUserByOrganization` records the switch in `b2b_user_selection`, keyed by the acting shopper, holding which `b2b_users` record, organization and cost center they moved to. `setProfile` reads that record and then resolves the `b2b_users` document by id - two strong reads replacing one paginated search. The read sits inside the existing cache fetcher, so the memory and VBase layers behave exactly as before; only the cost of a miss changes, and a switch always misses because the cache key carries `b2bCurrentCostCenter`.
+- The entity is deliberately schemaless. Nothing searches it, so there is nothing to index, nothing for a schema to validate, and no per-account provisioning step - Master Data creates it on the first write.
+- `activeUserSource` on `setProfile.timings` says which path answered (`selection` or `search`), and `setActiveUserByOrganization.timings` carries `selectionKeyResolved` and `selectionWritten`. That log lists its fields explicitly, so both had to be named there or the mechanism would have shipped with no production signal at all.
+- `authentication.storeUserId` is declared as a session input, which the transform needs to key a shopper who is not being impersonated. It reads a namespace owned by `authentication-session`, which sits upstream and consumes nothing of ours - unlike `profile`, which `profile-session` builds from our own output and which would therefore close a cycle.
+
+### Notes
+
+- Nothing here is authoritative. `b2b_users.active` remains the durable truth; the record only says which document to read. An absent, incomplete or unreadable selection falls through to the search, which is also what happens for a shopper who has never switched, for a server-to-server call that carries no session, and for organizations changed outside this flow.
+- The key is the shopper, never the record being activated. `b2b_users.userId` is null on live records and `clId` is a different identifier space from `authentication.storeUserId`, so keying on either would write under an id the transform never reads and the lookup would silently never hit. It also follows impersonation: `setProfile` writes the acting shopper into `storefront-permissions.storeUserId` under both mechanisms - the platform's (`impersonate.storeUserId`) and this app's (`public.impersonate`, resolved through `getUser`) - and that is the field both ends read, so the three apps agree on who is acting by construction rather than by three copies of one rule.
+- No selection is written on login. The only thing that could bootstrap one there is the search itself, which is the unreliable read this exists to avoid: persisting its output inside the lag window would cement the wrong organization rather than correct it. A shopper who never switches never gets the fast path, and never hits the race either.
+- Verified on a linked workspace against a live account: seven switches in fifty-one seconds, every read returning the organization from the immediately preceding write, never one behind, leaving exactly one document rather than seven. That is the sequence that produced the 17-35s lags with the index. It proves the mechanism, not production latency under load.
+
 ## [3.8.3] - 2026-09-09
 
 ### Fixed

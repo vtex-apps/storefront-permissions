@@ -1,0 +1,237 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+  readActiveSelection,
+  resolveSelectionKey,
+  writeActiveSelection,
+} from '../services/activeSelection'
+import { ACTIVE_SELECTION_DATA_ENTITY } from '../utils/constants'
+
+const makeCtx = () => {
+  const logger = { error: jest.fn(), info: jest.fn(), warn: jest.fn() }
+
+  return {
+    clients: {
+      masterDataExtended: {
+        getDocumentById: jest.fn(),
+        putDocumentById: jest.fn().mockResolvedValue(undefined),
+      },
+    },
+    vtex: { account: 'testacc', logger },
+  } as any
+}
+
+const complete = { b2bUserId: 'rec-1', costId: 'CC-A', orgId: 'ORG-A' }
+
+/**
+ * The key has to name the person, not the record. A `b2b_users` id is per
+ * (person x organization x cost center), so a shopper with three organizations
+ * has three of them and none of them identifies the shopper.
+ */
+describe('resolveSelectionKey', () => {
+  it('uses the signed-in shopper when nobody is impersonating', () => {
+    expect(resolveSelectionKey({ sessionStoreUserId: 'shopper-1' })).toBe(
+      'shopper-1'
+    )
+  })
+
+  /**
+   * Under either impersonation `authentication.storeUserId` is the operator,
+   * so keying on it would file the shopper's selection under whoever is
+   * impersonating them - and hand the operator's own selection back to the
+   * shopper on the next transform.
+   */
+  it('prefers the acting shopper over the operator', () => {
+    expect(
+      resolveSelectionKey({
+        actingStoreUserId: 'impersonated-1',
+        sessionStoreUserId: 'operator-1',
+      })
+    ).toBe('impersonated-1')
+  })
+
+  it('answers null when nothing identifies a shopper', () => {
+    expect(resolveSelectionKey({})).toBeNull()
+    expect(resolveSelectionKey({ sessionStoreUserId: '' })).toBeNull()
+  })
+
+  it('falls back to the signed-in shopper when no impersonation resolved', () => {
+    expect(
+      resolveSelectionKey({
+        actingStoreUserId: '',
+        sessionStoreUserId: 'shopper-1',
+      })
+    ).toBe('shopper-1')
+  })
+
+  /**
+   * Both impersonation mechanisms reach this the same way, because the caller
+   * passes what `setProfile` already settled on rather than re-deriving it.
+   *
+   * The platform's arrives as `impersonate.storeUserId`
+   * (vtex.impersonate-session); values here come from a live session, where
+   * `authentication` held the operator and `impersonate` the shopper.
+   */
+  it('covers the platform impersonation', () => {
+    const operator = '6d3fbda7-dc70-4671-865d-93b8b60fa9cf'
+    const shopper = 'f4e4eae5-c628-4c0e-8ecc-43139275cd1e'
+
+    expect(
+      resolveSelectionKey({
+        actingStoreUserId: shopper,
+        sessionStoreUserId: operator,
+      })
+    ).toBe(shopper)
+  })
+
+  /**
+   * This app's arrives as `public.impersonate` - a b2b_users document id,
+   * which `setProfile` resolves through `getUser` to `user.userId` before
+   * writing it to `storefront-permissions.storeUserId`. The resolved value is
+   * what reaches here, so the key is a profile user id in both mechanisms.
+   */
+  it('covers this app own impersonation', () => {
+    expect(
+      resolveSelectionKey({
+        actingStoreUserId: 'resolved-profile-user-id',
+        sessionStoreUserId: 'operator-1',
+      })
+    ).toBe('resolved-profile-user-id')
+  })
+
+  /**
+   * The case a parallel precedence would get wrong. `setProfile` guards the
+   * B2B branch with `email && b2bImpersonate`, so `public.impersonate` with no
+   * `authentication.storeUserEmail` falls through to the platform branch. A
+   * key derived independently would pick the B2B value and disagree with the
+   * session the transform actually writes; deriving it from
+   * `storefront-permissions.storeUserId` cannot.
+   */
+  it('follows the branch setProfile actually took, not the one it looks like', () => {
+    const platformShopper = 'platform-shopper'
+
+    expect(
+      resolveSelectionKey({
+        actingStoreUserId: platformShopper,
+        sessionStoreUserId: 'operator-1',
+      })
+    ).toBe(platformShopper)
+  })
+
+  /**
+   * The operator shopping on their own account and the shopper they
+   * impersonate must not share a key, or one would overwrite the other.
+   */
+  it('separates the operator own selection from the one they impersonate', () => {
+    const operator = '6d3fbda7-dc70-4671-865d-93b8b60fa9cf'
+
+    expect(resolveSelectionKey({ sessionStoreUserId: operator })).not.toBe(
+      resolveSelectionKey({
+        actingStoreUserId: 'f4e4eae5-c628-4c0e-8ecc-43139275cd1e',
+        sessionStoreUserId: operator,
+      })
+    )
+  })
+})
+
+describe('readActiveSelection', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('returns the recorded selection', async () => {
+    const ctx = makeCtx()
+
+    ctx.clients.masterDataExtended.getDocumentById.mockResolvedValue(complete)
+
+    expect(await readActiveSelection(ctx, 'shopper-1')).toEqual(complete)
+    expect(ctx.clients.masterDataExtended.getDocumentById).toHaveBeenCalledWith(
+      ACTIVE_SELECTION_DATA_ENTITY,
+      'shopper-1',
+      expect.arrayContaining(['b2bUserId', 'orgId', 'costId'])
+    )
+  })
+
+  /**
+   * Master Data answers HTTP 200 with a zero-length body for all three of
+   * these - verified against a live account, byte-identical responses - so one
+   * branch has to cover them and there is no 404 to catch. The empty string in
+   * particular is falsy but not nullish, which is why the guard cannot use
+   * `??`: `'' ?? fallback` keeps the empty string.
+   */
+  it.each([
+    ['an empty body (entity or document missing)', ''],
+    ['no body at all', undefined],
+    ['an explicit null', null],
+  ])('answers null for %s', async (_label, response) => {
+    const ctx = makeCtx()
+
+    ctx.clients.masterDataExtended.getDocumentById.mockResolvedValue(response)
+
+    expect(await readActiveSelection(ctx, 'shopper-1')).toBeNull()
+  })
+
+  it('answers null for a half-written document rather than a partial selection', async () => {
+    const ctx = makeCtx()
+
+    ctx.clients.masterDataExtended.getDocumentById.mockResolvedValue({
+      orgId: 'ORG-A',
+    })
+
+    expect(await readActiveSelection(ctx, 'shopper-1')).toBeNull()
+  })
+
+  /**
+   * The search path still exists behind this. A failure here has to degrade to
+   * it, never fail the transform.
+   */
+  it('answers null and does not throw when Master Data fails', async () => {
+    const ctx = makeCtx()
+
+    ctx.clients.masterDataExtended.getDocumentById.mockRejectedValue(
+      new Error('master data down')
+    )
+
+    expect(await readActiveSelection(ctx, 'shopper-1')).toBeNull()
+    expect(ctx.vtex.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'readActiveSelection.error' })
+    )
+  })
+})
+
+describe('writeActiveSelection', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('writes the selection under the shopper key, with no schema', async () => {
+    const ctx = makeCtx()
+
+    expect(await writeActiveSelection(ctx, 'shopper-1', complete)).toBe(true)
+
+    const [entity, key, fields] =
+      ctx.clients.masterDataExtended.putDocumentById.mock.calls[0]
+
+    expect(entity).toBe(ACTIVE_SELECTION_DATA_ENTITY)
+    expect(key).toBe('shopper-1')
+    expect(fields).toMatchObject(complete)
+    expect(fields.updatedAt).toEqual(expect.any(String))
+  })
+
+  /**
+   * `b2b_users.active` stays the durable truth; this only records which
+   * document to read. A failed write must not fail a switch that otherwise
+   * succeeded - the next transform falls back to the search.
+   */
+  it('reports failure without throwing when the write fails', async () => {
+    const ctx = makeCtx()
+
+    ctx.clients.masterDataExtended.putDocumentById.mockRejectedValue(
+      new Error('master data down')
+    )
+
+    expect(await writeActiveSelection(ctx, 'shopper-1', complete)).toBe(false)
+    expect(ctx.vtex.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'writeActiveSelection.error' })
+    )
+  })
+})

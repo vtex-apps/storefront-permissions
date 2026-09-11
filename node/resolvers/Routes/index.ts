@@ -29,6 +29,10 @@ import {
   isKnownOrganizationStatus,
   isOrganizationUsable,
 } from '../../utils/organizationStatus'
+import {
+  readActiveSelection,
+  resolveSelectionKey,
+} from '../../services/activeSelection'
 import { createTimer, getTimer } from '../../utils/requestTimings'
 import { getUser } from '../Mutations/Users'
 import { getRole } from '../Queries/Roles'
@@ -368,6 +372,57 @@ export const Routes = {
       // (which would produce empty B2B sessions until the TTL expired), and
       // handle the failure outside the cached call so it is retried next time.
       const fetchActiveUser = async () => {
+        /**
+         * Ask the selection record first, so a shopper who just switched is
+         * not waiting on the Master Data search index.
+         *
+         * `getActiveUserByEmail` below finds the active record by searching
+         * `email = ... AND active = true`, and that search trails writes -
+         * measured at one to three polls on an idle account, 0.8-1.6s on live
+         * traffic, past 30s when a shopper switches repeatedly. Both hops here
+         * are document reads by id, which do not go through the index at all.
+         *
+         * Placed inside the cache fetcher on purpose: the memory/VBase layers
+         * keep working exactly as before, and this only changes what a miss
+         * costs - and a switch always misses, because the cache key carries
+         * `b2bCurrentCostCenter`.
+         *
+         * Nothing here is authoritative. `b2b_users.active` remains the truth;
+         * an absent, incomplete or unreadable selection just falls through to
+         * the search, which is also what happens for a shopper who has never
+         * switched and for organizations changed outside this flow.
+         */
+        const selectionKey = resolveSelectionKey({
+          actingStoreUserId:
+            response['storefront-permissions'].storeUserId.value,
+          sessionStoreUserId: body?.authentication?.storeUserId?.value,
+        })
+
+        const selection = selectionKey
+          ? await timer.track(
+              'readActiveSelection',
+              readActiveSelection(ctx, selectionKey)
+            )
+          : null
+
+        if (selection) {
+          const recordedUser: any = await timer.track(
+            'getB2BUserById',
+            getB2BUserById(null, { id: selection.b2bUserId }, ctx)
+          )
+
+          if (recordedUser?.orgId && recordedUser?.costId) {
+            timer.meta.extra = {
+              ...timer.meta.extra,
+              activeUserSource: 'selection',
+            }
+
+            return recordedUser
+          }
+        }
+
+        timer.meta.extra = { ...timer.meta.extra, activeUserSource: 'search' }
+
         const activeUser: any = await getActiveUserByEmail(
           null,
           { email, stickyCostId, stickyOrgId },

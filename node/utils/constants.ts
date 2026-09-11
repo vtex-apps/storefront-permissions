@@ -15,6 +15,24 @@ export const COST_CENTER_FIELDS = [
   'stateRegistration',
   'sellers',
 ]
+/**
+ * Records which b2b_users document a shopper last switched to, keyed by the
+ * shopper's own stable id.
+ *
+ * Exists to answer "which record is active for this person?" without a search.
+ * Master Data resolves a document by id from storage, but a search goes through
+ * an index that trails writes - measured at one to three polls (up to ~780ms)
+ * on an idle dev account, and 0.8-1.6s on live traffic, stretching past 30s
+ * when a shopper switches repeatedly. Since the switch already knows the
+ * answer, writing it under a key the next read can address removes the index
+ * from the path entirely (B2BTEAM-3864).
+ *
+ * No schema and no `v-indexed`: nothing searches this entity, so there is
+ * nothing to index and no provisioning step - the first write creates it.
+ */
+export const ACTIVE_SELECTION_DATA_ENTITY = 'b2b_user_selection'
+export const ACTIVE_SELECTION_FIELDS = ['b2bUserId', 'orgId', 'costId']
+
 export const ORGANIZATION_DATA_ENTITY = 'organizations'
 export const ORGANIZATION_SCHEMA_VERSION = 'v0.0.8'
 export const ORGANIZATION_FIELDS = [
