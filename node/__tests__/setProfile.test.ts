@@ -470,8 +470,8 @@ describe('setProfile', () => {
       },
     })
 
-    expect(response['storefront-permissions'].organization.value).toBe('org2')
-    expect(response['storefront-permissions'].costcenter.value).toBe('cost2b')
+    expect(response['storefront-permissions'].organization).toBeUndefined()
+    expect(response['storefront-permissions'].costcenter).toBeUndefined()
     expect(setActiveUserByOrganization).not.toHaveBeenCalled()
   })
 
@@ -565,13 +565,9 @@ describe('setProfile', () => {
     })
 
     // The pinned pair wins over the list candidate, keeping consecutive
-    // responses stable.
-    expect(response['storefront-permissions'].organization.value).toBe(
-      'orgSticky'
-    )
-    expect(response['storefront-permissions'].costcenter.value).toBe(
-      'costSticky'
-    )
+    // responses stable (unchanged fields are omitted from the transform output).
+    expect(response['storefront-permissions'].organization).toBeUndefined()
+    expect(response['storefront-permissions'].costcenter).toBeUndefined()
   })
 
   it('does not adopt the pinned pair when its cost center no longer exists', async () => {
@@ -845,7 +841,7 @@ describe('setProfile', () => {
     // First transform: user not provisioned yet, empty B2B session.
     const first = await run(ctx)
 
-    expect(first['storefront-permissions'].organization.value).toBe('')
+    expect(first['storefront-permissions'].organization).toBeUndefined()
 
     // Second transform: the user now exists and must be found immediately -
     // a cached miss would pin the empty session for the whole TTL.
@@ -994,7 +990,7 @@ describe('setProfile', () => {
       },
     })
 
-    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].organization).toBeUndefined()
     expect(response['storefront-permissions'].costcenter.value).toBe('cost2')
   })
 
@@ -1043,8 +1039,8 @@ describe('setProfile', () => {
       },
     })
 
-    expect(response['storefront-permissions'].organization.value).toBe('org2')
-    expect(response['storefront-permissions'].costcenter.value).toBe('costB')
+    expect(response['storefront-permissions'].organization).toBeUndefined()
+    expect(response['storefront-permissions'].costcenter).toBeUndefined()
   })
 
   it('stays in the organization when only the pinned cost center is gone', async () => {
@@ -1080,7 +1076,7 @@ describe('setProfile', () => {
       },
     })
 
-    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].organization).toBeUndefined()
     expect(response['storefront-permissions'].costcenter.value).toBe('costA')
 
     const reported = ctx.vtex.logger.warn.mock.calls.find(
@@ -1376,6 +1372,109 @@ describe('setProfile', () => {
     // setCurrentOrganization writes b2bCurrentCostCenter on an organization
     // switch; a different value must change the key and force a fresh lookup.
     expect(lookups).toHaveBeenCalledTimes(2)
+  })
+
+  it('omits unchanged public and storefront-permissions fields when the session already carries the resolved values', async () => {
+    const ctx = makeCtx()
+    const first = await run(ctx)
+    const hash = toHash('org1|cost1')
+
+    const second = await run(ctx, {
+      ...makeBody(),
+      public: {
+        costCenterAddressId: { value: 'addr1' },
+        facets: { value: first.public.facets.value },
+        regionId: { value: first.public.regionId.value },
+        sc: { value: first.public.sc.value },
+      },
+      'storefront-permissions': {
+        costcenter: { value: 'cost1' },
+        hash: { value: hash },
+        organization: { value: 'org1' },
+      },
+    })
+
+    expect(second.public.facets).toBeUndefined()
+    expect(second.public.sc).toBeUndefined()
+    expect(second.public.regionId).toBeUndefined()
+    expect(second['storefront-permissions'].hash).toBeUndefined()
+    expect(second['storefront-permissions'].organization).toBeUndefined()
+    expect(second['storefront-permissions'].costcenter).toBeUndefined()
+    expect(second['storefront-permissions'].costCenterAddressId).toBeUndefined()
+    expect(second['storefront-permissions'].userId.value).toBe('u1')
+  })
+
+  it('still emits storefront-permissions fields when organization recovery changes them', async () => {
+    const orgsDataMock = getUserOrganizationsData as jest.Mock
+
+    orgsDataMock.mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'Inactive Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'inactive',
+        tradeName: null,
+      },
+      recoveredOrganization: {
+        collections: null,
+        name: 'Recovered Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: 'active',
+        tradeName: null,
+      },
+    })
+
+    const response = await run(ctx, {
+      ...makeBody(),
+      'storefront-permissions': {
+        costcenter: { value: 'cost1' },
+        hash: { value: toHash('org1|cost1') },
+        organization: { value: 'org1' },
+      },
+    })
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].costcenter.value).toBe('cost2')
+    expect(response['storefront-permissions'].hash.value).toBe(
+      toHash('org2|cost2')
+    )
+  })
+
+  it('omits postalCode and country on the defer-region path when they already match the session input', async () => {
+    const ctx = makeCtx({
+      appSettings: { deferRegionToCheckoutSession: true },
+    })
+    const first = await run(ctx)
+    const hash = toHash('org1|cost1')
+
+    const second = await run(ctx, {
+      ...makeBody(),
+      public: {
+        costCenterAddressId: { value: 'addr1' },
+        country: { value: 'USA' },
+        facets: { value: first.public.facets.value },
+        postalCode: { value: '12345' },
+        sc: { value: first.public.sc.value },
+      },
+      'storefront-permissions': {
+        costcenter: { value: 'cost1' },
+        hash: { value: hash },
+        organization: { value: 'org1' },
+      },
+    })
+
+    expect(second.public.postalCode).toBeUndefined()
+    expect(second.public.country).toBeUndefined()
+    expect(second.public.regionId).toBeUndefined()
   })
 
   it('does not block the response on the CL profile update', async () => {

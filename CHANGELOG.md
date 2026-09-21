@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- `setProfile` omits session transform outputs whose effective values already match the request input (`public.facets|sc|regionId|postalCode|country` and `storefront-permissions.hash|organization|costcenter|costCenterAddressId`), so repeated or concurrent transforms stop re-emitting unchanged fields and feeding Session Manager transform cycles (HTTP 508 / `TransformCycleException`, including Kohler production `checkout-session` → `search-session` → `storefront-permissions` loops after B2B org switch or missing CL/org users).
+
 ## [3.8.4] - 2026-09-11
 
 ### Added
