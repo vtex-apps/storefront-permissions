@@ -41,7 +41,11 @@ import {
   getAllUsersByEmail,
   getB2BUserById,
 } from '../Queries/Users'
-import { generateClUser, getUserOrganizationsData } from './utils'
+import {
+  generateClUser,
+  getUserOrganizationsData,
+  omitUnchangedSetProfileFields,
+} from './utils'
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
@@ -274,6 +278,7 @@ export const Routes = {
       body?.['storefront-permissions']?.costcenter?.value || null
 
     if (ignoreB2B) {
+      omitUnchangedSetProfileFields(response, body)
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -323,6 +328,7 @@ export const Routes = {
     }
 
     if (!email) {
+      omitUnchangedSetProfileFields(response, body)
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -485,6 +491,7 @@ export const Routes = {
     response['storefront-permissions'].userId.value = user?.id
 
     if (!user?.orgId || !user?.costId) {
+      omitUnchangedSetProfileFields(response, body)
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -1400,6 +1407,8 @@ export const Routes = {
     // two JSON.stringify calls per request plus a log line carrying the whole
     // session in and out, including the shopper's email and organization data.
     // Enable it per account only while debugging.
+    omitUnchangedSetProfileFields(response, body)
+
     if ((appSettings as any)?.logSessionPayloads) {
       logger.info({
         'setProfile.body': JSON.stringify(body),

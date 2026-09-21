@@ -388,3 +388,112 @@ export const getUserOrganizationsData = async (
     return { activeOrganization: null, validCostCenterId: null }
   }
 }
+
+const readSessionFieldValue = (field: unknown): unknown => {
+  if (field === undefined || field === null) {
+    return null
+  }
+
+  if (
+    typeof field === 'object' &&
+    field !== null &&
+    'value' in (field as Record<string, unknown>)
+  ) {
+    const { value } = field as { value: unknown }
+
+    return value === undefined || value === '' ? null : value
+  }
+
+  return field
+}
+
+/** Normalizes session field values so missing, null and empty string compare equal. */
+export const normalizeSessionFieldForCompare = (
+  field: unknown
+): string | null => {
+  const value = readSessionFieldValue(field)
+
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  return String(value)
+}
+
+const omitIfUnchanged = (
+  response: Record<string, any>,
+  namespace: string,
+  key: string,
+  body: any,
+  inputNamespace: string,
+  inputKey: string
+) => {
+  const ns = response[namespace]
+
+  if (!ns || !(key in ns)) {
+    return
+  }
+
+  const output = normalizeSessionFieldForCompare(ns[key])
+  const input = normalizeSessionFieldForCompare(
+    body?.[inputNamespace]?.[inputKey]
+  )
+
+  if (output === input) {
+    delete ns[key]
+  }
+}
+
+/**
+ * Drops transform outputs that match the incoming session so Session Manager
+ * does not treat them as writes and re-run the transform DAG.
+ */
+export const omitUnchangedSetProfileFields = (response: any, body: any) => {
+  if (!body) {
+    return
+  }
+
+  omitIfUnchanged(response, 'public', 'facets', body, 'public', 'facets')
+  omitIfUnchanged(response, 'public', 'sc', body, 'public', 'sc')
+  omitIfUnchanged(response, 'public', 'regionId', body, 'public', 'regionId')
+  omitIfUnchanged(response, 'public', 'postalCode', body, 'public', 'postalCode')
+  omitIfUnchanged(response, 'public', 'country', body, 'public', 'country')
+
+  omitIfUnchanged(
+    response,
+    'storefront-permissions',
+    'hash',
+    body,
+    'storefront-permissions',
+    'hash'
+  )
+  omitIfUnchanged(
+    response,
+    'storefront-permissions',
+    'organization',
+    body,
+    'storefront-permissions',
+    'organization'
+  )
+  omitIfUnchanged(
+    response,
+    'storefront-permissions',
+    'costcenter',
+    body,
+    'storefront-permissions',
+    'costcenter'
+  )
+  const sfp = response['storefront-permissions']
+
+  if (sfp && 'costCenterAddressId' in sfp) {
+    const output = normalizeSessionFieldForCompare(sfp.costCenterAddressId)
+    const input = normalizeSessionFieldForCompare(
+      body?.public?.costCenterAddressId ??
+        body?.['storefront-permissions']?.costCenterAddressId
+    )
+
+    if (output === input) {
+      delete sfp.costCenterAddressId
+    }
+  }
+}
