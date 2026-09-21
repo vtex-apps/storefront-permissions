@@ -16,6 +16,7 @@ import { getCachedRegionId } from '../../services/regionCache'
 import { getCachedSalesChannel } from '../../services/salesChannelCache'
 import { getCachedSessionWatcher } from '../../services/sessionWatcherCache'
 import { toHash } from '../../utils'
+import { omitUnchangedSetProfileFields } from '../../utils/omitUnchangedSetProfileFields'
 import { sanitizeAddressForCheckout } from '../../utils/checkoutAddress'
 import { describeClientError } from '../../utils/clientError'
 import {
@@ -274,6 +275,7 @@ export const Routes = {
       body?.['storefront-permissions']?.costcenter?.value || null
 
     if (ignoreB2B) {
+      omitUnchangedSetProfileFields(body, response)
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -323,6 +325,7 @@ export const Routes = {
     }
 
     if (!email) {
+      omitUnchangedSetProfileFields(body, response)
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -485,6 +488,7 @@ export const Routes = {
     response['storefront-permissions'].userId.value = user?.id
 
     if (!user?.orgId || !user?.costId) {
+      omitUnchangedSetProfileFields(body, response)
       ctx.response.body = response
       ctx.response.status = 200
 
@@ -1407,6 +1411,7 @@ export const Routes = {
       })
     }
 
+    omitUnchangedSetProfileFields(body, response)
     ctx.response.body = response
     ctx.response.status = 200
   },

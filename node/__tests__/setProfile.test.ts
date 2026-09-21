@@ -319,6 +319,84 @@ describe('setProfile', () => {
     expect(response.public.regionId.value).toBe('v2.TESTREGION')
   })
 
+  it('omits public and storefront-permissions fields that match the session input', async () => {
+    const ctx = makeCtx()
+    const hash = toHash('org1|cost1')
+
+    const body = {
+      ...makeBody(),
+      public: {
+        facets: { value: ';' },
+        sc: { value: '1' },
+        regionId: { value: 'v2.TESTREGION' },
+        costCenterAddressId: { value: 'addr1' },
+      },
+      'storefront-permissions': {
+        hash: { value: hash },
+        organization: { value: 'org1' },
+        costcenter: { value: 'cost1' },
+        costCenterAddressId: { value: 'addr1' },
+      },
+    }
+
+    const response = await run(ctx, body)
+
+    expect(response.public.facets).toBeUndefined()
+    expect(response.public.sc).toBeUndefined()
+    expect(response.public.regionId).toBeUndefined()
+    expect(response['storefront-permissions'].hash).toBeUndefined()
+    expect(response['storefront-permissions'].organization).toBeUndefined()
+    expect(response['storefront-permissions'].costcenter).toBeUndefined()
+    expect(
+      response['storefront-permissions'].costCenterAddressId
+    ).toBeUndefined()
+    expect(response['storefront-permissions'].userId.value).toBe('u1')
+  })
+
+  it('still emits organization and hash when the resolved pair changes', async () => {
+    const ctx = makeCtx()
+    const resolvedHash = toHash('org1|cost1')
+
+    const body = {
+      ...makeBody(),
+      'storefront-permissions': {
+        hash: { value: toHash('org1|cost-old') },
+        organization: { value: 'org1' },
+        costcenter: { value: 'cost-old' },
+      },
+    }
+
+    const response = await run(ctx, body)
+
+    expect(response['storefront-permissions'].costcenter.value).toBe('cost1')
+    expect(response['storefront-permissions'].hash.value).toBe(resolvedHash)
+  })
+
+  it('omits postalCode and country on the defer-region path when they already match input', async () => {
+    const ctx = makeCtx({
+      appSettings: { deferRegionToCheckoutSession: true },
+    })
+
+    const body = {
+      ...makeBody(),
+      public: {
+        postalCode: { value: '12345' },
+        country: { value: 'USA' },
+      },
+      'storefront-permissions': {
+        hash: { value: toHash('org1|cost1') },
+        organization: { value: 'org1' },
+        costcenter: { value: 'cost1' },
+      },
+    }
+
+    const response = await run(ctx, body)
+
+    expect(response.public.postalCode).toBeUndefined()
+    expect(response.public.country).toBeUndefined()
+    expect(response.public.regionId).toBeUndefined()
+  })
+
   it('recovers a user whose organization is inactive but has another active one', async () => {
     const orgsDataMock = getUserOrganizationsData as jest.Mock
 
@@ -470,8 +548,11 @@ describe('setProfile', () => {
       },
     })
 
-    expect(response['storefront-permissions'].organization.value).toBe('org2')
-    expect(response['storefront-permissions'].costcenter.value).toBe('cost2b')
+    expect(response['storefront-permissions'].organization).toBeUndefined()
+    expect(response['storefront-permissions'].costcenter).toBeUndefined()
+    expect(response['storefront-permissions'].hash.value).toBe(
+      toHash('org2|cost2b')
+    )
     expect(setActiveUserByOrganization).not.toHaveBeenCalled()
   })
 
@@ -565,12 +646,12 @@ describe('setProfile', () => {
     })
 
     // The pinned pair wins over the list candidate, keeping consecutive
-    // responses stable.
-    expect(response['storefront-permissions'].organization.value).toBe(
-      'orgSticky'
-    )
-    expect(response['storefront-permissions'].costcenter.value).toBe(
-      'costSticky'
+    // responses stable. Matching inputs are omitted so the session does not
+    // loop on unchanged organization/cost center.
+    expect(response['storefront-permissions'].organization).toBeUndefined()
+    expect(response['storefront-permissions'].costcenter).toBeUndefined()
+    expect(response['storefront-permissions'].hash.value).toBe(
+      toHash('orgSticky|costSticky')
     )
   })
 
@@ -845,7 +926,7 @@ describe('setProfile', () => {
     // First transform: user not provisioned yet, empty B2B session.
     const first = await run(ctx)
 
-    expect(first['storefront-permissions'].organization.value).toBe('')
+    expect(first['storefront-permissions'].organization).toBeUndefined()
 
     // Second transform: the user now exists and must be found immediately -
     // a cached miss would pin the empty session for the whole TTL.
@@ -994,7 +1075,7 @@ describe('setProfile', () => {
       },
     })
 
-    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].organization).toBeUndefined()
     expect(response['storefront-permissions'].costcenter.value).toBe('cost2')
   })
 
@@ -1043,8 +1124,11 @@ describe('setProfile', () => {
       },
     })
 
-    expect(response['storefront-permissions'].organization.value).toBe('org2')
-    expect(response['storefront-permissions'].costcenter.value).toBe('costB')
+    expect(response['storefront-permissions'].organization).toBeUndefined()
+    expect(response['storefront-permissions'].costcenter).toBeUndefined()
+    expect(response['storefront-permissions'].hash.value).toBe(
+      toHash('org2|costB')
+    )
   })
 
   it('stays in the organization when only the pinned cost center is gone', async () => {
@@ -1080,7 +1164,7 @@ describe('setProfile', () => {
       },
     })
 
-    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].organization).toBeUndefined()
     expect(response['storefront-permissions'].costcenter.value).toBe('costA')
 
     const reported = ctx.vtex.logger.warn.mock.calls.find(
