@@ -65,6 +65,31 @@ export const normalizeSetProfileFieldValue = (value: unknown): string => {
   return String(value)
 }
 
+/** Session fields that pin B2B context; must not be written as `""` when clearing. */
+const PINNED_B2B_SESSION_FIELDS = [
+  'organization',
+  'costcenter',
+  'hash',
+  'costCenterAddressId',
+] as const
+
+/**
+ * Removes organization / cost center / hash / address id from the transform
+ * response. An empty string is still a write and can flip against a fully
+ * omitted namespace across transforms (HTTP 508 / TransformCycle).
+ */
+export const clearStorefrontPermissionsPinFields = (response: any): void => {
+  const namespace = response?.['storefront-permissions']
+
+  if (!namespace) {
+    return
+  }
+
+  for (const field of PINNED_B2B_SESSION_FIELDS) {
+    delete namespace[field]
+  }
+}
+
 const readInputValue = (body: any, namespace: string, field: string): unknown =>
   body?.[namespace]?.[field]?.value
 
