@@ -1241,6 +1241,15 @@ describe('setProfile', () => {
     )
 
     expect(stickyGone?.[0]).toMatchObject({ stickyOrgId: '0000001322' })
+
+    const b2bNotFound = ctx.vtex.logger.error.mock.calls.find(
+      (call: any[]) => call[0]?.message === 'setProfile.b2bUserNotFound'
+    )
+
+    expect(b2bNotFound?.[0]).toMatchObject({
+      email: 'buyer@test.com',
+      stickyOrgId: '0000001322',
+    })
   })
 
   it('returns the same omitted pin fields on consecutive transforms (no empty-string flip)', async () => {
