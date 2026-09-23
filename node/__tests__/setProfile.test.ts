@@ -1210,6 +1210,82 @@ describe('setProfile', () => {
     expect(reported?.[0]).toMatchObject({ stickyOrgId: 'orgGone' })
   })
 
+  it('omits pinned B2B fields when the shopper has no Master Data record (Okta-only)', async () => {
+    const ctx = makeCtx({ userDocs: [] })
+
+    const body = {
+      ...makeBody(),
+      'storefront-permissions': {
+        costcenter: { value: '0000001322-cc' },
+        hash: { value: 'stale-hash' },
+        organization: { value: '0000001322' },
+      },
+    }
+
+    const response = await run(ctx, body)
+
+    expect(response['storefront-permissions'].organization).toBeUndefined()
+    expect(response['storefront-permissions'].costcenter).toBeUndefined()
+    expect(response['storefront-permissions'].hash).toBeUndefined()
+    expect(response['storefront-permissions'].costCenterAddressId).toBeUndefined()
+
+    const userNotFound = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) => call[0]?.message === 'getActiveUserByEmail-userNotFound'
+    )
+
+    expect(userNotFound).toBeDefined()
+
+    const stickyGone = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) =>
+        call[0]?.message === 'getActiveUserByEmail-stickyOrgNoLongerAvailable'
+    )
+
+    expect(stickyGone?.[0]).toMatchObject({ stickyOrgId: '0000001322' })
+
+    const b2bNotFound = ctx.vtex.logger.error.mock.calls.find(
+      (call: any[]) => call[0]?.message === 'setProfile.b2bUserNotFound'
+    )
+
+    expect(b2bNotFound?.[0]).toMatchObject({
+      email: 'buyer@test.com',
+      stickyOrgId: '0000001322',
+    })
+  })
+
+  it('returns the same omitted pin fields on consecutive transforms (no empty-string flip)', async () => {
+    const ctx = makeCtx({ userDocs: [] })
+    const body = {
+      ...makeBody(),
+      'storefront-permissions': {
+        costcenter: { value: '0000001322-cc' },
+        hash: { value: '' },
+        organization: { value: '0000001322' },
+      },
+    }
+
+    const first = await run(ctx, body)
+    const second = await run(ctx, body)
+
+    const pinSnapshot = (response: any) =>
+      JSON.stringify({
+        costcenter: response['storefront-permissions']?.costcenter,
+        costCenterAddressId:
+          response['storefront-permissions']?.costCenterAddressId,
+        hash: response['storefront-permissions']?.hash,
+        organization: response['storefront-permissions']?.organization,
+      })
+
+    expect(pinSnapshot(first)).toBe(pinSnapshot(second))
+    expect(pinSnapshot(first)).toBe(
+      JSON.stringify({
+        costcenter: undefined,
+        costCenterAddressId: undefined,
+        hash: undefined,
+        organization: undefined,
+      })
+    )
+  })
+
   it('logs an explicit reason when the organization no longer exists', async () => {
     const orgsDataMock = getUserOrganizationsData as jest.Mock
 

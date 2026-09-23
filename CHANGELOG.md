@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- `setProfile` clears pinned B2B session fields (`storefront-permissions` organization, cost center, hash, and cost center address id) by omitting them entirely when the shopper has no resolvable B2B user (`userNotFound` / `stickyOrgNoLongerAvailable` with no fallback record), instead of re-emitting empty strings. The 3.8.5 equal-value omit hardening did not treat `{}` and `{ organization: "", costcenter: "", hash: "" }` as the same write, which kept checkout-session and search-session re-entering until Session Manager hit `MaxCycles` (HTTP 508). Observed on Kohler production (INC-6437) for Okta-only shoppers still carrying sticky organization `0000001322` (request-id `0a38cf474b0346619eb835dbe31985ad`).
+
+### Added
+
+- `setProfile.b2bUserNotFound` error log (includes shopper `email`, and `stickyOrgId` when the session was pinned) when resolution ends with no B2B user, so ops can find Okta-only / missing-VTEX shoppers in VictoriaLogs.
+
 ## [3.8.5] - 2026-09-21
 
 ### Fixed

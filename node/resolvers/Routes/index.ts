@@ -16,7 +16,10 @@ import { getCachedRegionId } from '../../services/regionCache'
 import { getCachedSalesChannel } from '../../services/salesChannelCache'
 import { getCachedSessionWatcher } from '../../services/sessionWatcherCache'
 import { toHash } from '../../utils'
-import { omitUnchangedSetProfileFields } from '../../utils/omitUnchangedSetProfileFields'
+import {
+  clearStorefrontPermissionsPinFields,
+  omitUnchangedSetProfileFields,
+} from '../../utils/omitUnchangedSetProfileFields'
 import { sanitizeAddressForCheckout } from '../../utils/checkoutAddress'
 import { describeClientError } from '../../utils/clientError'
 import {
@@ -245,6 +248,8 @@ export const Routes = {
     // reassignments below, and closures capturing `user` (the fire-and-forget
     // catch handlers) turn that inference gap into a build error (TS7034/7005).
     let user: any = null
+    /** True when Master Data has no B2B record for the authenticated email. */
+    let resolvedB2bUserNotFound = false
 
     const ignoreB2B = body?.public?.removeB2B?.value
 
@@ -465,7 +470,9 @@ export const Routes = {
           )
         )
         .catch((error) => {
-          if (!error?.userNotFound) {
+          if (error?.userNotFound) {
+            resolvedB2bUserNotFound = true
+          } else {
             logger.warn({
               error: describeClientError(error),
               message: 'setProfile.getUserByEmailError',
@@ -488,6 +495,15 @@ export const Routes = {
     response['storefront-permissions'].userId.value = user?.id
 
     if (!user?.orgId || !user?.costId) {
+      if (resolvedB2bUserNotFound) {
+        logger.error({
+          email,
+          message: 'setProfile.b2bUserNotFound',
+          ...(stickyOrgId ? { stickyOrgId } : {}),
+        })
+      }
+
+      clearStorefrontPermissionsPinFields(response)
       omitUnchangedSetProfileFields(body, response)
       ctx.response.body = response
       ctx.response.status = 200
