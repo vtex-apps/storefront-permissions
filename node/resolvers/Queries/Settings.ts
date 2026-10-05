@@ -112,7 +112,7 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
 
   try {
     return settings?.sessionWatcher?.active ?? true
-  } catch (error: any) {
+  } catch (error) {
     logger.error({
       error: describeClientError(error),
       message: 'getSessionWatcher.getSessionWatcherError',
