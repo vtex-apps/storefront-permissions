@@ -62,7 +62,7 @@ export const Routes = {
         await apps.getAppSettings(appId)
 
       return { disableSellersNameFacets, disablePrivateSellersFacets }
-    } catch (error: any) {
+    } catch (error) {
       logger.error({
         error: describeClientError(error),
         message: 'Routes.appSettings.getAppSettingsError',
@@ -328,7 +328,7 @@ export const Routes = {
 
         response['storefront-permissions'].storeUserId.value = userId
         response['storefront-permissions'].storeUserEmail.value = user.email
-      } catch (error: any) {
+      } catch (error) {
         logger.error({
           error: describeClientError(error),
           message: 'setProfile.getUserError',
@@ -1148,7 +1148,7 @@ export const Routes = {
           )
           await timer.track('clearCart', checkout.clearCart(orderFormId))
         }
-      } catch (error: any) {
+      } catch (error) {
         logger.error({
           error: describeClientError(error),
           message: 'setProfile.clearCart',
@@ -1222,7 +1222,7 @@ export const Routes = {
               value: regionId.id,
             }
           }
-        } catch (error: any) {
+        } catch (error) {
           logger.error({
             error: describeClientError(error),
             message: 'setProfile.getRegionId',
