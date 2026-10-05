@@ -23,7 +23,7 @@ export class WithSession extends SchemaDirectiveVisitor {
         .then((currentSession: any) => {
           return currentSession.sessionData
         })
-        .catch((error) => {
+        .catch((error: any) => {
           logger.warn({
             error: describeClientError(error),
             message: 'withSession.getSessionError',

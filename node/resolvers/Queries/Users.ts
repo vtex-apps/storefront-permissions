@@ -136,7 +136,7 @@ export const getAllUsers = async ({
 
       return acc
     }, users)
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: 'Profiles.getAllUsersByEmail-error',
@@ -300,7 +300,7 @@ export const getActiveUserByEmail = async (
       email: userFound?.email || '',
       name: userFound?.name || '',
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: `getActiveUserByEmail-error`,
@@ -348,7 +348,7 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
 
       return activeUser
     }
-  ).catch((error) =>
+  ).catch((error: any) =>
     error?.userNotFound
       ? { email: '', name: '' }
       : { message: error, status: 'error' }
@@ -387,7 +387,7 @@ export const getUserById = async (_: any, params: any, ctx: Context) => {
     )
 
     return cl ?? null
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: 'Profiles.getUserById-error',
@@ -446,7 +446,7 @@ export const getB2BUserById = async (_: any, params: any, ctx: Context) => {
     })
 
     return user
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: 'Profiles.getUserById-error',
@@ -505,7 +505,7 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
           roleId: null,
           userId: cl.userId,
         }
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: 'Profiles.getUser-error',
@@ -540,7 +540,7 @@ export const getUserByRole = async (_: any, params: any, ctx: Context) => {
       schema: config.version,
       where: `roleId=${id}`,
     })
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: 'Profiles.getUserByRole-error',
@@ -611,7 +611,7 @@ export const listUsers = async (
     })
 
     return res
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: 'Profiles.listUsers-error',
@@ -700,7 +700,7 @@ export const listUsersPaginated = async (
       sort: `${sortedBy} ${sortOrder}`,
       ...(where && { where }),
     })
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: 'Profiles.listUsersPaginated-error',
@@ -888,7 +888,7 @@ export const checkUserPermission = async (
     // pay for reading it (cached for 5 minutes when they do).
     const appSettings = await timer.track(
       'getAppSettings',
-      getCachedAppSettings(ctx).catch((error) => {
+      getCachedAppSettings(ctx).catch((error: any) => {
         logger.warn({
           error: describeClientError(error),
           message: 'checkUserPermission-getAppSettingsError',
@@ -1004,7 +1004,7 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
   ) {
     const userData: any = await profileSystem
       .getProfileInfo(profile.id.value)
-      .catch((error) => {
+      .catch((error: any) => {
         logger.error({
           error: describeClientError(error),
           message: 'checkImpersonation.getProfileInfoError',
@@ -1062,7 +1062,7 @@ export const getUsersByEmail = async (_: any, params: any, ctx: Context) => {
       schema: config.version,
       where: `email = "${email}"`,
     })
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: `getUsersByEmail-error`,
@@ -1104,7 +1104,7 @@ export const getOrganizationsByEmail = async (
       orgId: user.orgId,
       roleId: user.roleId,
     }))
-  } catch (error) {
+  } catch (error: any) {
     extra.error = true
     logger.error({
       error: describeClientError(error),
@@ -1146,7 +1146,7 @@ export const getOrganizationsPaginatedByEmail = async (
       })
 
     return data
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: 'getOrganizationsPaginatedByEmail-error',
@@ -1202,7 +1202,7 @@ export const getUserByEmailOrgIdAndCostId = async (
     })
 
     return (user[0] as UserByEmail) || null
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: `getUsersByEmail-error`,
