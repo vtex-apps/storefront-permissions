@@ -1004,7 +1004,15 @@ export const checkImpersonation = async (_: any, __: any, ctx: Context) => {
   ) {
     const userData: any = await profileSystem
       .getProfileInfo(profile.id.value)
-      .catch(() => null)
+      .catch((error) => {
+        logger.error({
+          error: describeClientError(error),
+          message: 'checkImpersonation.getProfileInfoError',
+          profileId: profile.id.value,
+        })
+
+        return null
+      })
 
     if (!userData) {
       response = { error: 'User not found' }
