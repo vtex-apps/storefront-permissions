@@ -4,6 +4,7 @@ import { defaultFieldResolver } from 'graphql'
 import { SchemaDirectiveVisitor } from 'graphql-tools'
 
 import sendSessionMetric, { SessionMetric } from '../metrics/session'
+import { describeClientError } from '../utils/clientError'
 
 export class WithSession extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
@@ -22,7 +23,15 @@ export class WithSession extends SchemaDirectiveVisitor {
         .then((currentSession: any) => {
           return currentSession.sessionData
         })
-        .catch(() => null)
+        .catch((error) => {
+          logger.warn({
+            error: describeClientError(error),
+            message: 'withSession.getSessionError',
+            operation: field.astNode?.name?.value ?? context.request.url,
+          })
+
+          return null
+        })
 
       // we emit a metric for cases where the sessionData is null
       // so we can identify use cases that are supposed to have sessionData

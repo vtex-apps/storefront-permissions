@@ -77,7 +77,14 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
     await vbase.saveJSON('b2b_settings', app, settings)
   }
 
-  const roles: any = await syncRoles(ctx).catch(() => [])
+  const roles: any = await syncRoles(ctx).catch((error) => {
+    logger.warn({
+      error: describeClientError(error),
+      message: 'getAppSettings.syncRolesError',
+    })
+
+    return []
+  })
 
   settings.adminSetup.roles = !!roles.length
 
@@ -92,7 +99,12 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
 
   const app: string = getAppId()
 
-  const settings: any = await vbase.getJSON('b2b_settings', app).catch(() => {
+  const settings: any = await vbase.getJSON('b2b_settings', app).catch((error) => {
+    logger.warn({
+      error: describeClientError(error),
+      message: 'getSessionWatcher.readSettingsError',
+    })
+
     return {}
   })
 

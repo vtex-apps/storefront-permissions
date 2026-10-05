@@ -50,11 +50,26 @@ import { generateClUser, getUserOrganizationsData } from './utils'
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
   appSettings: async (ctx: Context) => {
-    const appId = process.env.VTEX_APP_ID ? process.env.VTEX_APP_ID : ''
-    const { disableSellersNameFacets, disablePrivateSellersFacets } =
-      await ctx.clients.apps.getAppSettings(appId)
+    const {
+      clients: { apps },
+      vtex: { logger },
+    } = ctx
 
-    return { disableSellersNameFacets, disablePrivateSellersFacets }
+    const appId = process.env.VTEX_APP_ID ? process.env.VTEX_APP_ID : ''
+
+    try {
+      const { disableSellersNameFacets, disablePrivateSellersFacets } =
+        await apps.getAppSettings(appId)
+
+      return { disableSellersNameFacets, disablePrivateSellersFacets }
+    } catch (error) {
+      logger.error({
+        error: describeClientError(error),
+        message: 'Routes.appSettings.getAppSettingsError',
+      })
+
+      throw error
+    }
   },
   checkPermissions: async (ctx: Context) => {
     const {

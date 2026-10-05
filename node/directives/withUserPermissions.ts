@@ -4,6 +4,7 @@ import { defaultFieldResolver } from 'graphql'
 import { SchemaDirectiveVisitor } from 'graphql-tools'
 
 import { checkUserPermission } from '../resolvers/Queries/Users'
+import { describeClientError } from '../utils/clientError'
 
 export class WithUserPermissions extends SchemaDirectiveVisitor {
   public visitFieldDefinition(field: GraphQLField<any, any>) {
@@ -11,7 +12,7 @@ export class WithUserPermissions extends SchemaDirectiveVisitor {
 
     field.resolve = async (root: any, args: any, context: any, info: any) => {
       const {
-        clients: { session },
+        clients: { session, logger },
       } = context
 
       context.vtex.sender = context?.graphql?.query?.senderApp ?? null
@@ -20,7 +21,15 @@ export class WithUserPermissions extends SchemaDirectiveVisitor {
         .then((currentSession: any) => {
           return currentSession.sessionData
         })
-        .catch(() => null)
+        .catch((error) => {
+          logger.warn({
+            error: describeClientError(error),
+            message: 'withUserPermissions.getSessionError',
+            operation: field.astNode?.name?.value ?? context.request.url,
+          })
+
+          return null
+        })
 
       context.vtex.userPermissions = await checkUserPermission(
         null,
