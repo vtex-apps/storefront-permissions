@@ -38,9 +38,9 @@ export class WithSession extends SchemaDirectiveVisitor {
       // but do not have it. We currently have a high volume of logs generated
       // by such cases, so we need to identify and fix them.
       const operation = field.astNode?.name?.value ?? context.request.url
-      const userAgent = context?.request?.headers['user-agent'] as string
-      const caller = context?.request?.headers['x-vtex-caller'] as string
-      const forwardedHost = context?.request?.headers[
+      const userAgent = context?.request?.headers?.['user-agent'] as string
+      const caller = context?.request?.headers?.['x-vtex-caller'] as string
+      const forwardedHost = context?.request?.headers?.[
         'x-forwarded-host'
       ] as string
 

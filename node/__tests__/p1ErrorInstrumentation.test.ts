@@ -36,9 +36,10 @@ describe('P1 error-log instrumentation', () => {
     it('logs when session fetch fails and continues with null sessionData', async () => {
       const log = logger()
       const sessionError = new Error('session down')
+      const innerResolve = jest.fn().mockResolvedValue('ok')
       const field: any = {
         astNode: { name: { value: 'myQuery' } },
-        resolve: jest.fn().mockResolvedValue('ok'),
+        resolve: innerResolve,
       }
 
       new WithSession({}).visitFieldDefinition(field)
@@ -50,8 +51,8 @@ describe('P1 error-log instrumentation', () => {
             getSession: jest.fn().mockRejectedValue(sessionError),
           },
         },
-        request: { header: {}, url: '/graphql' },
-        vtex: { sessionToken: 'token' },
+        request: { headers: {}, url: '/graphql' },
+        vtex: { account: 'testacc', sessionToken: 'token' },
       }
 
       await field.resolve(null, {}, context, {})
@@ -63,7 +64,7 @@ describe('P1 error-log instrumentation', () => {
         })
       )
       expect(context.vtex.sessionData).toBeNull()
-      expect(field.resolve).toHaveBeenCalled()
+      expect(innerResolve).toHaveBeenCalled()
     })
   })
 
