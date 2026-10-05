@@ -63,7 +63,7 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
       .then(() => {
         settings.adminSetup.schemaHash = currHash
       })
-      .catch((error) => {
+      .catch((error: any) => {
         if (error.response.status !== 304) {
           logger.error({
             error: describeClientError(error),
@@ -77,7 +77,7 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
     await vbase.saveJSON('b2b_settings', app, settings)
   }
 
-  const roles: any = await syncRoles(ctx).catch((error) => {
+  const roles: any = await syncRoles(ctx).catch((error: any) => {
     logger.warn({
       error: describeClientError(error),
       message: 'getAppSettings.syncRolesError',
@@ -99,18 +99,20 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
 
   const app: string = getAppId()
 
-  const settings: any = await vbase.getJSON('b2b_settings', app).catch((error) => {
-    logger.warn({
-      error: describeClientError(error),
-      message: 'getSessionWatcher.readSettingsError',
-    })
+  const settings: any = await vbase
+    .getJSON('b2b_settings', app)
+    .catch((error: any) => {
+      logger.warn({
+        error: describeClientError(error),
+        message: 'getSessionWatcher.readSettingsError',
+      })
 
-    return {}
-  })
+      return {}
+    })
 
   try {
     return settings?.sessionWatcher?.active ?? true
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       error: describeClientError(error),
       message: 'getSessionWatcher.getSessionWatcherError',

@@ -62,7 +62,7 @@ export const Routes = {
         await apps.getAppSettings(appId)
 
       return { disableSellersNameFacets, disablePrivateSellersFacets }
-    } catch (error) {
+    } catch (error: any) {
       logger.error({
         error: describeClientError(error),
         message: 'Routes.appSettings.getAppSettingsError',
@@ -128,7 +128,7 @@ export const Routes = {
         }
 
         return activeUser
-      }).catch((error) =>
+      }).catch((error: any) =>
         error?.userNotFound
           ? { email: '', name: '' }
           : { message: error, status: 'error' }
@@ -328,7 +328,7 @@ export const Routes = {
 
         response['storefront-permissions'].storeUserId.value = userId
         response['storefront-permissions'].storeUserEmail.value = user.email
-      } catch (error) {
+      } catch (error: any) {
         logger.error({
           error: describeClientError(error),
           message: 'setProfile.getUserError',
@@ -368,7 +368,7 @@ export const Routes = {
         'getB2BSettings',
         getCachedB2BSettings(ctx, () => organizations.getB2BSettings())
       )
-      .catch((error) => {
+      .catch((error: any) => {
         logger.error({
           error: describeClientError(error),
           message: 'setProfile.getB2BSettings',
@@ -484,7 +484,7 @@ export const Routes = {
             fetchActiveUser
           )
         )
-        .catch((error) => {
+        .catch((error: any) => {
           if (error?.userNotFound) {
             resolvedB2bUserNotFound = true
           } else {
@@ -545,7 +545,7 @@ export const Routes = {
 
             return document
           })
-          .catch((error) => {
+          .catch((error: any) => {
             if (!error?.organizationNotFound) {
               logger.error({
                 error: describeClientError(error),
@@ -592,7 +592,7 @@ export const Routes = {
 
             return document
           })
-          .catch((error) => {
+          .catch((error: any) => {
             if (!error?.costCenterNotFound) {
               logger.error({
                 error: describeClientError(error),
@@ -700,7 +700,7 @@ export const Routes = {
     if (needsOrgData) {
       userOrgsData = await timer.track(
         'getUserOrganizationsData',
-        getUserOrganizationsData(email, ctx).catch((error) => {
+        getUserOrganizationsData(email, ctx).catch((error: any) => {
           logger.error({
             error: describeClientError(error),
             message: 'setProfile.getUserOrganizationsData',
@@ -912,7 +912,7 @@ export const Routes = {
     // center it was actually placed in, not of the unusable one it arrived with.
     const marketingTagsPromise = organizations
       .getMarketingTags(user.costId)
-      .catch((error) => {
+      .catch((error: any) => {
         logger.error({
           error: describeClientError(error),
           message: 'setProfile.getMarketingTags',
@@ -1113,7 +1113,7 @@ export const Routes = {
       salesChannelPromise.push(
         checkout
           .updateSalesChannel(orderFormId, salesChannel)
-          .catch((error) => {
+          .catch((error: any) => {
             logger.error({
               error: describeClientError(error),
               message: 'setProfile.updateSalesChannel',
@@ -1148,7 +1148,7 @@ export const Routes = {
           )
           await timer.track('clearCart', checkout.clearCart(orderFormId))
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.error({
           error: describeClientError(error),
           message: 'setProfile.clearCart',
@@ -1222,7 +1222,7 @@ export const Routes = {
               value: regionId.id,
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           logger.error({
             error: describeClientError(error),
             message: 'setProfile.getRegionId',
@@ -1257,7 +1257,7 @@ export const Routes = {
               utmMedium,
             })
           })
-          .catch((error) => {
+          .catch((error: any) => {
             logger.error({
               error: describeClientError(error),
               message: 'setProfile.updateOrderFormMarketingDataError',
@@ -1331,7 +1331,7 @@ export const Routes = {
               },
               clearAddressIfPostalCodeNotFound: false,
             })
-            .catch((error) => {
+            .catch((error: any) => {
               // Still failing after sanitizing: the cart keeps its previous
               // address, so the shopper may be shipping to the wrong place.
               // `code` makes the remaining failures countable next to the
@@ -1411,7 +1411,7 @@ export const Routes = {
                 clStateRegistration ?? clUser.stateInscription ?? '0'.repeat(9),
             })
           })
-          .catch((error) => {
+          .catch((error: any) => {
             logger.error({
               error: describeClientError(error),
               message: 'setProfile.updateOrderFormProfileError',
