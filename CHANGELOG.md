@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- builder-hub `node@6` publish: remove TypeScript type annotations from `catch (error)` clauses (`TS1196`). Keep `.catch((error: any) => …)` promise callbacks typed so `noImplicitAny` (`TS7006`) stays satisfied after the P1 instrumentation catch handlers.
+
 ## [3.8.8] - 2026-10-05
 
 ## [3.8.7] - 2026-10-05
