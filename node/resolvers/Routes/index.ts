@@ -128,11 +128,18 @@ export const Routes = {
         }
 
         return activeUser
-      }).catch((error: any) =>
-        error?.userNotFound
-          ? { email: '', name: '' }
-          : { message: error, status: 'error' }
-      ),
+      }).catch((error: any) => {
+        if (error?.userNotFound) {
+          return { email: '', name: '' }
+        }
+
+        logger.error({
+          error: describeClientError(error),
+          message: 'checkPermissions.getUserError',
+        })
+
+        return { message: error, status: 'error' }
+      }),
     ]
 
     if (!userData.length) {

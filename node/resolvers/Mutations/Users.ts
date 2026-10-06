@@ -66,9 +66,11 @@ const setChangeSession = async (
 
 const addUserToMasterdata = async ({
   masterdata,
+  logger,
   params: { name, email },
 }: {
   masterdata: any
+  logger: any
   params: { name: string; email: string }
 }) => {
   const names = name.split(' ')
@@ -90,6 +92,11 @@ const addUserToMasterdata = async ({
     })
     .catch((error: any) => {
       if (error.response?.data?.Message === 'duplicated entry') {
+        logger.warn({
+          error: describeClientError(error),
+          message: 'addUserToMasterdata.duplicatedEntry',
+        })
+
         return masterdata
           .searchDocuments({
             dataEntity: CUSTOMER_SCHEMA_NAME,
@@ -104,6 +111,11 @@ const addUserToMasterdata = async ({
             return { DocumentId: res[0].id }
           })
       }
+
+      logger.error({
+        error: describeClientError(error),
+        message: 'addUserToMasterdata.error',
+      })
 
       throw error
     })
@@ -146,7 +158,7 @@ export const getUser = async ({
     .catch(() => null)
 }
 
-const updateUserFields = async ({ masterdata, fields, id }: any) => {
+const updateUserFields = async ({ masterdata, logger, fields, id }: any) => {
   const { DocumentId } = await masterdata
     .createOrUpdateEntireDocument({
       dataEntity: config.name,
@@ -159,10 +171,22 @@ const updateUserFields = async ({ masterdata, fields, id }: any) => {
     })
     .catch((error: any) => {
       if (error.response.status < 400) {
+        logger.warn({
+          error: describeClientError(error),
+          id,
+          message: 'updateUserFields.softSuccess',
+        })
+
         return {
           DocumentId: id,
         }
       }
+
+      logger.error({
+        error: describeClientError(error),
+        id,
+        message: 'updateUserFields.error',
+      })
 
       throw error
     })
@@ -172,6 +196,7 @@ const updateUserFields = async ({ masterdata, fields, id }: any) => {
 
 const addSelectedPriceTableToB2bUser = async ({
   masterdata,
+  logger,
   fields,
   id,
 }: any) => {
@@ -187,10 +212,22 @@ const addSelectedPriceTableToB2bUser = async ({
     })
     .catch((error: any) => {
       if (error.response.status < 400) {
+        logger.warn({
+          error: describeClientError(error),
+          id,
+          message: 'addSelectedPriceTableToB2bUser.softSuccess',
+        })
+
         return {
           DocumentId: id,
         }
       }
+
+      logger.error({
+        error: describeClientError(error),
+        id,
+        message: 'addSelectedPriceTableToB2bUser.error',
+      })
 
       throw error
     })
@@ -198,7 +235,7 @@ const addSelectedPriceTableToB2bUser = async ({
   return DocumentId
 }
 
-const createPermission = async ({ masterdata, params }: any) => {
+const createPermission = async ({ masterdata, logger, params }: any) => {
   const {
     roleId,
     canImpersonate,
@@ -232,10 +269,22 @@ const createPermission = async ({ masterdata, params }: any) => {
     })
     .catch((error: any) => {
       if (error.response.status < 400) {
+        logger.warn({
+          error: describeClientError(error),
+          id,
+          message: 'createPermission.softSuccess',
+        })
+
         return {
           DocumentId: id,
         }
       }
+
+      logger.error({
+        error: describeClientError(error),
+        id,
+        message: 'createPermission.error',
+      })
 
       throw error
     })
@@ -262,7 +311,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
       throw new Error(`Invalid cost center`)
     }
 
-    const cId = await addUserToMasterdata({ masterdata, params })
+    const cId = await addUserToMasterdata({ masterdata, logger, params })
 
     const organizations = await getOrganizationsByEmail(
       _,
@@ -285,6 +334,7 @@ export const addUser = async (_: any, params: any, ctx: Context) => {
 
     await createPermission({
       lm,
+      logger,
       masterdata,
       params: {
         ...params,
@@ -312,11 +362,12 @@ export const updateUser = async (_: any, params: any, ctx: Context) => {
   try {
     // check if new user already exists in CL and create profile if not
     if (!params.clId) {
-      params.clId = await addUserToMasterdata({ masterdata, params })
+      params.clId = await addUserToMasterdata({ masterdata, logger, params })
     }
 
     await createPermission({
       lm,
+      logger,
       masterdata,
       params,
     })
@@ -655,6 +706,7 @@ export const setActiveUserByOrganization = async (
       updateUserFields({
         fields: { ...user, active: true },
         id: userId,
+        logger,
         masterdata,
       })
     )
@@ -707,6 +759,7 @@ export const setActiveUserByOrganization = async (
                 active: false,
               },
               id: userSecondary.id,
+              logger,
               masterdata,
             })
           )
@@ -885,7 +938,7 @@ export const setCurrentOrganization = async (
       userRole: user.roleId,
     }
 
-    sendChangeTeamMetric(metricParams)
+    sendChangeTeamMetric(logger, metricParams)
 
     await setChangeSession({
       context: ctx,
@@ -969,6 +1022,7 @@ export const setCurrentPriceTable = async (
     // Update user's selected price table
     await addSelectedPriceTableToB2bUser({
       masterdata,
+      logger,
       fields: { selectedPriceTable: priceTable },
       id: userId,
     })

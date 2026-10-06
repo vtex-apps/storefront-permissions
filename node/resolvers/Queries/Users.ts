@@ -317,6 +317,10 @@ export const getActiveUserByEmail = async (
  * @param ctx
  */
 export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
+  const {
+    vtex: { logger },
+  } = ctx
+
   const email = params?.email
 
   if (!email) {
@@ -348,11 +352,18 @@ export const getUserByEmail = async (_: any, params: any, ctx: Context) => {
 
       return activeUser
     }
-  ).catch((error: any) =>
-    error?.userNotFound
-      ? { email: '', name: '' }
-      : { message: error, status: 'error' }
-  )
+  ).catch((error: any) => {
+    if (error?.userNotFound) {
+      return { email: '', name: '' }
+    }
+
+    logger.error({
+      error: describeClientError(error),
+      message: 'getUserByEmail.error',
+    })
+
+    return { message: error, status: 'error' }
+  })
 
   return [cachedUser]
 }

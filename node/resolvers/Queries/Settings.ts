@@ -59,6 +59,13 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
           .then(() => true)
           .catch((error: ErrorResponse) => {
             if (error.response.status !== 304) {
+              logger.error({
+                dataEntity: schema.name,
+                error: describeClientError(error),
+                message: 'getAppSettings.schemaUpdateError',
+                schemaName: schema.version,
+              })
+
               throw error
             }
 
@@ -73,12 +80,9 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
       })
       .catch((error: any) => {
         if (error.response.status !== 304) {
-          logger.error({
-            error: describeClientError(error),
-            message: 'getAppSettings-error',
-          })
-
-          throw new Error(error)
+          // Already logged per-schema above; rethrow the original client error
+          // (do not wrap with `new Error(error)` — that loses status/stack).
+          throw error
         }
       })
 

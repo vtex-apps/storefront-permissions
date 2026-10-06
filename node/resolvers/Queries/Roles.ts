@@ -34,6 +34,7 @@ const getDefaultRoles = (locale: string) => {
 export const searchRoles = async (_: any, ctx: Context) => {
   const {
     clients: { vbase, masterdata },
+    vtex: { logger },
   } = ctx
 
   try {
@@ -58,7 +59,12 @@ export const searchRoles = async (_: any, ctx: Context) => {
         : roles
     }
 
-    throw new Error(error)
+    logger.error({
+      error: describeClientError(error),
+      message: 'Roles.searchRoles',
+    })
+
+    throw error
   }
 }
 
