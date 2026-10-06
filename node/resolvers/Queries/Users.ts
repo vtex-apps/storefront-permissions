@@ -511,7 +511,10 @@ export const getUser = async (_: any, params: any, ctx: Context) => {
       message: 'Profiles.getUser-error',
     })
 
-    return { status: 'error', message: error }
+    // Fail-closed (B2BTEAM-3969): never return a success-shaped
+    // `{ status: 'error', message }` object that callers can spread as a user.
+    // null remains reserved for not-found after a successful MD round-trip.
+    throw error
   }
 }
 

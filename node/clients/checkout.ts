@@ -9,6 +9,17 @@ import type { AxiosError } from 'axios'
 
 import { checkoutCookieFormat, statusToError } from '../utils'
 
+/**
+ * changeToAnonymousUser answers with a 3xx redirect; treat that as success.
+ * Uses response.status — AxiosError.code is a string like ERR_BAD_RESPONSE,
+ * not an HTTP status (B2BTEAM-3969).
+ */
+export const isExpectedAnonymousRedirect = (err: unknown): boolean => {
+  const status = (err as AxiosError)?.response?.status
+
+  return typeof status === 'number' && status >= 300 && status < 400
+}
+
 export class Checkout extends JanusClient {
   private get routes() {
     const base = '/api/checkout/pub'
@@ -274,10 +285,13 @@ export class Checkout extends JanusClient {
       metric: 'checkout-change-to-anonymous',
     }).catch((err) => {
       // This endpoint is expected to return a redirect to
-      // the user, so we can ignore the error if it is a 3xx
-      if (!err.response || /^3..$/.test((err as AxiosError).code ?? '')) {
-        throw err
+      // the user, so we can ignore the error if it is a 3xx.
+      // Check response.status (not AxiosError.code, which is e.g. ERR_BAD_RESPONSE).
+      if (isExpectedAnonymousRedirect(err)) {
+        return
       }
+
+      throw err
     })
   }
 

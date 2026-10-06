@@ -1,5 +1,9 @@
 import schemas from '../../mdSchema'
 import { toHash } from '../../utils'
+import {
+  B2B_SETTINGS_BUCKET,
+  readB2BSettingsOrThrow,
+} from '../../utils/b2bSettings'
 import { describeClientError } from '../../utils/clientError'
 import { syncRoles } from '../Mutations/Roles'
 import type { ErrorResponse } from '../Routes/utils'
@@ -19,9 +23,13 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
 
   const app: string = getAppId()
 
-  const settings = (await vbase.getJSON('b2b_settings', app).catch(() => {
-    return {}
-  })) as {
+  // Fail-closed RMW: 404 bootstraps {}; 5xx/timeout aborts before any saveJSON.
+  const settings = (await readB2BSettingsOrThrow(
+    vbase,
+    app,
+    logger,
+    'getAppSettings.readSettingsError'
+  )) as {
     adminSetup: {
       schemaHash?: string | null
       roles?: string[] | boolean | null
@@ -74,7 +82,7 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
         }
       })
 
-    await vbase.saveJSON('b2b_settings', app, settings)
+    await vbase.saveJSON(B2B_SETTINGS_BUCKET, app, settings)
   }
 
   const roles: any = await syncRoles(ctx).catch((error: any) => {
@@ -100,7 +108,7 @@ export const getSessionWatcher = async (_: any, __: any, ctx: Context) => {
   const app: string = getAppId()
 
   const settings: any = await vbase
-    .getJSON('b2b_settings', app)
+    .getJSON(B2B_SETTINGS_BUCKET, app)
     .catch((error: any) => {
       logger.warn({
         error: describeClientError(error),

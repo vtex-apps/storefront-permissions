@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- **Behavior change (B2BTEAM-3969, fail-closed):** `b2b_settings` RMW writers (`sessionWatcher` mutation and `getAppSettings` schema-sync path) no longer treat every VBase `getJSON` failure as an empty object and then `saveJSON`. Only HTTP 404 / not-found bootstraps `{}` and may write; 5xx, timeout, or unknown read failures log with `describeClientError` and abort the write so existing settings are not overwritten with empty/partial data.
+- **Behavior change (B2BTEAM-3969):** GraphQL `getUser` rethrows after logging `Profiles.getUser-error` on Master Data failure instead of returning `{ status: 'error', message }`, which callers could spread as a user. `null` remains strictly for not-found after a successful MD round-trip.
+- **Fixed (B2BTEAM-3969):** `changeToAnonymousUser` treats HTTP 3xx via `response.status` as the expected redirect success; the previous check used Axios `code` (e.g. `ERR_BAD_RESPONSE`) and inverted the predicate, so real redirects were rethrown and some non-redirect failures were swallowed.
+
 ## [3.8.9] - 2026-10-05
 
 ### Fixed
