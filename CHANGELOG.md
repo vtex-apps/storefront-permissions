@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.8.10] - 2026-10-06
+
 ### Changed
 
 - **Behavior change (B2BTEAM-3969, fail-closed):** `b2b_settings` RMW writers (`sessionWatcher` mutation and `getAppSettings` schema-sync path) no longer treat every VBase `getJSON` failure as an empty object and then `saveJSON`. Only HTTP 404 / not-found bootstraps `{}` and may write; 5xx, timeout, or unknown read failures log with `describeClientError` and abort the write so existing settings are not overwritten with empty/partial data.
