@@ -9,9 +9,26 @@ export const sessionWatcher = async (_: any, params: any, ctx: Context) => {
 
   const app: string = getAppId()
 
-  const settings: any = await vbase.getJSON('b2b_settings', app).catch(() => {
-    return {}
-  })
+  let settings: any
+
+  try {
+    settings = await vbase.getJSON('b2b_settings', app)
+  } catch (error) {
+    // Fail-closed (same as master, B2BTEAM-3969): only a 404 (never written)
+    // may bootstrap `{}`. Any other read failure must not saveJSON, otherwise
+    // the shared b2b_settings (incl. schemaHash) would be overwritten.
+    if (error?.response?.status !== 404) {
+      logger.error({
+        message: 'sessionWatcher.readSettingsError',
+        status: error?.response?.status ?? null,
+        errorMessage: error?.message ?? null,
+      })
+
+      return false
+    }
+
+    settings = {}
+  }
 
   const { active } = params
 
