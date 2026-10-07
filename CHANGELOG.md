@@ -8,9 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-### Fixed
+### Removed
 
-- **Noise (B2BTEAM-3839):** stop logging `Error to send metrics from auth metric` when the analytics POST fails in `sendAuthMetric`. Failures remain swallowed (fire-and-forget); only the noisy error log is removed so accounts no longer emit millions of lines/month for a non-actionable analytics blip.
+- **Noise (B2BTEAM-3839):** remove unused `sendAuthMetric` / `AuthMetric` auth analytics path (and the `Error to send metrics from auth metric` noise it produced when the metrics POST failed). Access-check directives keep their warn logs; session metrics are unchanged.
 
 ## [3.8.12] - 2026-10-07
 
