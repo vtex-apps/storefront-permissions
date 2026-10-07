@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- **Frozen major (B2BTEAM-4245):** disable the Master Data schema auto-update in `getAppSettings`. This major no longer calls `createOrUpdateSchema` for `b2b_roles` / `b2b_profiles` / `b2b_users` nor writes the schema hash to `b2b_settings`, so it cannot overwrite the schemas managed by other installed majors (the `b2b_settings` key is shared across majors) or manual schema customizations made by accounts. Settings are still read and returned; role sync is unchanged.
+
 ### Removed
 
 - **Noise (B2BTEAM-4245):** remove unused `sendAuthMetric` / `AuthMetric` auth analytics path (and the `Error to send metrics from auth metric` noise it produced when the metrics POST failed). Access-check directives keep their warn logs; session metrics are unchanged.
