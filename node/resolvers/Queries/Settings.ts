@@ -1,7 +1,4 @@
-import schemas from '../../mdSchema'
-import { toHash } from '../../utils'
 import { syncRoles } from '../Mutations/Roles'
-import type { ErrorResponse } from '../Routes/utils'
 
 export const getAppId = (): string => {
   const app = process.env.VTEX_APP_ID
@@ -10,10 +7,16 @@ export const getAppId = (): string => {
   return appName
 }
 
+/**
+ * Master Data schema auto-update is disabled on this frozen major
+ * (B2BTEAM-4245). The `b2b_settings` VBase key is shared by every installed
+ * major, and some accounts carry manual schema customizations, so an old
+ * major must never call `createOrUpdateSchema` or write the schema hash.
+ * Settings are only read here; role sync is unchanged.
+ */
 export const getAppSettings = async (_: any, __: any, ctx: Context) => {
   const {
-    clients: { masterdata, vbase },
-    vtex: { logger },
+    clients: { vbase },
   } = ctx
 
   const app: string = getAppId()
@@ -29,51 +32,6 @@ export const getAppSettings = async (_: any, __: any, ctx: Context) => {
 
   if (!settings.adminSetup) {
     settings.adminSetup = {}
-  }
-
-  const currHash = toHash(schemas)
-
-  if (
-    !settings.adminSetup?.schemaHash ||
-    settings.adminSetup?.schemaHash !== currHash
-  ) {
-    const updates: Array<Promise<boolean>> = []
-
-    schemas.forEach((schema) => {
-      updates.push(
-        masterdata
-          .createOrUpdateSchema({
-            dataEntity: schema.name,
-            schemaBody: schema.body,
-            schemaName: schema.version,
-          })
-          .then(() => true)
-          .catch((error: ErrorResponse) => {
-            if (error.response.status !== 304) {
-              throw error
-            }
-
-            return true
-          })
-      )
-    })
-
-    await Promise.all(updates)
-      .then(() => {
-        settings.adminSetup.schemaHash = currHash
-      })
-      .catch((error) => {
-        if (error.response.status !== 304) {
-          logger.error({
-            error,
-            message: 'getAppSettings-error',
-          })
-
-          throw new Error(error)
-        }
-      })
-
-    await vbase.saveJSON('b2b_settings', app, settings)
   }
 
   const roles: any = await syncRoles(ctx).catch(() => [])
