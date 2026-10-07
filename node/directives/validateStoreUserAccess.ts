@@ -3,8 +3,6 @@ import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'
 import { SchemaDirectiveVisitor } from 'graphql-tools'
 
-import type { AuthAuditMetric } from '../metrics/auth'
-import sendAuthMetric, { AuthMetric } from '../metrics/auth'
 import {
   validateAdminToken,
   validateAdminTokenOnHeader,
@@ -28,7 +26,6 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      // get metrics data
       const operation = field?.astNode?.name?.value ?? context?.request?.url
       const userAgent = context?.request?.headers['user-agent'] as string
       const caller = context?.request?.headers['x-vtex-caller'] as string
@@ -36,8 +33,7 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
         'x-forwarded-host'
       ] as string
 
-      // set metric fields with initial data
-      let metricFields: AuthAuditMetric = {
+      let metricFields: Record<string, unknown> = {
         operation,
         forwardedHost,
         caller,
@@ -57,7 +53,6 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
         requiredRole
       )
 
-      // add admin token metrics
       metricFields = {
         ...metricFields,
         hasAdminToken,
@@ -66,15 +61,6 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
 
       // allow access if has valid admin token
       if (hasValidAdminToken) {
-        sendAuthMetric(
-          logger,
-          new AuthMetric(
-            context?.vtex?.account,
-            metricFields,
-            'ValidateStoreUserAccessAudit'
-          )
-        )
-
         return resolve(root, args, context, info)
       }
 
@@ -82,7 +68,6 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
       const { hasAdminTokenOnHeader, hasValidAdminTokenOnHeader } =
         await validateAdminTokenOnHeader(context, metricFields, requiredRole)
 
-      // add admin header token metrics
       metricFields = {
         ...metricFields,
         hasAdminTokenOnHeader,
@@ -91,15 +76,6 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
 
       // allow access if has valid admin token
       if (hasValidAdminTokenOnHeader) {
-        sendAuthMetric(
-          logger,
-          new AuthMetric(
-            context?.vtex?.account,
-            metricFields,
-            'ValidateStoreUserAccessAudit'
-          )
-        )
-
         return resolve(root, args, context, info)
       }
 
@@ -109,7 +85,6 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
         requiredRole
       )
 
-      // add API token metrics
       metricFields = {
         ...metricFields,
         hasApiToken,
@@ -118,15 +93,6 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
 
       // allow access if has valid API token
       if (hasValidApiToken) {
-        sendAuthMetric(
-          logger,
-          new AuthMetric(
-            context?.vtex?.account,
-            metricFields,
-            'ValidateStoreUserAccessAudit'
-          )
-        )
-
         return resolve(root, args, context, info)
       }
 
@@ -135,7 +101,6 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
         storeUserAuthToken as string
       )
 
-      // add store token metrics
       metricFields = {
         ...metricFields,
         hasStoreToken,
@@ -144,15 +109,6 @@ export class ValidateStoreUserAccess extends SchemaDirectiveVisitor {
 
       // allow access if has valid store token
       if (hasValidStoreToken) {
-        sendAuthMetric(
-          logger,
-          new AuthMetric(
-            context?.vtex?.account,
-            metricFields,
-            'ValidateStoreUserAccessAudit'
-          )
-        )
-
         return resolve(root, args, context, info)
       }
 

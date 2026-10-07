@@ -3,7 +3,6 @@ import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'
 import { SchemaDirectiveVisitor } from 'graphql-tools'
 
-import sendAuthMetric, { AuthMetric } from '../metrics/auth'
 import {
   validateAdminToken,
   validateAdminTokenOnHeader,
@@ -25,7 +24,6 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      // now we emit a metric with all the collected data before we proceed
       const operation = field?.astNode?.name?.value ?? context?.request?.url
       const userAgent = context?.request?.headers['user-agent'] as string
       const caller = context?.request?.headers['x-vtex-caller'] as string
@@ -60,28 +58,6 @@ export class CheckUserAccess extends SchemaDirectiveVisitor {
 
       const { hasStoreToken, hasValidStoreToken, hasCurrentValidStoreToken } =
         await validateStoreToken(context, storeUserAuthToken as string)
-
-      const auditMetric = new AuthMetric(
-        context?.vtex?.account,
-        {
-          operation,
-          forwardedHost,
-          caller,
-          userAgent,
-          hasAdminToken,
-          hasValidAdminToken,
-          hasApiToken,
-          hasValidApiToken,
-          hasStoreToken,
-          hasCurrentValidStoreToken,
-          hasValidStoreToken,
-          hasAdminTokenOnHeader,
-          hasValidAdminTokenOnHeader,
-        },
-        'CheckUserAccessAudit'
-      )
-
-      sendAuthMetric(logger, auditMetric)
 
       if (
         !hasAdminToken &&

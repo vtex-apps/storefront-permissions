@@ -3,7 +3,6 @@ import { AuthenticationError, ForbiddenError } from '@vtex/api'
 import type { GraphQLField } from 'graphql'
 import { defaultFieldResolver } from 'graphql'
 
-import sendAuthMetric, { AuthMetric } from '../metrics/auth'
 import {
   validateAdminToken,
   validateAdminTokenOnHeader,
@@ -24,7 +23,6 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
         vtex: { adminUserAuthToken, storeUserAuthToken, logger },
       } = context
 
-      // now we emit a metric with all the collected data before we proceed
       const operation = field.astNode?.name?.value ?? context.request.url
       const userAgent = context?.request?.headers['user-agent'] as string
       const caller = context?.request?.headers['x-vtex-caller'] as string
@@ -58,26 +56,6 @@ export class CheckAdminAccess extends SchemaDirectiveVisitor {
       )
 
       const hasStoreToken = !!storeUserAuthToken // we don't need to validate store token
-
-      const auditMetric = new AuthMetric(
-        context?.vtex?.account,
-        {
-          operation,
-          forwardedHost,
-          caller,
-          userAgent,
-          hasAdminToken,
-          hasValidAdminToken,
-          hasApiToken,
-          hasValidApiToken,
-          hasStoreToken,
-          hasAdminTokenOnHeader,
-          hasValidAdminTokenOnHeader,
-        },
-        'CheckAdminAccessAudit'
-      )
-
-      sendAuthMetric(logger, auditMetric)
 
       if (!hasAdminToken && !hasApiToken && !hasAdminTokenOnHeader) {
         logger.warn({
