@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- **Republish (B2BTEAM-4247):** bump the 1.x line above `1.46.0` so the B2BTEAM-4245 fixes can be published. `1.45.4` was never published because the registry rejects versions lower than the already-published `1.46.0`. The next release from this branch carries exactly the `1.45.4` code (based on `1.45.3`); it does **not** include the `1.46.0` changes (`setCurrentPriceTable` / `selectedPriceTable`).
+
 ## [1.45.4] - 2026-10-07
 
 ### Changed
