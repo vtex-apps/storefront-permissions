@@ -1,3 +1,5 @@
+import type { Logger } from '@vtex/api/lib/service/logger/logger'
+
 import type { Metric } from '../../clients/metrics'
 import { B2B_METRIC_NAME, sendMetric } from '../../clients/metrics'
 import { describeClientError } from '../clientError'
@@ -46,14 +48,20 @@ const buildMetric = (metricParams: ChangeTeamParams): ChangeTeamMetric => {
   })
 }
 
-export const sendChangeTeamMetric = async (metricParams: ChangeTeamParams) => {
+export const sendChangeTeamMetric = async (
+  logger: Logger,
+  metricParams: ChangeTeamParams
+) => {
   try {
     const metric = buildMetric(metricParams)
 
     await sendMetric(metric)
   } catch (error) {
     // The raw client error carries the request body - here, the metric
-    // payload, which includes the user's email.
-    console.warn('Unable to log metrics', describeClientError(error))
+    // payload, which includes the user's email. describeClientError strips it.
+    logger.warn({
+      error: describeClientError(error),
+      message: 'changeTeam.sendMetricError',
+    })
   }
 }
