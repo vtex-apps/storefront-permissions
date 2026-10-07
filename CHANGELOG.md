@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 - **Frozen major (B2BTEAM-4245):** disable the Master Data schema auto-update in `getAppSettings`. This major no longer calls `createOrUpdateSchema` for `b2b_roles` / `b2b_profiles` / `b2b_users` nor writes the schema hash to `b2b_settings`, so it cannot overwrite the schemas managed by other installed majors (the `b2b_settings` key is shared across majors) or manual schema customizations made by accounts. Settings are still read and returned; role sync is unchanged.
+- **Fail-closed (B2BTEAM-4245):** `sessionWatcher` only bootstraps and writes `b2b_settings` when the VBase read returns 404. Any other read failure returns `false` without writing, so the shared settings (including `schemaHash`) are never overwritten with an almost-empty object. Same guard as master (B2BTEAM-3969).
 
 ### Removed
 
