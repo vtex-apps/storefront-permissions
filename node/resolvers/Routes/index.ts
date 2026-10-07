@@ -23,6 +23,10 @@ import {
 import { sanitizeAddressForCheckout } from '../../utils/checkoutAddress'
 import { describeClientError } from '../../utils/clientError'
 import {
+  redactEmail,
+  redactSessionPayloadForLog,
+} from '../../utils/redactSessionPayload'
+import {
   COST_CENTER_DATA_ENTITY,
   COST_CENTER_FIELDS,
   ORGANIZATION_DATA_ENTITY,
@@ -519,7 +523,7 @@ export const Routes = {
     if (!user?.orgId || !user?.costId) {
       if (resolvedB2bUserNotFound) {
         logger.error({
-          email,
+          email: redactEmail(email),
           message: 'setProfile.b2bUserNotFound',
           ...(stickyOrgId ? { stickyOrgId } : {}),
         })
@@ -858,7 +862,7 @@ export const Routes = {
         // them re-enters this recovery until one of those two acts. This log
         // is the signal that the record needs attention at the source.
         logger.warn({
-          email,
+          email: redactEmail(email),
           message: 'setProfile.organizationRecovered',
           recoveredCostId: validOrganization.costId,
           recoveredOrgId: validOrganization.orgId,
@@ -887,7 +891,7 @@ export const Routes = {
         })
 
         logger.error({
-          email,
+          email: redactEmail(email),
           message: 'setProfile.organizationUnavailable',
           organizationId: user.orgId,
           reason: organizationMissing
@@ -1440,12 +1444,14 @@ export const Routes = {
 
     // Off by default: on a route this hot, unconditional payload logging means
     // two JSON.stringify calls per request plus a log line carrying the whole
-    // session in and out, including the shopper's email and organization data.
-    // Enable it per account only while debugging.
+    // session in and out. Payloads are redacted (emails + address values) before
+    // stringify — enable per account only while debugging.
     if ((appSettings as any)?.logSessionPayloads) {
       logger.info({
-        'setProfile.body': JSON.stringify(body),
-        'setProfile.output': JSON.stringify(response),
+        'setProfile.body': JSON.stringify(redactSessionPayloadForLog(body)),
+        'setProfile.output': JSON.stringify(
+          redactSessionPayloadForLog(response)
+        ),
       })
     }
 

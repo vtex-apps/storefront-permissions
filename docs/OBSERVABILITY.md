@@ -19,11 +19,11 @@ All telemetry goes through `ctx.vtex.logger`, which ships to the platform log pi
 | `setProfile.updateOrderFormShippingError` (`code: CART_ADDRESS_UPDATE_FAILED`) | `error` | The cart address update failed even after sanitizing | Carries checkout's own `vtexErrorCode`, the HTTP `status`, and the fields that were rewritten. Compare its rate against `CART_ADDRESS_SANITIZED` to see what the sanitization did and did not fix. **The cart keeps its previous address**, so the shopper may be shipping to the wrong place. |
 | `setProfile.unknownOrganizationStatus`, `getUserOrganizationsData.unknownOrganizationStatus` | `warn` | An organization status this app does not recognize | `b2b-organizations` owns the status vocabulary and this app mirrors it (see [Performance and caching](PERFORMANCE_AND_CACHING.md)); these fire when a new value is introduced upstream. Unknown statuses fail closed, so this is the signal that the two copies of the rule have diverged. |
 | `setProfile.organizationRecovered` | `warn` | The shopper's stored selection points at an unusable organization and the session was served with another one | Nothing is written to resolve it — which record is active belongs to the shopper or the account admin — so every session for this shopper re-enters the recovery until one of them acts. Carries the unusable and the recovered organization ids; a sustained stream for one shopper means their record needs attention at the source. |
-| `setProfile.organizationUnavailable` | `error` | The shopper's organization is missing or not active and nothing could be recovered | The transform fails, and Session Manager reports only a generic "App storefront-permissions failed" 502 — so this log is the only place that names the shopper, the organization and the `reason`/`status`. |
+| `setProfile.organizationUnavailable` | `error` | The shopper's organization is missing or not active and nothing could be recovered | The transform fails, and Session Manager reports only a generic "App storefront-permissions failed" 502 — so this log is the only place that names the organization and the `reason`/`status`. The `email` field is redacted (`<redacted-email>`); correlate via `organizationId` and request ids. |
 | `getActiveUserByEmail-noActiveRecord` | `warn` | The shopper has records but none is active (first login, or the selection was lost) | The resolution fell back read-only; reports the record and organization it used. |
 | `getActiveUserByEmail-stickyOrgNoLongerAvailable`, `-stickyCostCenterNoLongerAvailable` | `warn` | The organization/cost center the session was pinned to is gone | Expected after an admin removes someone from an organization; a spike means something is deleting records. |
 | `setProfile.*Error` (updateSalesChannel, marketing data, shipping, CL profile, B2B settings...) | `error` | A fire-and-forget cart update failed | These never fail the response, so this is their only trace. |
-| `setProfile.body` / `setProfile.output` | `info` | Only when `logSessionPayloads` is enabled | Full session payload in/out. **Contains PII** (shopper email, organization data) and costs two `JSON.stringify` per request — enable per account only during an active investigation, then turn it off. |
+| `setProfile.body` / `setProfile.output` | `info` | Only when `logSessionPayloads` is enabled | Session payload in/out after `redactSessionPayloadForLog`: emails become `<redacted-email>`, address/locality field values become `<redacted>`, while public keys, auth flags, and org/cost/user ids stay. Still costs two `JSON.stringify` per request — enable per account only during an active investigation, then turn it off. |
 
 ## Counting vs debugging: two channels
 
@@ -45,7 +45,7 @@ Currently double-shipped: `organization-recovered`, `organization-unavailable`, 
 |---|---|---|
 | `sessionTimingsSlowThresholdMs` | 1000 | Slow-request threshold for the `warn` timing log |
 | `sessionTimingsSampleRate` | 0 | Fraction (0–1) of healthy requests logging timings as `info` |
-| `logSessionPayloads` | false | Full payload logging (see PII warning above) |
+| `logSessionPayloads` | false | Redacted payload logging (emails and address values stripped; see signals table) |
 | `sessionUserCacheTtlMs` | 300000 | Active-user cache TTL; 0 disables |
 
 Settings propagate within ~10 minutes (memory + VBase cache TTLs).
@@ -55,7 +55,7 @@ Settings propagate within ~10 minutes (memory + VBase cache TTLs).
 1. **Find the slow/failing requests:** query `setProfile.timings` for the account. `failed: true` entries are transforms that threw; the rest exceeded the threshold. `slowestStep` names the culprit directly — e.g. `getCostCenterById` degrading means `vtex.b2b-organizations` is the problem, not this app.
 2. **Need a baseline?** Set `sessionTimingsSampleRate: 0.01` on the affected account. 1% of healthy traffic starts logging timings; compare distributions before/after.
 3. **Suspect stale data?** Check `staleFromVBase.revalidateError` — a failing origin behind a warm cache is invisible everywhere else. `cacheStats` shows whether hit rates collapsed (e.g. after a pod scale-up storm).
-4. **Need the exact payload?** Enable `logSessionPayloads` on that account, reproduce, disable. Do not leave it on.
+4. **Need the payload shape?** Enable `logSessionPayloads` on that account, reproduce, disable. Logged body/output are redacted (no raw emails or address values). Do not leave it on.
 5. A hung request never shows as `failed`: Session Manager abandons the transform at 2s while the handler finishes and logs as *slow*. Exceptions show as `failed: true` with the steps completed before death.
 
 ## Suggested alerts (configure in OpenSearch)
@@ -80,3 +80,5 @@ Settings propagate within ~10 minutes (memory + VBase cache TTLs).
 Rule for new code: a `.catch` never logs its error directly — always `error: describeClientError(error)`. There is a test asserting the described object carries no request body, no query string and no unredacted email.
 
 **Addresses, additionally.** The address sanitizer returns only the field name and the characters it removed, so a caller cannot log an address value by accident.
+
+**Raw emails on setProfile structured logs.** `setProfile.b2bUserNotFound`, `setProfile.organizationRecovered` and `setProfile.organizationUnavailable` pass `email` through `redactEmail` (`<redacted-email>`). Session payload dumps use `redactSessionPayloadForLog` — see the signals table.

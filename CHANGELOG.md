@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- **Privacy (B2BTEAM-3971):** `setProfile` no longer logs raw shopper emails or address/locality values. When `logSessionPayloads` is enabled, body/output go through `redactSessionPayloadForLog` (emails → `<redacted-email>`, address fields → `<redacted>`) while keeping public keys, auth flags, and org/cost/user ids for debug. Structured logs `setProfile.b2bUserNotFound`, `setProfile.organizationRecovered`, and `setProfile.organizationUnavailable` also redact the `email` field the same way.
+
 ## [3.8.11] - 2026-10-07
 
 ### Added

@@ -467,9 +467,11 @@ describe('setProfile', () => {
     )
 
     expect(reported?.[0]).toMatchObject({
+      email: '<redacted-email>',
       recoveredOrgId: 'org2',
       unusableOrgId: 'org1',
     })
+    expect(JSON.stringify(reported?.[0])).not.toContain('buyer@test.com')
 
     // The log line is sampled by the platform pipeline; the exact count ships
     // as an analytics event. Identifiers only on that channel - never email.
@@ -1227,7 +1229,9 @@ describe('setProfile', () => {
     expect(response['storefront-permissions'].organization).toBeUndefined()
     expect(response['storefront-permissions'].costcenter).toBeUndefined()
     expect(response['storefront-permissions'].hash).toBeUndefined()
-    expect(response['storefront-permissions'].costCenterAddressId).toBeUndefined()
+    expect(
+      response['storefront-permissions'].costCenterAddressId
+    ).toBeUndefined()
 
     const userNotFound = ctx.vtex.logger.warn.mock.calls.find(
       (call: any[]) => call[0]?.message === 'getActiveUserByEmail-userNotFound'
@@ -1247,9 +1251,10 @@ describe('setProfile', () => {
     )
 
     expect(b2bNotFound?.[0]).toMatchObject({
-      email: 'buyer@test.com',
+      email: '<redacted-email>',
       stickyOrgId: '0000001322',
     })
+    expect(JSON.stringify(b2bNotFound?.[0])).not.toContain('buyer@test.com')
   })
 
   it('returns the same omitted pin fields on consecutive transforms (no empty-string flip)', async () => {
@@ -1308,10 +1313,11 @@ describe('setProfile', () => {
     // The sessions service turns this into a generic 502, so the log is the
     // only place that says which shopper and which organization failed.
     expect(reported?.[0]).toMatchObject({
-      email: 'buyer@test.com',
+      email: '<redacted-email>',
       organizationId: 'org1',
       reason: 'organizationNotFound',
     })
+    expect(JSON.stringify(reported?.[0])).not.toContain('buyer@test.com')
   })
 
   it('treats an on-hold organization as unusable, like b2b-organizations does', async () => {
@@ -1504,15 +1510,33 @@ describe('setProfile', () => {
 
     expect(quietPayloads).toHaveLength(0)
 
-    const verbose = makeCtx({ appSettings: { logSessionPayloads: true } })
+    // Defer-region publishes postalCode/country on the response so the
+    // redaction assertion below has locality values to refuse.
+    const verbose = makeCtx({
+      appSettings: {
+        deferRegionToCheckoutSession: true,
+        logSessionPayloads: true,
+      },
+      costCenterAddresses: [{ ...defaultAddress, postalCode: '90210' }],
+    })
 
-    await run(verbose)
+    await run(verbose, {
+      ...makeBody(),
+      authentication: { storeUserEmail: { value: 'buyer@secret.com' } },
+    })
 
     const verbosePayloads = verbose.vtex.logger.info.mock.calls.filter(
       (call: any[]) => call[0]?.['setProfile.body']
     )
 
     expect(verbosePayloads).toHaveLength(1)
+
+    const logged = JSON.stringify(verbosePayloads[0][0])
+
+    expect(logged).not.toContain('buyer@secret.com')
+    expect(logged).not.toContain('90210')
+    expect(logged).toContain('<redacted-email>')
+    expect(logged).toContain('<redacted>')
   })
 
   it('reuses the active-user lookup across runs and refetches when the cost center changes', async () => {
