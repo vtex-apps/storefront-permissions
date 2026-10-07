@@ -2,7 +2,6 @@ import type { Logger } from '@vtex/api/lib/service/logger/logger'
 
 import type { Metric } from '../clients/metrics'
 import { B2B_METRIC_NAME, sendMetric } from '../clients/metrics'
-import { describeClientError } from '../utils/clientError'
 
 export interface AuthAuditMetric {
   operation: string
@@ -38,14 +37,13 @@ export class AuthMetric implements Metric {
   }
 }
 
-const sendAuthMetric = async (logger: Logger, authMetric: AuthMetric) => {
+const sendAuthMetric = async (_logger: Logger, authMetric: AuthMetric) => {
   try {
     await sendMetric(authMetric)
-  } catch (error) {
-    logger.error({
-      error: describeClientError(error),
-      message: `Error to send metrics from auth metric`,
-    })
+  } catch (_error) {
+    // Analytics send is fire-and-forget. Logging failures here produced
+    // millions of error lines/month on accounts where the metrics endpoint
+    // fails (B2BTEAM-3839). Swallow silently — send behavior unchanged.
   }
 }
 
