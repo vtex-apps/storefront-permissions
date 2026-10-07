@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.8.11] - 2026-10-07
+
 ### Added
 
 - **Instrumentation (B2BTEAM-3970, P2):** structured `describeClientError` logs on Master Data write helpers (`updateUserFields`, `addSelectedPriceTableToB2bUser`, `createPermission`, `addUserToMasterdata` duplicated-entry recovery), `Roles.searchRoles` non-404 failures (rethrows original error instead of `new Error(error)`), per-schema `getAppSettings.schemaUpdateError` on non-304 schema sync, `getUserByEmail.error` / `checkPermissions.getUserError` when reconstituting soft error payloads, and `changeTeam.sendMetricError` via `logger.warn` (replaces `console.warn`).
