@@ -372,3 +372,158 @@ describe('setActiveUserByOrganization selection reporting', () => {
     })
   })
 })
+
+/**
+ * INC-6700 (retest BUG 1): the session-transform correction in a workspace
+ * whose transform input comes from a 1.x declaration has no
+ * `authentication.storeUserId`, so the selection was never corrected. The
+ * shopper's profile user id is also on their b2b_users records.
+ */
+describe('setActiveUserByOrganization selection key fallback (INC-6700)', () => {
+  const correct = (ctx: any, extra: Record<string, unknown> = {}) =>
+    setActiveUserByOrganization(
+      null,
+      {
+        costId: 'cost2',
+        email: 'buyer@test.com',
+        orgId: 'org2',
+        selectionKey: null,
+        skipSession: true,
+        userId: 'u2',
+        ...extra,
+      },
+      ctx
+    )
+
+  const ctxWithTarget = (target: any) => {
+    const ctx = makeCtx()
+
+    ctx.clients.masterdata.searchDocuments.mockResolvedValue([target])
+
+    return ctx
+  }
+
+  const writtenKeys = (ctx: any) =>
+    ctx.clients.masterDataExtended.putDocumentById.mock.calls.map(
+      (call: any[]) => call[1]
+    )
+
+  beforeEach(() => {
+    getAllUsersByEmailMock.mockReset()
+  })
+
+  it("keys the selection on the adopted record's userId when no session names the shopper", async () => {
+    const target = { ...targetUser, userId: 'profile-1' }
+
+    seedRecords([sibling('u1', true), target])
+
+    const ctx = ctxWithTarget(target)
+
+    await correct(ctx)
+
+    expect(writtenKeys(ctx)).toEqual(['profile-1'])
+    expect(timingsFrom(ctx)).toMatchObject({
+      selectionKeyResolved: true,
+      selectionKeySource: 'record',
+      selectionWritten: true,
+    })
+  })
+
+  it('falls back to the userId the sibling records agree on', async () => {
+    seedRecords([
+      { ...sibling('u1', true), userId: 'profile-1' },
+      { ...sibling('u3', false), userId: 'profile-1' },
+      targetUser,
+    ])
+
+    const ctx = ctxWithTarget(targetUser)
+
+    await correct(ctx)
+
+    expect(writtenKeys(ctx)).toEqual(['profile-1'])
+    expect(timingsFrom(ctx)).toMatchObject({
+      selectionKeySource: 'siblingRecord',
+    })
+  })
+
+  it('skips the selection write and reports it when no record has a userId', async () => {
+    seedRecords([sibling('u1', true), targetUser])
+
+    const ctx = ctxWithTarget(targetUser)
+
+    await correct(ctx)
+
+    expect(
+      ctx.clients.masterDataExtended.putDocumentById
+    ).not.toHaveBeenCalled()
+    expect(ctx.vtex.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'setActiveUserByOrganization.selectionSkipped',
+        reason: 'noSelectionKey',
+      })
+    )
+    expect(timingsFrom(ctx)).toMatchObject({
+      selectionKeyResolved: false,
+      selectionWritten: false,
+    })
+    // The switch itself still happens.
+    expect(
+      ctx.clients.masterdata.createOrUpdateEntireDocument
+    ).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not guess when sibling records disagree on the userId', async () => {
+    seedRecords([
+      { ...sibling('u1', true), userId: 'profile-1' },
+      { ...sibling('u3', false), userId: 'profile-2' },
+      targetUser,
+    ])
+
+    const ctx = ctxWithTarget(targetUser)
+
+    await correct(ctx)
+
+    expect(
+      ctx.clients.masterDataExtended.putDocumentById
+    ).not.toHaveBeenCalled()
+    expect(ctx.vtex.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'setActiveUserByOrganization.selectionSkipped',
+        reason: 'ambiguousRecords',
+      })
+    )
+  })
+
+  it('keeps the session key ahead of the records (impersonation keys on the acting shopper)', async () => {
+    const target = { ...targetUser, userId: 'profile-1' }
+
+    seedRecords([target])
+
+    const ctx = ctxWithTarget(target)
+
+    ctx.clients.session.getSession.mockResolvedValue({
+      sessionData: {
+        namespaces: {
+          authentication: { storeUserId: { value: 'shopper-session' } },
+        },
+      },
+    })
+
+    await setActiveUserByOrganization(null, { userId: 'u2' }, ctx)
+
+    expect(writtenKeys(ctx)).toEqual(['shopper-session'])
+    expect(timingsFrom(ctx)).toMatchObject({ selectionKeySource: 'session' })
+  })
+
+  it('uses the same fallback on a regular switch whose session names nobody', async () => {
+    const target = { ...targetUser, userId: 'profile-1' }
+
+    seedRecords([target])
+
+    const ctx = ctxWithTarget(target)
+
+    await setActiveUserByOrganization(null, { userId: 'u2' }, ctx)
+
+    expect(writtenKeys(ctx)).toEqual(['profile-1'])
+  })
+})

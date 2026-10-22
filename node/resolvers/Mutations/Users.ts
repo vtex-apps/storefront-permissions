@@ -817,7 +817,7 @@ export const setActiveUserByOrganization = async (
      * server-to-server call with no session cookie. Those switches fall back
      * to the search on the next transform, exactly as they do today.
      */
-    const selectionKey =
+    const sessionSelectionKey =
       params.selectionKey ??
       resolveSelectionKey({
         actingStoreUserId:
@@ -827,7 +827,63 @@ export const setActiveUserByOrganization = async (
           sessionData?.namespaces?.authentication?.storeUserId?.value,
       })
 
+    /**
+     * INC-6700: no session key - the session-transform correction (whose
+     * input, built from a 1.x declaration, carries no
+     * `authentication.storeUserId`) or a call with no session cookie. Fall
+     * back to the shopper's profile user id stored on the b2b_users records
+     * themselves (all listed by the same email): the adopted record's first,
+     * otherwise the one id its siblings agree on. Records created without a
+     * `userId` leave nothing to key on, and the write is skipped (reported).
+     */
+    const recordSelectionKey = (): {
+      key: string | null
+      source: string | null
+    } => {
+      if (user?.userId) {
+        return { key: String(user.userId), source: 'record' }
+      }
+
+      const siblingIds = Array.from(
+        new Set(
+          listedUsers
+            .map((record: any) => record?.userId)
+            .filter((recordUserId: unknown) => !!recordUserId)
+            .map(String)
+        )
+      )
+
+      if (siblingIds.length === 1) {
+        return { key: siblingIds[0], source: 'siblingRecord' }
+      }
+
+      return {
+        key: null,
+        source: siblingIds.length > 1 ? 'ambiguousRecords' : null,
+      }
+    }
+
+    const fallback = sessionSelectionKey ? null : recordSelectionKey()
+
+    const selectionKey = sessionSelectionKey ?? fallback?.key ?? null
+
+    extra.selectionKeySource = sessionSelectionKey
+      ? params.selectionKey
+        ? 'param'
+        : 'session'
+      : fallback?.key
+      ? fallback.source
+      : null
     extra.selectionKeyResolved = !!selectionKey
+
+    if (!selectionKey) {
+      logger.warn({
+        message: 'setActiveUserByOrganization.selectionSkipped',
+        orgId: user?.orgId ?? null,
+        reason: fallback?.source ?? 'noSelectionKey',
+        userId: user?.id ?? null,
+      })
+    }
 
     if (selectionKey && user?.id && user?.orgId && user?.costId) {
       extra.selectionWritten = await timer.track(
@@ -905,6 +961,7 @@ export const setActiveUserByOrganization = async (
       // production signal at all. `selectionKeyResolved` false means the
       // session named nobody; written false means the write itself failed.
       selectionKeyResolved: extra.selectionKeyResolved ?? false,
+      selectionKeySource: extra.selectionKeySource ?? null,
       selectionWritten: extra.selectionWritten ?? false,
       slowestStep,
       slowestStepMs: timer.timings[slowestStep] ?? 0,
@@ -917,6 +974,8 @@ export const setActiveUserByOrganization = async (
       activeListedCount: Number(extra.activeListedCount ?? 0),
       deactivateWrites: Number(extra.deactivateWrites ?? 0),
       listedCount: Number(extra.listedCount ?? 0),
+      selectionKeySource: (extra.selectionKeySource as string) ?? 'none',
+      selectionWritten: !!extra.selectionWritten,
       totalMs,
     })
   }

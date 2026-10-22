@@ -239,10 +239,10 @@ describe('createCachedResource', () => {
       const cached = makeResource({ memoryTtlMs: 60000, vbaseTtlMinutes: 5 })
       const ctx = makeCtx('acc-inv-2')
 
-      jest
-        .spyOn(ctx.clients.vbase, 'deleteFile')
-        .mockImplementation()
-        .mockResolvedValue(undefined)
+      // A real VBase client has deleteFile; the shared mock does not, so it
+      // is added here (spyOn needs an existing function to wrap).
+      ctx.clients.vbase.deleteFile = () => Promise.resolve()
+      jest.spyOn(ctx.clients.vbase, 'deleteFile')
 
       await cached.invalidate(ctx, 'k')
 

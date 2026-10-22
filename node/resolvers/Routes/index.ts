@@ -675,37 +675,48 @@ export const Routes = {
 
     response['storefront-permissions'].organization.value = user.orgId
 
-    const getOrganization = async (orgId: any): Promise<any> => {
-      return getCachedOrganization(ctx, String(orgId), () =>
-        masterDataExtended
-          .getDocumentById(ORGANIZATION_DATA_ENTITY, orgId, ORGANIZATION_FIELDS)
-          .then((document: any) => {
-            // Master Data answers a missing document with an empty result
-            // rather than an error. Throwing keeps the miss out of both cache
-            // layers (see getOrganizationOrNull, which turns it into null).
-            if (!document) {
-              const notFound: any = new Error('organizationNotFound')
+    const getOrganization = async (
+      orgId: any,
+      bypassRead = false
+    ): Promise<any> => {
+      return getCachedOrganization(
+        ctx,
+        String(orgId),
+        () =>
+          masterDataExtended
+            .getDocumentById(
+              ORGANIZATION_DATA_ENTITY,
+              orgId,
+              ORGANIZATION_FIELDS
+            )
+            .then((document: any) => {
+              // Master Data answers a missing document with an empty result
+              // rather than an error. Throwing keeps the miss out of both cache
+              // layers (see getOrganizationOrNull, which turns it into null).
+              if (!document) {
+                const notFound: any = new Error('organizationNotFound')
 
-              notFound.organizationNotFound = true
-              throw notFound
-            }
+                notFound.organizationNotFound = true
+                throw notFound
+              }
 
-            return document
-          })
-          .catch((error: any) => {
-            if (!error?.organizationNotFound) {
-              logger.error({
-                error: describeClientError(error),
-                message: 'setProfile.graphqlGetOrganizationById',
-              })
-            }
+              return document
+            })
+            .catch((error: any) => {
+              if (!error?.organizationNotFound) {
+                logger.error({
+                  error: describeClientError(error),
+                  message: 'setProfile.graphqlGetOrganizationById',
+                })
+              }
 
-            // Rethrow so a transient Master Data failure fails only this
-            // request. Swallowing it here would make the cache store an empty
-            // organization for its full TTL, turning one blip into minutes of
-            // errors served from cache.
-            throw error
-          })
+              // Rethrow so a transient Master Data failure fails only this
+              // request. Swallowing it here would make the cache store an empty
+              // organization for its full TTL, turning one blip into minutes of
+              // errors served from cache.
+              throw error
+            }),
+        bypassRead
       )
     }
 
@@ -714,8 +725,11 @@ export const Routes = {
     // it explicitly. Deliberately outside the cached fetcher above: caching a
     // "not found" would pin the shopper to the error for the whole TTL. Any
     // other failure still rejects, so it is retried on the next request.
-    const getOrganizationOrNull = async (orgId: any): Promise<any> =>
-      getOrganization(orgId).catch((error: any) => {
+    const getOrganizationOrNull = async (
+      orgId: any,
+      bypassRead = false
+    ): Promise<any> =>
+      getOrganization(orgId, bypassRead).catch((error: any) => {
         const status = error?.response?.status ?? error?.status
 
         if (error?.organizationNotFound || status === 404) {
@@ -827,9 +841,74 @@ export const Routes = {
 
     // Null means the lookup 404'd: the record points at an organization that
     // no longer exists. Both states are unusable and share the same recovery.
-    const organizationMissing = !organization
-    const organizationInactive =
+    let organizationMissing = !organization
+    let organizationInactive =
       !organizationMissing && !isOrganizationUsable(organization?.status)
+
+    /**
+     * INC-6700: an 'inactive' read from the organization cache is confirmed
+     * against Master Data before anything acts on it. The cache (memory +
+     * VBase) can trail a status change - QA saw an organization served with
+     * its old status for ~20s after it changed - and since the recovery below
+     * now persists its correction, a stale 'inactive' would permanently move
+     * the shopper out of an organization that is active again.
+     *
+     * The fresh read also refreshes both cache layers. When it says the
+     * organization is usable, this request simply serves it.
+     */
+    let organizationStatusConfirmed = false
+
+    if (organizationInactive) {
+      const cachedStatus = organization?.status ?? null
+      let freshReadFailed = false
+
+      const freshOrganization = await timer
+        .track(
+          'getOrganization.confirmStatus',
+          getOrganizationOrNull(user.orgId, true)
+        )
+        .catch((error: any) => {
+          freshReadFailed = true
+          logger.warn({
+            error: describeClientError(error),
+            message: 'setProfile.confirmOrganizationStatusError',
+            organizationId: user.orgId,
+          })
+
+          return undefined
+        })
+
+      if (!freshReadFailed) {
+        if (!freshOrganization) {
+          // Deleted since it was cached: the missing-organization path.
+          organization = null
+          organizationMissing = true
+          organizationInactive = false
+        } else if (isOrganizationUsable(freshOrganization.status)) {
+          organization = freshOrganization
+          organizationInactive = false
+
+          const stale = {
+            cachedStatus,
+            freshStatus: freshOrganization.status ?? null,
+            organizationId: String(user.orgId),
+          }
+
+          logger.warn({
+            ...stale,
+            correctionSkipped: true,
+            message: 'setProfile.organizationStatusStale',
+          })
+          sendObservabilityEvent(ctx, 'organization-status-stale', {
+            ...stale,
+            correctionSkipped: true,
+          })
+        } else {
+          organization = freshOrganization
+          organizationStatusConfirmed = true
+        }
+      }
+    }
 
     const organizationUnusable = organizationMissing || organizationInactive
 
@@ -1038,6 +1117,25 @@ export const Routes = {
 
         if (
           organizationInactive &&
+          !organizationStatusConfirmed &&
+          String(unusableCostId) !== String(requestedCostId)
+        ) {
+          // Master Data could not confirm the status (the fresh read failed):
+          // shape this response from the cached one, but write nothing.
+          logger.warn({
+            message: 'setProfile.organizationCorrectionSkipped',
+            reason: 'statusNotConfirmed',
+            unusableOrgId,
+          })
+          sendObservabilityEvent(ctx, 'organization-correction-skipped', {
+            reason: 'statusNotConfirmed',
+            unusableOrgId: String(unusableOrgId),
+          })
+        }
+
+        if (
+          organizationInactive &&
+          organizationStatusConfirmed &&
           String(unusableCostId) !== String(requestedCostId) &&
           !organizationCorrectionsInFlight.has(correctionKey)
         ) {

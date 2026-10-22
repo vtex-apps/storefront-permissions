@@ -44,11 +44,24 @@ export const getCachedB2BSettings = async (
   fetcher: () => Promise<any>
 ): Promise<any> => cachedB2BSettings(ctx, 'settings', fetcher)
 
+/**
+ * `bypassRead` skips both cache layers for this read (straight to Master
+ * Data) and stores the fresh document in both, so the entries the following
+ * requests read are refreshed as well (INC-6700: confirm a status before
+ * acting on it).
+ */
 export const getCachedOrganization = async (
   ctx: Context,
   orgId: string,
-  fetcher: () => Promise<any>
-): Promise<any> => cachedOrganization(ctx, orgId, fetcher)
+  fetcher: () => Promise<any>,
+  bypassRead = false
+): Promise<any> =>
+  cachedOrganization(
+    ctx,
+    orgId,
+    fetcher,
+    bypassRead ? { bypassRead } : undefined
+  )
 
 export const getCachedCostCenter = async (
   ctx: Context,

@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   - Cache: a cached active user for another cost center than the session's is treated as a miss (`active-user-cache-bypass-read` event); `setActiveUserByOrganization` invalidates the active-user entries (memory + VBase); the active-user VBase layer no longer serves stale entries (resource renamed `active-user-v2`).
   - `setActiveUserByOrganization` deactivates every other record of the shopper from the full listing by email (as up to 3.8.0), not only those the search index reports active. Timings now report `listedCount` alongside `activeListedCount`.
   - Observability: `requestedCostId`, `activeUserCacheHit` and `costCenterMismatch` in `setProfile.timings`; `setProfile.costCenterMismatch` log and `cost-center-mismatch` event; `setProfile.organizationCorrectionPersisted` log and event (ids only).
+  - An `inactive` status read from the organization cache is confirmed against Master Data (refreshing the cache) before the correction is persisted. If the organization is usable again the session serves it (`setProfile.organizationStatusStale` log / `organization-status-stale` event); if the confirmation fails the response still recovers but nothing is written (`setProfile.organizationCorrectionSkipped`).
+  - `setActiveUserByOrganization` keys `b2b_user_selection` on the shopper's `userId` from the b2b_users records when the session names nobody (session-transform correction from a 1.x input, or no session cookie); with no `userId` on the records the selection write is skipped and logged (`setActiveUserByOrganization.selectionSkipped`). Timings report `selectionKeySource`.
 
 ## [3.8.13] - 2026-10-07
 

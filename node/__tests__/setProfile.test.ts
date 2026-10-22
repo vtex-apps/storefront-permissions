@@ -2001,3 +2001,151 @@ describe('setProfile after an organization switch (INC-6700)', () => {
     expect(setActiveUserByOrganization).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * INC-6700 (retest RISK 2): the organization cache can trail a status change.
+ * Now that the recovery persists its correction, an 'inactive' served from
+ * cache is confirmed against Master Data before anything is written.
+ */
+describe('setProfile confirming an inactive status before correcting (INC-6700)', () => {
+  const inactiveOrg = {
+    collections: null,
+    name: 'Org 1',
+    priceTables: null,
+    salesChannel: null,
+    sellers: null,
+    status: 'inactive',
+    tradeName: null,
+  }
+
+  const activeOrg = { ...inactiveOrg, name: 'Org 2', status: 'active' }
+
+  const org1Reads = (ctx: any) =>
+    ctx.clients.masterDataExtended.getDocumentById.mock.calls.filter(
+      (call: any[]) => call[0] === 'organizations' && call[1] === 'org1'
+    ).length
+
+  /** org1 reads answer `first` once (the cached read), then `fresh`. */
+  const withOrg1Reads = (ctx: any, first: any, fresh: () => Promise<any>) => {
+    const original =
+      ctx.clients.masterDataExtended.getDocumentById.getMockImplementation()
+
+    let served = 0
+
+    ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
+      (entity: string, id: string, fields: string[]) => {
+        if (entity === 'organizations' && id === 'org1') {
+          served += 1
+
+          return served === 1 ? Promise.resolve(first) : fresh()
+        }
+
+        return original(entity, id, fields)
+      }
+    )
+  }
+
+  beforeEach(() => {
+    ;(getUserOrganizationsData as jest.Mock).mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+  })
+
+  it('serves the organization and persists nothing when Master Data says it is active again', async () => {
+    const ctx = makeCtx({ recoveredOrganization: activeOrg })
+
+    withOrg1Reads(ctx, inactiveOrg, () =>
+      Promise.resolve({ ...inactiveOrg, status: 'active' })
+    )
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+    expect(org1Reads(ctx)).toBe(2)
+
+    const stale = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) => call[0]?.message === 'setProfile.organizationStatusStale'
+    )
+
+    expect(stale?.[0]).toMatchObject({
+      cachedStatus: 'inactive',
+      correctionSkipped: true,
+      freshStatus: 'active',
+      organizationId: 'org1',
+    })
+    expect(JSON.stringify(stale?.[0])).not.toContain('buyer@test.com')
+
+    const event = (sendMetric as jest.Mock).mock.calls.find(
+      (call: any[]) =>
+        call[0]?.kind === 'b2b-storefront-permissions-organization-status-stale'
+    )
+
+    expect(event?.[0].fields).toMatchObject({ organizationId: 'org1' })
+    expect(JSON.stringify(event?.[0])).not.toContain('buyer@test.com')
+
+    // The fresh read refreshed the cache: the next transform is served the
+    // active document without another Master Data read or recovery.
+    const again = await run(ctx)
+
+    expect(again['storefront-permissions'].hash.value).toBe(
+      toHash('org1|cost1')
+    )
+    expect(org1Reads(ctx)).toBe(2)
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+  })
+
+  it('persists the correction once Master Data confirms the organization is inactive', async () => {
+    const ctx = makeCtx({
+      organization: inactiveOrg,
+      recoveredOrganization: activeOrg,
+    })
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    // The cached read and the confirmation.
+    expect(org1Reads(ctx)).toBe(2)
+    expect(setActiveUserByOrganization).toHaveBeenCalledTimes(1)
+  })
+
+  it('recovers this response but writes nothing when the confirmation fails', async () => {
+    const ctx = makeCtx({ recoveredOrganization: activeOrg })
+
+    withOrg1Reads(ctx, inactiveOrg, () =>
+      Promise.reject(Object.assign(new Error('timeout'), { status: 500 }))
+    )
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+    expect(ctx.vtex.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'setProfile.organizationCorrectionSkipped',
+        reason: 'statusNotConfirmed',
+        unusableOrgId: 'org1',
+      })
+    )
+  })
+
+  it('treats an organization deleted since it was cached as missing (no correction)', async () => {
+    const ctx = makeCtx({ recoveredOrganization: activeOrg })
+
+    withOrg1Reads(ctx, inactiveOrg, () => Promise.resolve(undefined))
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+  })
+
+  it('does not re-read an organization that is not inactive', async () => {
+    const ctx = makeCtx()
+
+    await run(ctx)
+
+    expect(org1Reads(ctx)).toBe(1)
+  })
+})
