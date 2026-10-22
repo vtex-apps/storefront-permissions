@@ -527,3 +527,66 @@ describe('setActiveUserByOrganization selection key fallback (INC-6700)', () => 
     expect(writtenKeys(ctx)).toEqual(['profile-1'])
   })
 })
+
+describe('setActiveUserByOrganization switch marker (INC-6700)', () => {
+  beforeEach(() => {
+    getAllUsersByEmailMock.mockReset()
+    ;(invalidateActiveUserKeys as jest.Mock).mockClear()
+  })
+
+  it('writes the switch marker for the activated record and reports it', async () => {
+    seedRecords([sibling('u1', true), targetUser])
+
+    const ctx = makeCtx()
+
+    ctx.clients.vbase = { saveJSON: jest.fn().mockResolvedValue(undefined) }
+
+    await switchToTarget(ctx)
+
+    expect(ctx.clients.vbase.saveJSON).toHaveBeenCalledWith(
+      'sfp-cache',
+      expect.stringMatching(/^active-switch-/),
+      expect.objectContaining({
+        at: expect.any(Number),
+        b2bUserId: 'u2',
+        costId: 'cost2',
+        orgId: 'org2',
+      })
+    )
+    expect(timingsFrom(ctx)).toMatchObject({ switchMarkerWritten: true })
+  })
+
+  it('drops the entry a new session reads (no cost center, no pin)', async () => {
+    seedRecords([targetUser])
+
+    const ctx = makeCtx()
+
+    await switchToTarget(ctx)
+
+    const [[, , costCenters, stickies]] = (
+      invalidateActiveUserKeys as jest.Mock
+    ).mock.calls
+
+    expect(costCenters).toContain(null)
+    expect(stickies).toContain(null)
+  })
+
+  it('does not warn for siblings Master Data reports unchanged (304)', async () => {
+    seedRecords([sibling('u1', false), sibling('u3', false), targetUser])
+
+    const ctx = makeCtx()
+
+    ctx.clients.masterdata.createOrUpdateEntireDocument.mockImplementation(
+      ({ id }: any) =>
+        id === 'u2'
+          ? Promise.resolve({ DocumentId: 'u2' })
+          : Promise.reject({ response: { status: 304 } })
+    )
+
+    await switchToTarget(ctx)
+
+    expect(ctx.vtex.logger.warn).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'updateUserFields.softSuccess' })
+    )
+  })
+})

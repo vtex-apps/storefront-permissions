@@ -4,6 +4,7 @@ import {
   activeUserStickyKey,
   invalidateActiveUserKeys,
 } from '../../services/activeUserCache'
+import { writeActiveSwitchMarker } from '../../services/activeSwitchMarker'
 import {
   resolveSelectionKey,
   writeActiveSelection,
@@ -175,11 +176,16 @@ const updateUserFields = async ({ masterdata, logger, fields, id }: any) => {
     })
     .catch((error: any) => {
       if (error.response.status < 400) {
-        logger.warn({
-          error: describeClientError(error),
-          id,
-          message: 'updateUserFields.softSuccess',
-        })
+        // 304: the document already had these values - every sibling an
+        // organization switch rewrites as inactive that already was. Not
+        // worth a warn per record (INC-6700: ~32 per switch).
+        if (error.response.status !== 304) {
+          logger.warn({
+            error: describeClientError(error),
+            id,
+            message: 'updateUserFields.softSuccess',
+          })
+        }
 
         return {
           DocumentId: id,
@@ -904,6 +910,21 @@ export const setActiveUserByOrganization = async (
      * optimisation; setProfile's cost-center check is what guarantees a cached
      * entry never wins over the switch.
      */
+    // INC-6700: the switch marker every pod reads before trusting a cached
+    // active user (services/activeSwitchMarker). Awaited for the same reason
+    // as the selection: the storefront opens new sessions right after this
+    // returns.
+    if (user?.id && user?.orgId && user?.costId && user?.email) {
+      extra.switchMarkerWritten = await timer.track(
+        'writeSwitchMarker',
+        writeActiveSwitchMarker(ctx, user.email, {
+          b2bUserId: user.id,
+          costId: user.costId,
+          orgId: user.orgId,
+        })
+      )
+    }
+
     const pinnedOrgId =
       sessionData?.namespaces?.['storefront-permissions']?.organization?.value
 
@@ -923,6 +944,8 @@ export const setActiveUserByOrganization = async (
         [
           user.costId,
           sessionData?.namespaces?.public?.b2bCurrentCostCenter?.value,
+          // A new session carries no b2bCurrentCostCenter.
+          null,
           ...(params.cacheCostCenters ?? []),
         ],
         [
@@ -962,6 +985,7 @@ export const setActiveUserByOrganization = async (
       // session named nobody; written false means the write itself failed.
       selectionKeyResolved: extra.selectionKeyResolved ?? false,
       selectionKeySource: extra.selectionKeySource ?? null,
+      switchMarkerWritten: extra.switchMarkerWritten ?? false,
       selectionWritten: extra.selectionWritten ?? false,
       slowestStep,
       slowestStepMs: timer.timings[slowestStep] ?? 0,

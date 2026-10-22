@@ -44,6 +44,7 @@ import {
 } from '../../services/activeSelection'
 import { createTimer, getTimer } from '../../utils/requestTimings'
 import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
+import { readActiveSwitchMarker } from '../../services/activeSwitchMarker'
 import { getRole } from '../Queries/Roles'
 import {
   getActiveUserByEmail,
@@ -57,6 +58,17 @@ import { generateClUser, getUserOrganizationsData } from './utils'
  * the burst of transforms one navigation produces writes them once.
  */
 const organizationCorrectionsInFlight = new Set<string>()
+
+/**
+ * INC-6700: how long a cached active user for a session with no
+ * b2bCurrentCostCenter is trusted before its record is re-read by id. Covers
+ * switches this app never sees (1.x setCurrentOrganization, admin edits),
+ * which write no switch marker. One document read per shopper per window per
+ * pod, at most.
+ */
+const CACHED_ACTIVE_USER_RECHECK_MS = 30 * 1000
+const cachedActiveUserCheckedAt = new Map<string, number>()
+const CACHED_ACTIVE_USER_CHECKS_MAX = 10000
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
@@ -516,23 +528,67 @@ export const Routes = {
           sessionStoreUserId: body?.authentication?.storeUserId?.value,
         })
 
-        const selection = selectionKey
-          ? await timer.track(
-              'readActiveSelection',
-              readActiveSelection(ctx, selectionKey)
-            )
-          : null
+        // INC-6700: the switch marker (VBase, keyed by email) is read too,
+        // in parallel: it is the only record of a switch a session without
+        // `storeUserId` (1.x declaration) can read, and whichever of the two
+        // is newer wins.
+        const [selection, marker] = await Promise.all([
+          selectionKey
+            ? timer.track(
+                'readActiveSelection',
+                readActiveSelection(ctx, selectionKey)
+              )
+            : Promise.resolve(null),
+          timer.track('readSwitchMarker', readActiveSwitchMarker(ctx, email)),
+        ])
 
-        if (selection) {
+        const selectionAt = selection?.updatedAt
+          ? Date.parse(selection.updatedAt) || 0
+          : 0
+
+        const recorded = [
+          selection
+            ? { at: selectionAt, id: selection.b2bUserId, source: 'selection' }
+            : null,
+          marker
+            ? { at: marker.at, id: marker.b2bUserId, source: 'switchMarker' }
+            : null,
+        ]
+          .filter(
+            (entry): entry is { at: number; id: string; source: string } =>
+              Boolean(entry)
+          )
+          .sort((a, b) => b.at - a.at)
+
+        const triedIds = new Set<string>()
+
+        for (const entry of recorded) {
+          if (triedIds.has(String(entry.id))) {
+            continue
+          }
+
+          triedIds.add(String(entry.id))
+
+          // eslint-disable-next-line no-await-in-loop
           const recordedUser: any = await timer.track(
-            'getB2BUserById',
-            getB2BUserById(null, { id: selection.b2bUserId }, ctx)
+            entry.source === 'selection'
+              ? 'getB2BUserById'
+              : 'getB2BUserById.switchMarker',
+            getB2BUserById(null, { id: entry.id }, ctx)
           )
 
-          if (recordedUser?.orgId && recordedUser?.costId) {
+          // Read by id, so `active` is current: a record a later switch (or
+          // one made outside this app) deactivated is not resurrected.
+          if (
+            recordedUser?.orgId &&
+            recordedUser?.costId &&
+            recordedUser?.active !== false &&
+            String(recordedUser?.email ?? email).toLowerCase() ===
+              String(email).toLowerCase()
+          ) {
             timer.meta.extra = {
               ...timer.meta.extra,
-              activeUserSource: 'selection',
+              activeUserSource: entry.source,
             }
 
             return reconcileWithRequest(recordedUser)
@@ -574,7 +630,12 @@ export const Routes = {
       // cache layer can be told apart from a fresh lookup.
       let fetchedActiveUser: any
       const fetchAndRecord = async () => {
-        fetchedActiveUser = await fetchActiveUser()
+        // Stamped so a later read can tell whether a switch happened after
+        // this entry was resolved (see the switch-marker check below).
+        fetchedActiveUser = {
+          ...(await fetchActiveUser()),
+          activeUserCachedAt: Date.now(),
+        }
 
         return fetchedActiveUser
       }
@@ -588,6 +649,77 @@ export const Routes = {
           fetchAndRecord,
           bypassRead
         )
+
+      const refetchActiveUser = (reason: string) => {
+        timer.meta.extra = {
+          ...timer.meta.extra,
+          'activeUserCache.bypassRead': reason,
+        }
+
+        sendObservabilityEvent(ctx, 'active-user-cache-bypass-read', {
+          reason,
+          requestedCostId,
+        })
+
+        return lookupActiveUser(true)
+      }
+
+      /**
+       * INC-6700: a cached entry for a session that asks for no cost center
+       * (new login, another device, expired session) has no request to be
+       * checked against, and a switch can only drop it from its own pod's
+       * memory. It is refused when:
+       * - the switch marker is newer than the entry and names another record
+       *   (any switch made through this app's mutation, on any pod); or
+       * - its record, re-read by id at most every
+       *   CACHED_ACTIVE_USER_RECHECK_MS, is no longer active (switches made
+       *   outside it, e.g. by a 1.x setCurrentOrganization).
+       */
+      const checkUnrequestedCacheHit = async (value: any): Promise<any> => {
+        const cachedAt = Number(value?.activeUserCachedAt) || 0
+        const marker = await timer.track(
+          'readSwitchMarker.cacheHit',
+          readActiveSwitchMarker(ctx, email)
+        )
+
+        if (
+          marker &&
+          marker.at > cachedAt &&
+          String(marker.b2bUserId) !== String(value?.id)
+        ) {
+          return refetchActiveUser('switchMarkerNewer')
+        }
+
+        const checkKey = `${ctx.vtex.account}-${ctx.vtex.workspace}-${email}|${
+          activeUserStickyKey(stickyOrgId, stickyCostId) ?? 'none'
+        }`
+
+        const lastChecked = Math.max(
+          cachedAt,
+          cachedActiveUserCheckedAt.get(checkKey) ?? 0
+        )
+
+        if (Date.now() - lastChecked < CACHED_ACTIVE_USER_RECHECK_MS) {
+          return value
+        }
+
+        if (cachedActiveUserCheckedAt.size >= CACHED_ACTIVE_USER_CHECKS_MAX) {
+          cachedActiveUserCheckedAt.clear()
+        }
+
+        cachedActiveUserCheckedAt.set(checkKey, Date.now())
+
+        const current: any = await timer.track(
+          'getB2BUserById.cacheRecheck',
+          getB2BUserById(null, { id: value?.id }, ctx)
+        )
+
+        if (current && current.active === false) {
+          return refetchActiveUser('cachedRecordInactive')
+        }
+
+        return value
+      }
 
       const cachedUser: any = await timer
         .track(
@@ -608,19 +740,14 @@ export const Routes = {
               requestedCostId !== null &&
               String(value?.costId) !== requestedCostId
             ) {
-              timer.meta.extra = {
-                ...timer.meta.extra,
-                'activeUserCache.bypassRead': 'cachedCostCenterMismatch',
-              }
+              // Exact count via the event (logs are sampled). A session asking
+              // for a cost center it no longer holds takes this path every
+              // transform.
+              return refetchActiveUser('cachedCostCenterMismatch')
+            }
 
-              // Exact count (logs are sampled). A session asking for a cost
-              // center it no longer holds takes this path every transform.
-              sendObservabilityEvent(ctx, 'active-user-cache-bypass-read', {
-                reason: 'cachedCostCenterMismatch',
-                requestedCostId,
-              })
-
-              return lookupActiveUser(true)
+            if (servedFromCache && requestedCostId === null) {
+              return checkUnrequestedCacheHit(value)
             }
 
             return value
@@ -646,7 +773,20 @@ export const Routes = {
       // invalid-cost-center / inactive-organization branches below reassign
       // orgId/costId on it. Mutating the shared entry would corrupt the cache
       // under its original key for every later request.
-      user = (cachedUser ? { ...cachedUser } : cachedUser) as {
+      if (cachedUser) {
+        timer.meta.extra = {
+          ...timer.meta.extra,
+          activeUserCacheAgeMs: cachedUser.activeUserCachedAt
+            ? Date.now() - Number(cachedUser.activeUserCachedAt)
+            : null,
+        }
+      }
+
+      user = (
+        cachedUser
+          ? (({ activeUserCachedAt: _cachedAt, ...rest }) => rest)(cachedUser)
+          : cachedUser
+      ) as {
         orgId: string
         costId: string
         clId: string

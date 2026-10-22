@@ -9,6 +9,8 @@ export interface ActiveSelection {
   b2bUserId: string
   orgId: string
   costId: string
+  /** ISO timestamp set by writeActiveSelection. */
+  updatedAt?: string
 }
 
 /**
