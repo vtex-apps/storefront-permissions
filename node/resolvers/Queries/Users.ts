@@ -452,6 +452,9 @@ export const getB2BUserById = async (_: any, params: any, ctx: Context) => {
         'userId',
         'canImpersonate',
         'selectedPriceTable',
+        // INC-6700: lets the session transform check, by a read that does
+        // not go through the search index, that a record is still active.
+        'active',
       ],
       id,
     })

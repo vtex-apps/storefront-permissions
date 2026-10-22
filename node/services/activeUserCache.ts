@@ -19,12 +19,33 @@ import { createCachedResource } from './cache'
  * entry. Because invalidation is exact, both layers can be used and the TTL only
  * has to cover changes that bypass those flows.
  */
-const cachedActiveUser = createCachedResource<any>('active-user', {
+//
+// INC-6700: a stale entry here is wrong, not merely old (it can name the
+// organization a shopper just left), so the VBase layer never serves an expired
+// entry while revalidating. The name is versioned so entries written by the
+// previous stale-while-revalidate setup are never read.
+const cachedActiveUser = createCachedResource<any>('active-user-v2', {
   // Small payloads (~400B), one per shopper.
   maxEntries: 10000,
   memoryTtlMs: ACTIVE_USER_CACHE_TTL_IN_MS,
+  vbaseServeStale: false,
   vbaseTtlMinutes: ACTIVE_USER_CACHE_TTL_IN_MINUTES,
 })
+
+const activeUserKey = (
+  email: string,
+  currentCostCenter: string | null,
+  sticky: string | null
+) => `${email}|${currentCostCenter ?? 'default'}|${sticky ?? 'none'}`
+
+/** The `sticky` part of the key, as setProfile builds it from the session pin. */
+export const activeUserStickyKey = (
+  stickyOrgId?: string | null,
+  stickyCostId?: string | null
+): string | null =>
+  stickyOrgId && stickyCostId
+    ? `${stickyOrgId}:${stickyCostId}`
+    : stickyOrgId || null
 
 /**
  * Per tenant: a pod serves multiple accounts/workspaces, so a single global
@@ -56,18 +77,63 @@ export const getCachedActiveUserByEmail = async (
   email: string,
   currentCostCenter: string | null,
   sticky: string | null,
-  fetcher: () => Promise<any>
+  fetcher: () => Promise<any>,
+  /**
+   * Skip both cache reads (memory and VBase) but still store the fresh result.
+   * Used when what the cache held cannot be trusted for this request (its cost
+   * center differs from the one the session asked for).
+   */
+  bypassRead = false
 ): Promise<any> =>
   cachedActiveUser(
     ctx,
-    `${email}|${currentCostCenter ?? 'default'}|${sticky ?? 'none'}`,
+    activeUserKey(email, currentCostCenter, sticky),
     fetcher,
     {
+      bypassRead,
       memoryTtlMs:
         configuredTtlMsByTenant.get(tenantKey(ctx)) ??
         ACTIVE_USER_CACHE_TTL_IN_MS,
     }
   )
+
+/**
+ * INC-6700: drops every active-user entry an organization switch can make
+ * wrong - each combination of the cost centers and session pins given - from
+ * this pod's memory and from VBase.
+ *
+ * Best effort by nature: other pods keep their in-memory copy until it expires,
+ * and a switch made by another major (1.x) never calls this. setProfile
+ * therefore also refuses any cached entry whose cost center differs from the
+ * session's b2bCurrentCostCenter; that check is the correctness guarantee,
+ * this only saves the refetch where it can.
+ */
+export const invalidateActiveUserKeys = async (
+  ctx: Context,
+  emails: Array<string | null | undefined>,
+  currentCostCenters: Array<string | null | undefined>,
+  stickies: Array<string | null | undefined>
+): Promise<void> => {
+  const keys = new Set<string>()
+
+  for (const email of emails) {
+    if (!email) {
+      continue
+    }
+
+    for (const costCenter of currentCostCenters) {
+      for (const sticky of stickies) {
+        keys.add(activeUserKey(email, costCenter ?? null, sticky ?? null))
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from(keys).map((key) =>
+      cachedActiveUser.invalidate(ctx, key).catch(() => undefined)
+    )
+  )
+}
 
 /**
  * Variant for permission checks (REST checkPermissions and GraphQL

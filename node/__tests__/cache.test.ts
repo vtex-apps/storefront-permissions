@@ -120,4 +120,151 @@ describe('createCachedResource', () => {
     expect(mine).toBeDefined()
     expect((mine as any).itemCount).toBe(1)
   })
+
+  describe('bypassRead (INC-6700)', () => {
+    it('skips the memory read, refetches and refreshes the memory entry', async () => {
+      const cached = makeResource({ memoryTtlMs: 60000 })
+      const ctx = makeCtx('acc-bypass-1')
+      const stale = jest.fn().mockResolvedValue({ v: 'old' })
+      const fresh = jest.fn().mockResolvedValue({ v: 'new' })
+
+      expect(await cached(ctx, 'k', stale)).toEqual({ v: 'old' })
+      expect(await cached(ctx, 'k', fresh, { bypassRead: true })).toEqual({
+        v: 'new',
+      })
+      expect(fresh).toHaveBeenCalledTimes(1)
+
+      // The fresh value was written: a normal read now serves it from memory.
+      const never = jest.fn()
+
+      expect(await cached(ctx, 'k', never)).toEqual({ v: 'new' })
+      expect(never).not.toHaveBeenCalled()
+    })
+
+    it('never reads VBase (not even a stale entry) but writes the fresh value to it', async () => {
+      const cached = makeResource({ memoryTtlMs: 60000, vbaseTtlMinutes: 5 })
+      const ctx = makeCtx('acc-bypass-2', {
+        data: { v: 'stale' },
+        ttl: new Date(Date.now() - 60000),
+      })
+
+      const fetcher = jest.fn().mockResolvedValue({ v: 'fresh' })
+
+      expect(await cached(ctx, 'k', fetcher, { bypassRead: true })).toEqual({
+        v: 'fresh',
+      })
+      expect(ctx.clients.vbase.getJSON).not.toHaveBeenCalled()
+
+      await flush()
+      expect(ctx.clients.vbase.saveJSON).toHaveBeenCalledTimes(1)
+
+      const [bucket, , stored] = ctx.clients.vbase.saveJSON.mock.calls[0]
+
+      expect(bucket).toBe('sfp-cache')
+      expect(stored.data).toEqual({ v: 'fresh' })
+      expect(new Date(stored.ttl).getTime()).toBeGreaterThan(Date.now())
+    })
+
+    it('writes nothing when the fetcher rejects', async () => {
+      const cached = makeResource({ memoryTtlMs: 60000, vbaseTtlMinutes: 5 })
+      const ctx = makeCtx('acc-bypass-3', null)
+      const failing = jest.fn().mockRejectedValue(new Error('boom'))
+
+      await expect(
+        cached(ctx, 'k', failing, { bypassRead: true })
+      ).rejects.toThrow('boom')
+
+      await flush()
+      expect(ctx.clients.vbase.saveJSON).not.toHaveBeenCalled()
+
+      const fetcher = jest.fn().mockResolvedValue('ok')
+
+      expect(await cached(ctx, 'k', fetcher)).toBe('ok')
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    })
+
+    it('leaves the normal read path unchanged when false', async () => {
+      const cached = makeResource({ memoryTtlMs: 60000 })
+      const ctx = makeCtx('acc-bypass-4')
+      const fetcher = jest.fn().mockResolvedValue(1)
+
+      await cached(ctx, 'k', fetcher, { bypassRead: false })
+      await cached(ctx, 'k', fetcher, { bypassRead: false })
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    })
+
+    it('still honours a zero TTL (no caching at all)', async () => {
+      const cached = makeResource({ memoryTtlMs: 0, vbaseTtlMinutes: 5 })
+      const ctx = makeCtx('acc-bypass-5', null)
+      const fetcher = jest.fn().mockResolvedValue(1)
+
+      await cached(ctx, 'k', fetcher, { bypassRead: true })
+      await flush()
+      expect(ctx.clients.vbase.saveJSON).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('invalidate (INC-6700)', () => {
+    it('drops the memory entry so the next read refetches', async () => {
+      const cached = makeResource({ memoryTtlMs: 60000 })
+      const ctx = makeCtx('acc-inv-1')
+      const fetcher = jest
+        .fn()
+        .mockResolvedValueOnce('before')
+        .mockResolvedValueOnce('after')
+
+      expect(await cached(ctx, 'k', fetcher)).toBe('before')
+      await cached.invalidate(ctx, 'k')
+      expect(await cached(ctx, 'k', fetcher)).toBe('after')
+      expect(fetcher).toHaveBeenCalledTimes(2)
+    })
+
+    it('leaves other keys and other tenants alone', async () => {
+      const cached = makeResource({ memoryTtlMs: 60000 })
+      const ctxA = makeCtx('acc-inv-a')
+      const ctxB = makeCtx('acc-inv-b')
+      const fetcher = jest.fn().mockResolvedValue('v')
+
+      await cached(ctxA, 'k', fetcher)
+      await cached(ctxA, 'other', fetcher)
+      await cached(ctxB, 'k', fetcher)
+      await cached.invalidate(ctxA, 'k')
+
+      await cached(ctxA, 'other', fetcher)
+      await cached(ctxB, 'k', fetcher)
+      expect(fetcher).toHaveBeenCalledTimes(3)
+    })
+
+    it('deletes the VBase entry too when the resource uses VBase', async () => {
+      const cached = makeResource({ memoryTtlMs: 60000, vbaseTtlMinutes: 5 })
+      const ctx = makeCtx('acc-inv-2')
+
+      // A real VBase client has deleteFile; the shared mock does not, so it
+      // is added here (spyOn needs an existing function to wrap).
+      ctx.clients.vbase.deleteFile = () => Promise.resolve()
+      jest.spyOn(ctx.clients.vbase, 'deleteFile')
+
+      await cached.invalidate(ctx, 'k')
+
+      expect(ctx.clients.vbase.deleteFile).toHaveBeenCalledTimes(1)
+      expect(ctx.clients.vbase.deleteFile.mock.calls[0][0]).toBe('sfp-cache')
+    })
+
+    it('does not serve a stale VBase entry when vbaseServeStale is false', async () => {
+      const cached = makeResource({
+        memoryTtlMs: 60000,
+        vbaseServeStale: false,
+        vbaseTtlMinutes: 5,
+      })
+
+      const ctx = makeCtx('acc-inv-3', {
+        data: 'stale',
+        ttl: new Date(Date.now() - 60000),
+      })
+
+      const fetcher = jest.fn().mockResolvedValue('fresh')
+
+      expect(await cached(ctx, 'k', fetcher)).toBe('fresh')
+    })
+  })
 })

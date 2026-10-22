@@ -104,8 +104,16 @@ describe('getUserOrganizationsData', () => {
     expect(result.validCostCenterId).toBe('cc1')
   })
 
-  it('does not treat an on-hold organization as usable', async () => {
+  it('treats an on-hold organization as usable, as in 3.6.x (INC-6700)', async () => {
     const ctx = makeCtx([record({ organizationStatus: 'on-hold' })])
+
+    const result = await getUserOrganizationsData(nextEmail(), ctx, false)
+
+    expect(result.activeOrganization).not.toBeNull()
+  })
+
+  it('does not treat an inactive organization as usable', async () => {
+    const ctx = makeCtx([record({ organizationStatus: 'inactive' })])
 
     const result = await getUserOrganizationsData(nextEmail(), ctx, false)
 

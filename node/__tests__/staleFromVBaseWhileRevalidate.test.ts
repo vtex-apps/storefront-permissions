@@ -1,4 +1,8 @@
-import { staleFromVBaseWhileRevalidate } from '../utils/staleFromVBaseWhileRevalidate'
+import {
+  deleteFromVBase,
+  saveToVBase,
+  staleFromVBaseWhileRevalidate,
+} from '../utils/staleFromVBaseWhileRevalidate'
 
 const flush = () => new Promise((resolve) => setImmediate(resolve))
 
@@ -171,5 +175,129 @@ describe('staleFromVBaseWhileRevalidate', () => {
     expect(logger.warn.mock.calls[0][0].message).toBe(
       'staleFromVBase.readError'
     )
+  })
+})
+
+describe('saveToVBase', () => {
+  it('stores the value under the hashed key with a future TTL', async () => {
+    const vbase = makeVBase(null)
+
+    saveToVBase(
+      vbase,
+      'bucket',
+      'active-user-k',
+      { v: 1 },
+      {
+        expirationInMinutes: 5,
+      }
+    )
+    await flush()
+
+    const [bucket, file, stored] = vbase.saveJSON.mock.calls[0]
+
+    expect(bucket).toBe('bucket')
+    expect(file).toMatch(/^[a-f0-9]{32}\.json$/)
+    expect(file).not.toContain('active-user')
+    expect(stored.data).toEqual({ v: 1 })
+    expect(new Date(stored.ttl).getTime()).toBeGreaterThan(Date.now())
+  })
+
+  it('never rejects; a failed write is logged', async () => {
+    const vbase = makeVBase(null)
+    const logger = { error: jest.fn() } as any
+
+    vbase.saveJSON.mockRejectedValue(new Error('vbase down'))
+
+    expect(() => saveToVBase(vbase, 'bucket', 'k', 1, { logger })).not.toThrow()
+    await flush()
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'staleFromVBase.saveError' })
+    )
+  })
+})
+
+describe('staleFromVBaseWhileRevalidate with serveStale: false (INC-6700)', () => {
+  it('treats an expired entry as a miss: fetches, blocks on it and stores it', async () => {
+    const vbase = makeVBase({
+      data: { v: 'stale' },
+      ttl: new Date(Date.now() - 60 * 1000),
+    })
+
+    const fetcher = jest.fn().mockResolvedValue({ v: 'fresh' })
+
+    const result = await staleFromVBaseWhileRevalidate(
+      vbase,
+      'bucket',
+      'key',
+      fetcher,
+      undefined,
+      { serveStale: false }
+    )
+
+    expect(result).toEqual({ v: 'fresh' })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    await flush()
+    expect(vbase.saveJSON).toHaveBeenCalledTimes(1)
+  })
+
+  it('still serves a fresh entry without fetching', async () => {
+    const vbase = makeVBase({
+      data: { v: 'cached' },
+      ttl: new Date(Date.now() + 60 * 1000),
+    })
+
+    const fetcher = jest.fn()
+
+    const result = await staleFromVBaseWhileRevalidate(
+      vbase,
+      'bucket',
+      'key',
+      fetcher,
+      undefined,
+      { serveStale: false }
+    )
+
+    expect(result).toEqual({ v: 'cached' })
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteFromVBase (INC-6700)', () => {
+  it('deletes the normalized entry', async () => {
+    const vbase = { deleteFile: jest.fn().mockResolvedValue(undefined) } as any
+
+    await deleteFromVBase(vbase, 'bucket', 'some key')
+
+    expect(vbase.deleteFile).toHaveBeenCalledTimes(1)
+    expect(vbase.deleteFile.mock.calls[0][0]).toBe('bucket')
+  })
+
+  it('treats a missing entry as deleted and logs nothing', async () => {
+    const logger = { warn: jest.fn() } as any
+    const vbase = {
+      deleteFile: jest.fn().mockRejectedValue({ response: { status: 404 } }),
+    } as any
+
+    await deleteFromVBase(vbase, 'bucket', 'key', logger)
+
+    expect(logger.warn).not.toHaveBeenCalled()
+  })
+
+  it('never rejects, and logs any other failure', async () => {
+    const logger = { warn: jest.fn() } as any
+    const vbase = {
+      deleteFile: jest.fn().mockRejectedValue(new Error('down')),
+    } as any
+
+    await deleteFromVBase(vbase, 'bucket', 'key', logger)
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'staleFromVBase.deleteError' })
+    )
+  })
+
+  it('is a no-op without a VBase client', async () => {
+    expect(await deleteFromVBase(undefined, 'bucket', 'key')).toBeUndefined()
   })
 })

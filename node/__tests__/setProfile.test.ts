@@ -167,10 +167,10 @@ const makeCtx = (scenario: Scenario = {}) => {
 
             if (wantsActive) {
               matching = matching.filter((doc: any) => doc.active)
-            } else if (orgFilter) {
+            } else if (orgFilter || costFilter) {
               matching = matching.filter(
                 (doc: any) =>
-                  doc.orgId === orgFilter &&
+                  (!orgFilter || doc.orgId === orgFilter) &&
                   (!costFilter || doc.costId === costFilter)
               )
             } else if (lossyScan) {
@@ -245,6 +245,11 @@ const run = async (ctx: any, body: any = makeBody()) => {
 
   return ctx.response.body
 }
+
+beforeEach(() => {
+  ;(setActiveUserByOrganization as jest.Mock).mockClear()
+  ;(sendMetric as jest.Mock).mockClear()
+})
 
 describe('setProfile', () => {
   it('returns the empty response and calls nothing when the watcher is off', async () => {
@@ -457,10 +462,40 @@ describe('setProfile', () => {
       'cost2'
     )
 
-    // Recovery must never write: which record is active belongs to the
-    // shopper (organization switch) or to the account admin, so the transform
-    // only shapes this response and reports what it found.
-    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+    // INC-6700: the correction is persisted (as up to 3.6.x) so the inactive
+    // record stops being selected - with the record's ids: organization
+    // 'org2', b2b_users record 'u2' - and without reading a session cookie.
+    expect(setActiveUserByOrganization).toHaveBeenCalledTimes(1)
+    expect(setActiveUserByOrganization).toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({
+        costId: 'cost2',
+        email: 'buyer@test.com',
+        orgId: 'org2',
+        skipSession: true,
+        userId: 'u2',
+      }),
+      ctx
+    )
+
+    const persisted = ctx.vtex.logger.info.mock.calls.find(
+      (call: any[]) =>
+        call[0]?.message === 'setProfile.organizationCorrectionPersisted'
+    )
+
+    expect(persisted?.[0]).toMatchObject({
+      orgId: 'org2',
+      unusableOrgId: 'org1',
+    })
+    expect(JSON.stringify(persisted?.[0])).not.toContain('buyer@test.com')
+
+    const persistedEvent = (sendMetric as jest.Mock).mock.calls.find(
+      (call: any[]) =>
+        call[0]?.kind ===
+        'b2b-storefront-permissions-organization-correction-persisted'
+    )
+
+    expect(JSON.stringify(persistedEvent?.[0])).not.toContain('buyer@test.com')
 
     const reported = ctx.vtex.logger.warn.mock.calls.find(
       (call: any[]) => call[0]?.message === 'setProfile.organizationRecovered'
@@ -555,7 +590,18 @@ describe('setProfile', () => {
     expect(response['storefront-permissions'].hash.value).toBe(
       toHash('org2|cost2b')
     )
-    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+    // The persisted correction follows the adopted pair, and drops the cache
+    // entry the next transform (pinned to it) will read.
+    expect(setActiveUserByOrganization).toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({
+        cacheStickies: ['org2:cost2b'],
+        costId: 'cost2b',
+        orgId: 'org2',
+        userId: 'u2b',
+      }),
+      ctx
+    )
   })
 
   it('prefers the session-pinned pair on recovery when it is fully valid', async () => {
@@ -789,11 +835,11 @@ describe('setProfile', () => {
       },
       recoveredOrganization: {
         collections: null,
-        name: 'Also On Hold',
+        name: 'Also Inactive',
         priceTables: null,
         salesChannel: null,
         sellers: null,
-        status: 'on-hold',
+        status: 'inactive',
         tradeName: null,
       },
     })
@@ -805,6 +851,8 @@ describe('setProfile', () => {
     )
 
     expect(reported?.[0]).toMatchObject({ reason: 'organizationNotActive' })
+    // Nothing usable: nothing is persisted either.
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
   })
 
   it('clears the cart on inactive-org recovery even when the session hash matched the old org', async () => {
@@ -1320,10 +1368,9 @@ describe('setProfile', () => {
     expect(JSON.stringify(reported?.[0])).not.toContain('buyer@test.com')
   })
 
-  it('treats an on-hold organization as unusable, like b2b-organizations does', async () => {
-    // b2b-organizations' own checkOrganizationIsActive answers
-    // `status === 'active'`, so 'on-hold' must not be shoppable here either.
-    // The previous `!== 'inactive'` check let it through.
+  it('serves an on-hold organization, as in 3.6.x (INC-6700)', async () => {
+    // Only 'inactive' blocks the session; 'on-hold' is served as it was up to
+    // 3.6.x, with no recovery and nothing persisted.
     const orgsDataMock = getUserOrganizationsData as jest.Mock
 
     orgsDataMock.mockResolvedValue({
@@ -1354,8 +1401,31 @@ describe('setProfile', () => {
 
     const response = await run(ctx)
 
-    expect(getUserOrganizationsData).toHaveBeenCalled()
-    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+    expect(
+      ctx.vtex.logger.warn.mock.calls.some(
+        (call: any[]) => call[0]?.message === 'setProfile.organizationRecovered'
+      )
+    ).toBe(false)
+  })
+
+  it('serves an organization with no status at all', async () => {
+    const ctx = makeCtx({
+      organization: {
+        collections: null,
+        name: 'No Status Org',
+        priceTables: null,
+        salesChannel: null,
+        sellers: null,
+        status: null,
+        tradeName: null,
+      },
+    })
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
   })
 
   it('reports a status it does not know about instead of failing silently', async () => {
@@ -1378,8 +1448,10 @@ describe('setProfile', () => {
       },
     })
 
-    // Fails closed: an unrecognized status is not shoppable.
-    await expect(run(ctx)).rejects.toThrow()
+    // Served (only 'inactive' blocks), but reported so it gets looked at.
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
 
     const reported = ctx.vtex.logger.warn.mock.calls.find(
       (call: any[]) =>
@@ -1558,8 +1630,10 @@ describe('setProfile', () => {
       public: { b2bCurrentCostCenter: { value: 'cost2' } },
     })
     // setCurrentOrganization writes b2bCurrentCostCenter on an organization
-    // switch; a different value must change the key and force a fresh lookup.
-    expect(lookups).toHaveBeenCalledTimes(2)
+    // switch; a different value must change the key and force a fresh lookup:
+    // the active search, plus the direct read of the requested record (this
+    // shopper holds no 'cost2', so the active record stands).
+    expect(lookups).toHaveBeenCalledTimes(3)
   })
 
   it('does not block the response on the CL profile update', async () => {
@@ -1686,5 +1760,669 @@ describe('setProfile resolving the active user from the recorded selection', () 
       )
 
     expect(askedForSelection).toBe(false)
+  })
+})
+
+/**
+ * INC-6700: with a 1.x major installed next to 3.x, vtex.session builds the
+ * transform input from the 1.x declaration - no `authentication.storeUserId`
+ * (so no selection read) and no session pin. `public.b2bCurrentCostCenter` is
+ * the one signal of a switch that still arrives, and the search on `active`
+ * trails the switch's writes.
+ */
+describe('setProfile after an organization switch (INC-6700)', () => {
+  const activeOrg = {
+    collections: null,
+    name: 'Org',
+    priceTables: null,
+    salesChannel: null,
+    sellers: null,
+    status: 'active',
+    tradeName: null,
+  }
+
+  // The index still reports the record the shopper left as the active one.
+  const laggedDocs = () => [
+    {
+      active: true,
+      clId: 'cl1',
+      costId: 'cost1',
+      email: 'buyer@test.com',
+      id: 'u1',
+      name: 'Buyer',
+      orgId: 'org1',
+    },
+    {
+      active: false,
+      clId: 'cl2',
+      costId: 'cost2',
+      email: 'buyer@test.com',
+      id: 'u2',
+      name: 'Buyer',
+      orgId: 'org2',
+    },
+  ]
+
+  const switchedBody = (
+    costId: string,
+    extra: Record<string, unknown> = {}
+  ) => ({
+    ...makeBody(),
+    public: { b2bCurrentCostCenter: { value: costId } },
+    ...extra,
+  })
+
+  it('resolves the switch target by email and cost center without a selection or pin (1.x input)', async () => {
+    const ctx = makeCtx({
+      organization: activeOrg,
+      recoveredOrganization: activeOrg,
+      userDocs: laggedDocs(),
+    })
+
+    const response = await run(ctx, switchedBody('cost2'))
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].costcenter.value).toBe('cost2')
+    expect(response['storefront-permissions'].userId.value).toBe('u2')
+    expect(
+      ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: 'email=buyer@test.com AND costId=cost2',
+      })
+    )
+    expect(
+      ctx.vtex.logger.warn.mock.calls.some(
+        (call: any[]) => call[0]?.message === 'setProfile.costCenterMismatch'
+      )
+    ).toBe(false)
+  })
+
+  it('prefers the switch target over a selection that still names the previous cost center', async () => {
+    const ctx = makeCtx({
+      organization: activeOrg,
+      recoveredOrganization: activeOrg,
+      userDocs: laggedDocs(),
+    })
+
+    ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
+      (entity: string, id: string) => {
+        if (entity === 'b2b_user_selection') {
+          return Promise.resolve({
+            b2bUserId: 'u1',
+            costId: 'cost1',
+            orgId: 'org1',
+          })
+        }
+
+        if (entity === 'organizations') {
+          return Promise.resolve(activeOrg)
+        }
+
+        return Promise.resolve(costCenterDoc(undefined, { id }))
+      }
+    )
+
+    const response = await run(
+      ctx,
+      switchedBody('cost2', {
+        authentication: {
+          storeUserEmail: { value: 'buyer@test.com' },
+          storeUserId: { value: 'shopper-1' },
+        },
+      })
+    )
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].userId.value).toBe('u2')
+  })
+
+  it('keeps the resolved record when the requested cost center is not one the shopper holds', async () => {
+    const ctx = makeCtx({ organization: activeOrg, userDocs: laggedDocs() })
+
+    const response = await run(ctx, switchedBody('someone-elses-cost'))
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+
+    const mismatch = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) => call[0]?.message === 'setProfile.costCenterMismatch'
+    )
+
+    expect(mismatch?.[0]).toMatchObject({
+      requestedCostId: 'someone-elses-cost',
+      resolvedCostId: 'cost1',
+    })
+    expect(JSON.stringify(mismatch?.[0])).not.toContain('buyer@test.com')
+  })
+
+  it('never puts a malformed requested cost center into a Master Data query', async () => {
+    const ctx = makeCtx({ organization: activeOrg, userDocs: laggedDocs() })
+
+    const response = await run(ctx, switchedBody('x OR email=other@test.com'))
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+
+    const queries =
+      ctx.clients.masterdata.searchDocumentsWithPaginationInfo.mock.calls.map(
+        (call: any[]) => call[0]?.where
+      )
+
+    expect(queries.some((where: string) => where.includes('other@'))).toBe(
+      false
+    )
+  })
+
+  it('treats a cached entry for another cost center as a miss', async () => {
+    const userDocs: any[] = laggedDocs().slice(0, 1)
+    const ctx = makeCtx({
+      organization: activeOrg,
+      recoveredOrganization: activeOrg,
+      userDocs,
+    })
+
+    // First transform after the switch: the target record is not readable
+    // yet, so the previous record is resolved - and cached under the key of
+    // the requested cost center.
+    const first = await run(ctx, switchedBody('cost2'))
+
+    expect(first['storefront-permissions'].organization.value).toBe('org1')
+
+    // The record becomes readable. The cached entry must not win.
+    userDocs.push(laggedDocs()[1])
+
+    const second = await run(ctx, switchedBody('cost2'))
+
+    expect(second['storefront-permissions'].organization.value).toBe('org2')
+
+    const bypass = (sendMetric as jest.Mock).mock.calls.find(
+      (call: any[]) =>
+        call[0]?.kind ===
+        'b2b-storefront-permissions-active-user-cache-bypass-read'
+    )
+
+    expect(bypass?.[0].fields).toMatchObject({
+      reason: 'cachedCostCenterMismatch',
+      requestedCostId: 'cost2',
+    })
+  })
+
+  it('still serves a cached entry that matches the requested cost center', async () => {
+    const ctx = makeCtx({
+      organization: activeOrg,
+      recoveredOrganization: activeOrg,
+      userDocs: laggedDocs(),
+    })
+
+    const lookups = ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+
+    await run(ctx, switchedBody('cost2'))
+    const callsAfterFirst = lookups.mock.calls.length
+
+    await run(ctx, switchedBody('cost2'))
+
+    expect(lookups.mock.calls).toHaveLength(callsAfterFirst)
+  })
+
+  it('does not persist a correction away from the cost center the shopper switched to', async () => {
+    // The switch target itself is inactive (setCurrentOrganization does not
+    // validate status). The response recovers, but writing the correction
+    // would be undone by the request on every transform.
+    ;(getUserOrganizationsData as jest.Mock).mockResolvedValue({
+      activeOrganization: { costId: 'cost1', id: 'u1', orgId: 'org1' },
+      validCostCenterId: null,
+    })
+
+    const ctx = makeCtx({
+      organization: activeOrg,
+      recoveredOrganization: { ...activeOrg, status: 'inactive' },
+      userDocs: laggedDocs(),
+    })
+
+    // org2 is inactive, org1 active: swap the document lookup accordingly.
+    ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
+      (entity: string, id: string) => {
+        if (entity === 'organizations') {
+          return Promise.resolve(
+            id === 'org2' ? { ...activeOrg, status: 'inactive' } : activeOrg
+          )
+        }
+
+        return Promise.resolve(
+          entity === 'cost_centers'
+            ? costCenterDoc(undefined, { id })
+            : undefined
+        )
+      }
+    )
+
+    const response = await run(ctx, switchedBody('cost2'))
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * INC-6700 (retest RISK 2): the organization cache can trail a status change.
+ * Now that the recovery persists its correction, an 'inactive' served from
+ * cache is confirmed against Master Data before anything is written.
+ */
+describe('setProfile confirming an inactive status before correcting (INC-6700)', () => {
+  const inactiveOrg = {
+    collections: null,
+    name: 'Org 1',
+    priceTables: null,
+    salesChannel: null,
+    sellers: null,
+    status: 'inactive',
+    tradeName: null,
+  }
+
+  const activeOrg = { ...inactiveOrg, name: 'Org 2', status: 'active' }
+
+  const org1Reads = (ctx: any) =>
+    ctx.clients.masterDataExtended.getDocumentById.mock.calls.filter(
+      (call: any[]) => call[0] === 'organizations' && call[1] === 'org1'
+    ).length
+
+  /** org1 reads answer `first` once (the cached read), then `fresh`. */
+  const withOrg1Reads = (ctx: any, first: any, fresh: () => Promise<any>) => {
+    const original =
+      ctx.clients.masterDataExtended.getDocumentById.getMockImplementation()
+
+    let served = 0
+
+    ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
+      (entity: string, id: string, fields: string[]) => {
+        if (entity === 'organizations' && id === 'org1') {
+          served += 1
+
+          return served === 1 ? Promise.resolve(first) : fresh()
+        }
+
+        return original(entity, id, fields)
+      }
+    )
+  }
+
+  beforeEach(() => {
+    ;(getUserOrganizationsData as jest.Mock).mockResolvedValue({
+      activeOrganization: { costId: 'cost2', id: 'u2', orgId: 'org2' },
+      validCostCenterId: null,
+    })
+  })
+
+  it('serves the organization and persists nothing when Master Data says it is active again', async () => {
+    const ctx = makeCtx({ recoveredOrganization: activeOrg })
+
+    withOrg1Reads(ctx, inactiveOrg, () =>
+      Promise.resolve({ ...inactiveOrg, status: 'active' })
+    )
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+    expect(org1Reads(ctx)).toBe(2)
+
+    const stale = ctx.vtex.logger.warn.mock.calls.find(
+      (call: any[]) => call[0]?.message === 'setProfile.organizationStatusStale'
+    )
+
+    expect(stale?.[0]).toMatchObject({
+      cachedStatus: 'inactive',
+      correctionSkipped: true,
+      freshStatus: 'active',
+      organizationId: 'org1',
+    })
+    expect(JSON.stringify(stale?.[0])).not.toContain('buyer@test.com')
+
+    const event = (sendMetric as jest.Mock).mock.calls.find(
+      (call: any[]) =>
+        call[0]?.kind === 'b2b-storefront-permissions-organization-status-stale'
+    )
+
+    expect(event?.[0].fields).toMatchObject({ organizationId: 'org1' })
+    expect(JSON.stringify(event?.[0])).not.toContain('buyer@test.com')
+
+    // The fresh read refreshed the cache: the next transform is served the
+    // active document without another Master Data read or recovery.
+    const again = await run(ctx)
+
+    expect(again['storefront-permissions'].hash.value).toBe(
+      toHash('org1|cost1')
+    )
+    expect(org1Reads(ctx)).toBe(2)
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+  })
+
+  it('persists the correction once Master Data confirms the organization is inactive', async () => {
+    const ctx = makeCtx({
+      organization: inactiveOrg,
+      recoveredOrganization: activeOrg,
+    })
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    // The cached read and the confirmation.
+    expect(org1Reads(ctx)).toBe(2)
+    expect(setActiveUserByOrganization).toHaveBeenCalledTimes(1)
+  })
+
+  it('recovers this response but writes nothing when the confirmation fails', async () => {
+    const ctx = makeCtx({ recoveredOrganization: activeOrg })
+
+    withOrg1Reads(ctx, inactiveOrg, () =>
+      Promise.reject(Object.assign(new Error('timeout'), { status: 500 }))
+    )
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+    expect(ctx.vtex.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'setProfile.organizationCorrectionSkipped',
+        reason: 'statusNotConfirmed',
+        unusableOrgId: 'org1',
+      })
+    )
+  })
+
+  it('treats an organization deleted since it was cached as missing (no correction)', async () => {
+    const ctx = makeCtx({ recoveredOrganization: activeOrg })
+
+    withOrg1Reads(ctx, inactiveOrg, () => Promise.resolve(undefined))
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(setActiveUserByOrganization).not.toHaveBeenCalled()
+  })
+
+  it('does not re-read an organization that is not inactive', async () => {
+    const ctx = makeCtx()
+
+    await run(ctx)
+
+    expect(org1Reads(ctx)).toBe(1)
+  })
+})
+
+/**
+ * INC-6700 (retest p2b): a NEW session (no b2bCurrentCostCenter) right after a
+ * switch was served the cached `email|default|none` entry - the organization
+ * the shopper left - for up to the cache TTL, because a switch could only drop
+ * that entry from the memory of the pod that ran it.
+ */
+describe('setProfile for a new session after a switch (INC-6700)', () => {
+  const activeOrg = {
+    collections: null,
+    name: 'Org',
+    priceTables: null,
+    salesChannel: null,
+    sellers: null,
+    status: 'active',
+    tradeName: null,
+  }
+
+  const docs = (u1Active: boolean, u2Active: boolean) => [
+    {
+      active: u1Active,
+      clId: 'cl1',
+      costId: 'cost1',
+      email: 'buyer@test.com',
+      id: 'u1',
+      name: 'Buyer',
+      orgId: 'org1',
+    },
+    {
+      active: u2Active,
+      clId: 'cl2',
+      costId: 'cost2',
+      email: 'buyer@test.com',
+      id: 'u2',
+      name: 'Buyer',
+      orgId: 'org2',
+    },
+  ]
+
+  /** Serves `marker()` for the switch-marker file, the defaults otherwise. */
+  const withMarker = (ctx: any, marker: () => any) => {
+    const original = ctx.clients.vbase.getJSON.getMockImplementation()
+
+    ctx.clients.vbase.getJSON.mockImplementation(
+      (bucket: string, file: string, nullIfNotFound: boolean) =>
+        String(file).startsWith('active-switch-')
+          ? Promise.resolve(marker())
+          : original(bucket, file, nullIfNotFound)
+    )
+  }
+
+  const switchTo = (userDocs: any[], id: string) => {
+    userDocs.forEach((doc) => {
+      doc.active = doc.id === id
+    })
+  }
+
+  const bypassReasons = () =>
+    (sendMetric as jest.Mock).mock.calls
+      .filter(
+        (call: any[]) =>
+          call[0]?.kind ===
+          'b2b-storefront-permissions-active-user-cache-bypass-read'
+      )
+      .map((call: any[]) => call[0].fields.reason)
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  it('refuses a cached entry older than the switch marker, on the very first read', async () => {
+    const userDocs = docs(true, false)
+    const ctx = makeCtx({
+      organization: activeOrg,
+      recoveredOrganization: activeOrg,
+      userDocs,
+    })
+
+    let marker: any = null
+
+    withMarker(ctx, () => marker)
+
+    // A session before the switch caches org1 under email|default|none.
+    expect((await run(ctx))['storefront-permissions'].organization.value).toBe(
+      'org1'
+    )
+
+    // Switch made elsewhere (another pod): records flipped, marker written.
+    switchTo(userDocs, 'u2')
+    marker = {
+      at: Date.now() + 1,
+      b2bUserId: 'u2',
+      costId: 'cost2',
+      orgId: 'org2',
+    }
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(response['storefront-permissions'].userId.value).toBe('u2')
+    expect(bypassReasons()).toContain('switchMarkerNewer')
+  })
+
+  it('keeps serving a cached entry newer than the marker', async () => {
+    const ctx = makeCtx({
+      organization: activeOrg,
+      userDocs: docs(true, false),
+    })
+
+    withMarker(ctx, () => ({
+      at: Date.now() - 60000,
+      b2bUserId: 'u2',
+      costId: 'cost2',
+      orgId: 'org2',
+    }))
+
+    // The marker names u2, but u2 is no longer active: the search answers.
+    await run(ctx)
+
+    const lookups = ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+    const searchesAfterFirst = lookups.mock.calls.length
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].hash.value).toBe(
+      toHash('org1|cost1')
+    )
+    expect(lookups.mock.calls).toHaveLength(searchesAfterFirst)
+    expect(bypassReasons()).toEqual([])
+  })
+
+  it('resolves a miss from the marker, without the search index, when the session has no storeUserId', async () => {
+    // Index lag: both records still read as active, and the search would pick
+    // the lowest id (u1). The marker names u2, which a read by id confirms.
+    const ctx = makeCtx({
+      organization: activeOrg,
+      recoveredOrganization: activeOrg,
+      userDocs: docs(true, true),
+    })
+
+    withMarker(ctx, () => ({
+      at: Date.now(),
+      b2bUserId: 'u2',
+      costId: 'cost2',
+      orgId: 'org2',
+    }))
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(
+      ctx.clients.masterdata.searchDocumentsWithPaginationInfo
+    ).not.toHaveBeenCalled()
+  })
+
+  it('ignores a marker whose record is no longer active (switched outside this app)', async () => {
+    const ctx = makeCtx({
+      organization: activeOrg,
+      userDocs: docs(true, false),
+    })
+
+    withMarker(ctx, () => ({
+      at: Date.now(),
+      b2bUserId: 'u2',
+      costId: 'cost2',
+      orgId: 'org2',
+    }))
+
+    const response = await run(ctx)
+
+    expect(response['storefront-permissions'].organization.value).toBe('org1')
+  })
+
+  it('lets the newer of the selection and the marker win', async () => {
+    const run2 = async (selectionAt: number, markerAt: number) => {
+      const ctx = makeCtx({
+        organization: activeOrg,
+        recoveredOrganization: activeOrg,
+        userDocs: docs(true, true),
+      })
+
+      withMarker(ctx, () => ({
+        at: markerAt,
+        b2bUserId: 'u2',
+        costId: 'cost2',
+        orgId: 'org2',
+      }))
+
+      const original =
+        ctx.clients.masterDataExtended.getDocumentById.getMockImplementation()
+
+      ctx.clients.masterDataExtended.getDocumentById.mockImplementation(
+        (entity: string, id: string, fields: string[]) =>
+          entity === 'b2b_user_selection'
+            ? Promise.resolve({
+                b2bUserId: 'u1',
+                costId: 'cost1',
+                orgId: 'org1',
+                updatedAt: new Date(selectionAt).toISOString(),
+              })
+            : original(entity, id, fields)
+      )
+
+      const response = await run(ctx, {
+        ...makeBody(),
+        authentication: {
+          storeUserEmail: { value: 'buyer@test.com' },
+          storeUserId: { value: 'shopper-1' },
+        },
+      })
+
+      return response['storefront-permissions'].organization.value
+    }
+
+    const now = Date.now()
+
+    expect(await run2(now - 5000, now)).toBe('org2')
+    expect(await run2(now, now - 5000)).toBe('org1')
+  })
+
+  it('re-reads an older cached record by id and refetches when it was deactivated (1.x switch)', async () => {
+    const userDocs = docs(true, false)
+    const ctx = makeCtx({
+      organization: activeOrg,
+      recoveredOrganization: activeOrg,
+      userDocs,
+    })
+
+    const start = Date.now()
+
+    await run(ctx)
+
+    // A 1.x switch: records flipped in Master Data, no marker written.
+    switchTo(userDocs, 'u2')
+
+    // Within the recheck window the entry is trusted without any read.
+    const reads = ctx.clients.masterdata.getDocument
+
+    reads.mockClear()
+    jest.spyOn(Date, 'now').mockReturnValue(start + 10 * 1000)
+    expect((await run(ctx))['storefront-permissions'].hash.value).toBe(
+      toHash('org1|cost1')
+    )
+    expect(reads).not.toHaveBeenCalled()
+
+    // Past it, the record is re-read by id, found inactive, and refetched.
+    ;(Date.now as jest.Mock).mockReturnValue(start + 40 * 1000)
+
+    const response = await run(ctx)
+
+    expect(reads).toHaveBeenCalledWith(expect.objectContaining({ id: 'u1' }))
+    expect(response['storefront-permissions'].organization.value).toBe('org2')
+    expect(bypassReasons()).toContain('cachedRecordInactive')
+  })
+
+  it('does not consult the marker for a session that asks for a cost center', async () => {
+    const ctx = makeCtx({
+      organization: activeOrg,
+      userDocs: docs(true, false),
+    })
+
+    const body = {
+      ...makeBody(),
+      public: { b2bCurrentCostCenter: { value: 'cost1' } },
+    }
+
+    await run(ctx, body)
+    ctx.clients.vbase.getJSON.mockClear()
+    await run(ctx, body)
+
+    const markerReads = ctx.clients.vbase.getJSON.mock.calls.filter(
+      (call: any[]) => String(call[1]).startsWith('active-switch-')
+    )
+
+    expect(markerReads).toHaveLength(0)
   })
 })

@@ -31,7 +31,14 @@ export const COST_CENTER_FIELDS = [
  * nothing to index and no provisioning step - the first write creates it.
  */
 export const ACTIVE_SELECTION_DATA_ENTITY = 'b2b_user_selection'
-export const ACTIVE_SELECTION_FIELDS = ['b2bUserId', 'orgId', 'costId']
+// `updatedAt` lets a reader tell which of the selection and the switch marker
+// (services/activeSwitchMarker) is newer.
+export const ACTIVE_SELECTION_FIELDS = [
+  'b2bUserId',
+  'orgId',
+  'costId',
+  'updatedAt',
+]
 
 export const ORGANIZATION_DATA_ENTITY = 'organizations'
 export const ORGANIZATION_SCHEMA_VERSION = 'v0.0.8'

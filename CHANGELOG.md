@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Session after organization switch (INC-6700):** the session no longer lands on the previous organization after `setCurrentOrganization`, including when a 1.x major is installed alongside 3.x (the transform input then carries no `storeUserId` nor session pin).
+  - Organization status: only `inactive` blocks the session again, as in 3.6.x; `on-hold`, empty and unknown statuses are served (unknown ones still log `setProfile.unknownOrganizationStatus`).
+  - Inactive organization: when the resolved record points at an inactive organization and another usable one exists, the correction is persisted (activate the adopted record, deactivate the others, record the selection) instead of only shaping the response. Not done when the inactive record is the cost center the shopper explicitly switched to. With no usable organization the transform still fails with `setProfile.organizationUnavailable`.
+  - Switch target: when the resolved record's cost center differs from `public.b2bCurrentCostCenter`, the record is read directly by email + cost center and used.
+  - Cache: a cached active user for another cost center than the session's is treated as a miss (`active-user-cache-bypass-read` event); `setActiveUserByOrganization` invalidates the active-user entries (memory + VBase); the active-user VBase layer no longer serves stale entries (resource renamed `active-user-v2`).
+  - `setActiveUserByOrganization` deactivates every other record of the shopper from the full listing by email (as up to 3.8.0), not only those the search index reports active. Timings now report `listedCount` alongside `activeListedCount`.
+  - Observability: `requestedCostId`, `activeUserCacheHit` and `costCenterMismatch` in `setProfile.timings`; `setProfile.costCenterMismatch` log and `cost-center-mismatch` event; `setProfile.organizationCorrectionPersisted` log and event (ids only).
+  - An `inactive` status read from the organization cache is confirmed against Master Data (refreshing the cache) before the correction is persisted. If the organization is usable again the session serves it (`setProfile.organizationStatusStale` log / `organization-status-stale` event); if the confirmation fails the response still recovers but nothing is written (`setProfile.organizationCorrectionSkipped`).
+  - `setActiveUserByOrganization` keys `b2b_user_selection` on the shopper's `userId` from the b2b_users records when the session names nobody (session-transform correction from a 1.x input, or no session cookie); with no `userId` on the records the selection write is skipped and logged (`setActiveUserByOrganization.selectionSkipped`). Timings report `selectionKeySource`.
+  - New session after a switch: a session with no `b2bCurrentCostCenter` (new login, another device, expired session) no longer opens on the previous organization for up to the active-user cache TTL. `setActiveUserByOrganization` writes a per-shopper switch marker to VBase (`active-switch-<sha256(email)>`, no PII in the name) and also drops the no-cost-center cache entries. In the session transform, a cached entry older than the marker that names another record is refused, and a miss resolves from the newer of `b2b_user_selection` and the marker by reading the record by id (it must still be active), so this works without `storeUserId` (1.x input). A cached entry is also re-read by id at most every 30 s per shopper per pod, and refetched if the record was deactivated, which bounds switches made outside this app (1.x `setCurrentOrganization`). New timings: `readSwitchMarker*`, `getB2BUserById.cacheRecheck`, `activeUserCacheAgeMs`, `switchMarkerWritten`; `active-user-cache-bypass-read` event reasons `switchMarkerNewer` and `cachedRecordInactive`.
+  - `updateUserFields.softSuccess` is no longer logged for 304 (record unchanged), which was about 32 warns per switch.
+
 ## [3.8.13] - 2026-10-07
 
 ### Removed

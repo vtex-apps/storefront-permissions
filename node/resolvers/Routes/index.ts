@@ -2,6 +2,7 @@ import { ForbiddenError } from '@vtex/api'
 import { json } from 'co-body'
 
 import {
+  activeUserStickyKey,
   getCachedActiveUserByEmail,
   getCachedActiveUserForPermissions,
   setActiveUserCacheTtl,
@@ -42,7 +43,8 @@ import {
   resolveSelectionKey,
 } from '../../services/activeSelection'
 import { createTimer, getTimer } from '../../utils/requestTimings'
-import { getUser } from '../Mutations/Users'
+import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
+import { readActiveSwitchMarker } from '../../services/activeSwitchMarker'
 import { getRole } from '../Queries/Roles'
 import {
   getActiveUserByEmail,
@@ -50,6 +52,23 @@ import {
   getB2BUserById,
 } from '../Queries/Users'
 import { generateClUser, getUserOrganizationsData } from './utils'
+
+/**
+ * INC-6700: inactive-organization corrections being persisted on this pod, so
+ * the burst of transforms one navigation produces writes them once.
+ */
+const organizationCorrectionsInFlight = new Set<string>()
+
+/**
+ * INC-6700: how long a cached active user for a session with no
+ * b2bCurrentCostCenter is trusted before its record is re-read by id. Covers
+ * switches this app never sees (1.x setCurrentOrganization, admin edits),
+ * which write no switch marker. One document read per shopper per window per
+ * pod, at most.
+ */
+const CACHED_ACTIVE_USER_RECHECK_MS = 30 * 1000
+const cachedActiveUserCheckedAt = new Map<string, number>()
+const CACHED_ACTIVE_USER_CHECKS_MAX = 10000
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
@@ -276,6 +295,8 @@ export const Routes = {
     let user: any = null
     /** True when Master Data has no B2B record for the authenticated email. */
     let resolvedB2bUserNotFound = false
+    /** True when the active user came from a cache layer instead of this request. */
+    let activeUserCacheHit = false
 
     const ignoreB2B = body?.public?.removeB2B?.value
 
@@ -304,6 +325,15 @@ export const Routes = {
      */
     const stickyCostId =
       body?.['storefront-permissions']?.costcenter?.value || null
+
+    /**
+     * INC-6700: the cost center the shopper last switched to. Both the 3.x and
+     * the 1.x setCurrentOrganization write it (and only after checking the
+     * shopper holds a record for it), and both majors declare it as an input,
+     * so unlike the selection record and the session pin it is available even
+     * when vtex.session builds this transform's input from a 1.x declaration.
+     */
+    const requestedCostId = currentCostCenter ? String(currentCostCenter) : null
 
     if (ignoreB2B) {
       omitUnchangedSetProfileFields(body, response)
@@ -405,6 +435,72 @@ export const Routes = {
       // cache layer can store an outage as a valid "user without organization"
       // (which would produce empty B2B sessions until the TTL expired), and
       // handle the failure outside the cached call so it is retried next time.
+      /**
+       * INC-6700: the record for the cost center the shopper switched to, by
+       * email + costId. Neither field changes after the record is created, so
+       * this read is not affected by the index lag on `active`.
+       */
+      const findRequestedRecord = async (): Promise<any> => {
+        // b2bCurrentCostCenter is a public (client-writable) field and goes
+        // into a Master Data `where`: accept only a plain document id.
+        if (!requestedCostId || !/^[\w-]+$/.test(requestedCostId)) {
+          return null
+        }
+
+        const [requestedRecord] = await timer
+          .track(
+            'getRequestedRecord',
+            getAllUsersByEmail(null, { costId: requestedCostId, email }, ctx)
+          )
+          .catch((error: any) => {
+            logger.warn({
+              error: describeClientError(error),
+              message: 'setProfile.getRequestedRecordError',
+            })
+
+            return [] as any[]
+          })
+
+        return requestedRecord?.orgId &&
+          requestedRecord?.costId &&
+          String(requestedRecord.costId) === requestedCostId &&
+          String(requestedRecord.email ?? '').toLowerCase() ===
+            String(email).toLowerCase()
+          ? requestedRecord
+          : null
+      }
+
+      /**
+       * INC-6700: trust the switch target. When the record resolved below
+       * (selection, active search or sticky fallback) is for another cost
+       * center than the one the session asked for, the switch has not reached
+       * what was read - the search index trails the `active` flip, and a 1.x
+       * switch writes no selection - so read the requested record directly.
+       * Filtered by the acting email: a cost center that is not this
+       * shopper's simply finds nothing, and the candidate stands.
+       */
+      const reconcileWithRequest = async (candidate: any): Promise<any> => {
+        if (!requestedCostId || String(candidate?.costId) === requestedCostId) {
+          return candidate
+        }
+
+        const requestedRecord = await findRequestedRecord()
+
+        if (requestedRecord) {
+          timer.meta.extra = {
+            ...timer.meta.extra,
+            activeUserSource: 'requestedCostCenter',
+            switchTargetTrusted: true,
+          }
+
+          return requestedRecord
+        }
+
+        timer.meta.extra = { ...timer.meta.extra, requestedRecordMissing: true }
+
+        return candidate
+      }
+
       const fetchActiveUser = async () => {
         /**
          * Ask the selection record first, so a shopper who just switched is
@@ -432,26 +528,70 @@ export const Routes = {
           sessionStoreUserId: body?.authentication?.storeUserId?.value,
         })
 
-        const selection = selectionKey
-          ? await timer.track(
-              'readActiveSelection',
-              readActiveSelection(ctx, selectionKey)
-            )
-          : null
+        // INC-6700: the switch marker (VBase, keyed by email) is read too,
+        // in parallel: it is the only record of a switch a session without
+        // `storeUserId` (1.x declaration) can read, and whichever of the two
+        // is newer wins.
+        const [selection, marker] = await Promise.all([
+          selectionKey
+            ? timer.track(
+                'readActiveSelection',
+                readActiveSelection(ctx, selectionKey)
+              )
+            : Promise.resolve(null),
+          timer.track('readSwitchMarker', readActiveSwitchMarker(ctx, email)),
+        ])
 
-        if (selection) {
+        const selectionAt = selection?.updatedAt
+          ? Date.parse(selection.updatedAt) || 0
+          : 0
+
+        const recorded = [
+          selection
+            ? { at: selectionAt, id: selection.b2bUserId, source: 'selection' }
+            : null,
+          marker
+            ? { at: marker.at, id: marker.b2bUserId, source: 'switchMarker' }
+            : null,
+        ]
+          .filter(
+            (entry): entry is { at: number; id: string; source: string } =>
+              Boolean(entry)
+          )
+          .sort((a, b) => b.at - a.at)
+
+        const triedIds = new Set<string>()
+
+        for (const entry of recorded) {
+          if (triedIds.has(String(entry.id))) {
+            continue
+          }
+
+          triedIds.add(String(entry.id))
+
+          // eslint-disable-next-line no-await-in-loop
           const recordedUser: any = await timer.track(
-            'getB2BUserById',
-            getB2BUserById(null, { id: selection.b2bUserId }, ctx)
+            entry.source === 'selection'
+              ? 'getB2BUserById'
+              : 'getB2BUserById.switchMarker',
+            getB2BUserById(null, { id: entry.id }, ctx)
           )
 
-          if (recordedUser?.orgId && recordedUser?.costId) {
+          // Read by id, so `active` is current: a record a later switch (or
+          // one made outside this app) deactivated is not resurrected.
+          if (
+            recordedUser?.orgId &&
+            recordedUser?.costId &&
+            recordedUser?.active !== false &&
+            String(recordedUser?.email ?? email).toLowerCase() ===
+              String(email).toLowerCase()
+          ) {
             timer.meta.extra = {
               ...timer.meta.extra,
-              activeUserSource: 'selection',
+              activeUserSource: entry.source,
             }
 
-            return recordedUser
+            return reconcileWithRequest(recordedUser)
           }
         }
 
@@ -467,33 +607,151 @@ export const Routes = {
           throw activeUser.message
         }
 
+        const resolvedUser = await reconcileWithRequest(
+          activeUser?.orgId && activeUser?.costId ? activeUser : null
+        )
+
         // "No B2B user" must not be cached either: right after provisioning or
         // during replication lag, caching the miss would pin this shopper to an
         // empty B2B session for the whole TTL. Throwing keeps the miss out of
         // both layers, which simply restores the pre-cache behavior (a lookup
         // per transform) for non-B2B shoppers.
-        if (!activeUser?.orgId || !activeUser?.costId) {
+        if (!resolvedUser?.orgId || !resolvedUser?.costId) {
           const notFound: any = new Error('setProfile.userNotFound')
 
           notFound.userNotFound = true
           throw notFound
         }
 
-        return activeUser
+        return resolvedUser
+      }
+
+      // Identity of what this request fetched, so a value served from either
+      // cache layer can be told apart from a fresh lookup.
+      let fetchedActiveUser: any
+      const fetchAndRecord = async () => {
+        // Stamped so a later read can tell whether a switch happened after
+        // this entry was resolved (see the switch-marker check below).
+        fetchedActiveUser = {
+          ...(await fetchActiveUser()),
+          activeUserCachedAt: Date.now(),
+        }
+
+        return fetchedActiveUser
+      }
+
+      const lookupActiveUser = (bypassRead: boolean) =>
+        getCachedActiveUserByEmail(
+          ctx,
+          email,
+          currentCostCenter,
+          activeUserStickyKey(stickyOrgId, stickyCostId),
+          fetchAndRecord,
+          bypassRead
+        )
+
+      const refetchActiveUser = (reason: string) => {
+        timer.meta.extra = {
+          ...timer.meta.extra,
+          'activeUserCache.bypassRead': reason,
+        }
+
+        sendObservabilityEvent(ctx, 'active-user-cache-bypass-read', {
+          reason,
+          requestedCostId,
+        })
+
+        return lookupActiveUser(true)
+      }
+
+      /**
+       * INC-6700: a cached entry for a session that asks for no cost center
+       * (new login, another device, expired session) has no request to be
+       * checked against, and a switch can only drop it from its own pod's
+       * memory. It is refused when:
+       * - the switch marker is newer than the entry and names another record
+       *   (any switch made through this app's mutation, on any pod); or
+       * - its record, re-read by id at most every
+       *   CACHED_ACTIVE_USER_RECHECK_MS, is no longer active (switches made
+       *   outside it, e.g. by a 1.x setCurrentOrganization).
+       */
+      const checkUnrequestedCacheHit = async (value: any): Promise<any> => {
+        const cachedAt = Number(value?.activeUserCachedAt) || 0
+        const marker = await timer.track(
+          'readSwitchMarker.cacheHit',
+          readActiveSwitchMarker(ctx, email)
+        )
+
+        if (
+          marker &&
+          marker.at > cachedAt &&
+          String(marker.b2bUserId) !== String(value?.id)
+        ) {
+          return refetchActiveUser('switchMarkerNewer')
+        }
+
+        const checkKey = `${ctx.vtex.account}-${ctx.vtex.workspace}-${email}|${
+          activeUserStickyKey(stickyOrgId, stickyCostId) ?? 'none'
+        }`
+
+        const lastChecked = Math.max(
+          cachedAt,
+          cachedActiveUserCheckedAt.get(checkKey) ?? 0
+        )
+
+        if (Date.now() - lastChecked < CACHED_ACTIVE_USER_RECHECK_MS) {
+          return value
+        }
+
+        if (cachedActiveUserCheckedAt.size >= CACHED_ACTIVE_USER_CHECKS_MAX) {
+          cachedActiveUserCheckedAt.clear()
+        }
+
+        cachedActiveUserCheckedAt.set(checkKey, Date.now())
+
+        const current: any = await timer.track(
+          'getB2BUserById.cacheRecheck',
+          getB2BUserById(null, { id: value?.id }, ctx)
+        )
+
+        if (current && current.active === false) {
+          return refetchActiveUser('cachedRecordInactive')
+        }
+
+        return value
       }
 
       const cachedUser: any = await timer
         .track(
           'getActiveUserByEmail',
-          getCachedActiveUserByEmail(
-            ctx,
-            email,
-            currentCostCenter,
-            stickyOrgId && stickyCostId
-              ? `${stickyOrgId}:${stickyCostId}`
-              : stickyOrgId,
-            fetchActiveUser
-          )
+          lookupActiveUser(false).then((value: any) => {
+            // INC-6700: a cached entry never wins over a switch. One for
+            // another cost center than the session asked for was resolved
+            // before the switch reached it (on this pod or another - the
+            // mutation can only invalidate its own pod's memory), so it counts
+            // as a miss: refetch, and store the fresh result.
+            const servedFromCache =
+              value !== undefined &&
+              value !== null &&
+              value !== fetchedActiveUser
+
+            if (
+              servedFromCache &&
+              requestedCostId !== null &&
+              String(value?.costId) !== requestedCostId
+            ) {
+              // Exact count via the event (logs are sampled). A session asking
+              // for a cost center it no longer holds takes this path every
+              // transform.
+              return refetchActiveUser('cachedCostCenterMismatch')
+            }
+
+            if (servedFromCache && requestedCostId === null) {
+              return checkUnrequestedCacheHit(value)
+            }
+
+            return value
+          })
         )
         .catch((error: any) => {
           if (error?.userNotFound) {
@@ -506,11 +764,29 @@ export const Routes = {
           }
         })
 
+      activeUserCacheHit =
+        cachedUser !== undefined &&
+        cachedUser !== null &&
+        cachedUser !== fetchedActiveUser
+
       // Clone: the memory cache hands out the same object reference, and the
       // invalid-cost-center / inactive-organization branches below reassign
       // orgId/costId on it. Mutating the shared entry would corrupt the cache
       // under its original key for every later request.
-      user = (cachedUser ? { ...cachedUser } : cachedUser) as {
+      if (cachedUser) {
+        timer.meta.extra = {
+          ...timer.meta.extra,
+          activeUserCacheAgeMs: cachedUser.activeUserCachedAt
+            ? Date.now() - Number(cachedUser.activeUserCachedAt)
+            : null,
+        }
+      }
+
+      user = (
+        cachedUser
+          ? (({ activeUserCachedAt: _cachedAt, ...rest }) => rest)(cachedUser)
+          : cachedUser
+      ) as {
         orgId: string
         costId: string
         clId: string
@@ -539,37 +815,48 @@ export const Routes = {
 
     response['storefront-permissions'].organization.value = user.orgId
 
-    const getOrganization = async (orgId: any): Promise<any> => {
-      return getCachedOrganization(ctx, String(orgId), () =>
-        masterDataExtended
-          .getDocumentById(ORGANIZATION_DATA_ENTITY, orgId, ORGANIZATION_FIELDS)
-          .then((document: any) => {
-            // Master Data answers a missing document with an empty result
-            // rather than an error. Throwing keeps the miss out of both cache
-            // layers (see getOrganizationOrNull, which turns it into null).
-            if (!document) {
-              const notFound: any = new Error('organizationNotFound')
+    const getOrganization = async (
+      orgId: any,
+      bypassRead = false
+    ): Promise<any> => {
+      return getCachedOrganization(
+        ctx,
+        String(orgId),
+        () =>
+          masterDataExtended
+            .getDocumentById(
+              ORGANIZATION_DATA_ENTITY,
+              orgId,
+              ORGANIZATION_FIELDS
+            )
+            .then((document: any) => {
+              // Master Data answers a missing document with an empty result
+              // rather than an error. Throwing keeps the miss out of both cache
+              // layers (see getOrganizationOrNull, which turns it into null).
+              if (!document) {
+                const notFound: any = new Error('organizationNotFound')
 
-              notFound.organizationNotFound = true
-              throw notFound
-            }
+                notFound.organizationNotFound = true
+                throw notFound
+              }
 
-            return document
-          })
-          .catch((error: any) => {
-            if (!error?.organizationNotFound) {
-              logger.error({
-                error: describeClientError(error),
-                message: 'setProfile.graphqlGetOrganizationById',
-              })
-            }
+              return document
+            })
+            .catch((error: any) => {
+              if (!error?.organizationNotFound) {
+                logger.error({
+                  error: describeClientError(error),
+                  message: 'setProfile.graphqlGetOrganizationById',
+                })
+              }
 
-            // Rethrow so a transient Master Data failure fails only this
-            // request. Swallowing it here would make the cache store an empty
-            // organization for its full TTL, turning one blip into minutes of
-            // errors served from cache.
-            throw error
-          })
+              // Rethrow so a transient Master Data failure fails only this
+              // request. Swallowing it here would make the cache store an empty
+              // organization for its full TTL, turning one blip into minutes of
+              // errors served from cache.
+              throw error
+            }),
+        bypassRead
       )
     }
 
@@ -578,8 +865,11 @@ export const Routes = {
     // it explicitly. Deliberately outside the cached fetcher above: caching a
     // "not found" would pin the shopper to the error for the whole TTL. Any
     // other failure still rejects, so it is retried on the next request.
-    const getOrganizationOrNull = async (orgId: any): Promise<any> =>
-      getOrganization(orgId).catch((error: any) => {
+    const getOrganizationOrNull = async (
+      orgId: any,
+      bypassRead = false
+    ): Promise<any> =>
+      getOrganization(orgId, bypassRead).catch((error: any) => {
         const status = error?.response?.status ?? error?.status
 
         if (error?.organizationNotFound || status === 404) {
@@ -642,9 +932,11 @@ export const Routes = {
     // bug is latent - but it would silently drop the first one that does.
     timer.meta.extra = {
       ...timer.meta.extra,
+      activeUserCacheHit,
       hasOrderFormId: !!orderFormId,
       hashChanged,
       orgId: user.orgId,
+      requestedCostId,
     }
 
     // Read into locals so the cache fetcher below does not close over `user`,
@@ -689,9 +981,74 @@ export const Routes = {
 
     // Null means the lookup 404'd: the record points at an organization that
     // no longer exists. Both states are unusable and share the same recovery.
-    const organizationMissing = !organization
-    const organizationInactive =
+    let organizationMissing = !organization
+    let organizationInactive =
       !organizationMissing && !isOrganizationUsable(organization?.status)
+
+    /**
+     * INC-6700: an 'inactive' read from the organization cache is confirmed
+     * against Master Data before anything acts on it. The cache (memory +
+     * VBase) can trail a status change - QA saw an organization served with
+     * its old status for ~20s after it changed - and since the recovery below
+     * now persists its correction, a stale 'inactive' would permanently move
+     * the shopper out of an organization that is active again.
+     *
+     * The fresh read also refreshes both cache layers. When it says the
+     * organization is usable, this request simply serves it.
+     */
+    let organizationStatusConfirmed = false
+
+    if (organizationInactive) {
+      const cachedStatus = organization?.status ?? null
+      let freshReadFailed = false
+
+      const freshOrganization = await timer
+        .track(
+          'getOrganization.confirmStatus',
+          getOrganizationOrNull(user.orgId, true)
+        )
+        .catch((error: any) => {
+          freshReadFailed = true
+          logger.warn({
+            error: describeClientError(error),
+            message: 'setProfile.confirmOrganizationStatusError',
+            organizationId: user.orgId,
+          })
+
+          return undefined
+        })
+
+      if (!freshReadFailed) {
+        if (!freshOrganization) {
+          // Deleted since it was cached: the missing-organization path.
+          organization = null
+          organizationMissing = true
+          organizationInactive = false
+        } else if (isOrganizationUsable(freshOrganization.status)) {
+          organization = freshOrganization
+          organizationInactive = false
+
+          const stale = {
+            cachedStatus,
+            freshStatus: freshOrganization.status ?? null,
+            organizationId: String(user.orgId),
+          }
+
+          logger.warn({
+            ...stale,
+            correctionSkipped: true,
+            message: 'setProfile.organizationStatusStale',
+          })
+          sendObservabilityEvent(ctx, 'organization-status-stale', {
+            ...stale,
+            correctionSkipped: true,
+          })
+        } else {
+          organization = freshOrganization
+          organizationStatusConfirmed = true
+        }
+      }
+    }
 
     const organizationUnusable = organizationMissing || organizationInactive
 
@@ -815,6 +1172,7 @@ export const Routes = {
         // Captured before user.orgId is reassigned below, so the log can say
         // which organization the shopper's stored selection points at.
         const unusableOrgId = user.orgId
+        const unusableCostId = user.costId
 
         // getOrganization reads Master Data directly, so it returns the document
         // itself - do not unwrap `.data.getOrganizationById` (the GraphQL
@@ -876,6 +1234,99 @@ export const Routes = {
           recoveredOrgId: String(validOrganization.orgId),
           unusableOrgId: String(unusableOrgId),
         })
+
+        /**
+         * INC-6700: persist the correction (as up to 3.6.x) when the record the
+         * shopper is resolved to points at an inactive organization, so it
+         * stops being selected instead of re-entering this recovery on every
+         * transform: activate the adopted record, deactivate the others and
+         * record the selection - the same writes as an organization switch.
+         *
+         * Not when that record is the cost center the shopper explicitly
+         * switched to (b2bCurrentCostCenter): the session keeps asking for it,
+         * so a correction would be undone by the request on the next transform
+         * and re-written on every one. That case stays response-only, as in
+         * 3.8.x. A deleted organization is not corrected here either.
+         *
+         * Fire-and-forget: the response is already stamped with the adopted
+         * organization, and a switch writes one document per record held.
+         * Uses the record's ids (`validOrganization.id` is the b2b_users id,
+         * `orgId` the organization) - never the other way around.
+         */
+        const correctionKey = `${ctx.vtex.account}-${ctx.vtex.workspace}-${email}`
+
+        if (
+          organizationInactive &&
+          !organizationStatusConfirmed &&
+          String(unusableCostId) !== String(requestedCostId)
+        ) {
+          // Master Data could not confirm the status (the fresh read failed):
+          // shape this response from the cached one, but write nothing.
+          logger.warn({
+            message: 'setProfile.organizationCorrectionSkipped',
+            reason: 'statusNotConfirmed',
+            unusableOrgId,
+          })
+          sendObservabilityEvent(ctx, 'organization-correction-skipped', {
+            reason: 'statusNotConfirmed',
+            unusableOrgId: String(unusableOrgId),
+          })
+        }
+
+        if (
+          organizationInactive &&
+          organizationStatusConfirmed &&
+          String(unusableCostId) !== String(requestedCostId) &&
+          !organizationCorrectionsInFlight.has(correctionKey)
+        ) {
+          organizationCorrectionsInFlight.add(correctionKey)
+
+          const correctedRecord = {
+            costId: String(validOrganization.costId),
+            orgId: String(validOrganization.orgId),
+            userId: String(validOrganization.id),
+          }
+
+          setActiveUserByOrganization(
+            null,
+            {
+              ...correctedRecord,
+              // Next transform's cache keys: drop them so it reads the fix.
+              cacheCostCenters: [currentCostCenter],
+              cacheStickies: [activeUserStickyKey(stickyOrgId, stickyCostId)],
+              email,
+              selectionKey: resolveSelectionKey({
+                actingStoreUserId:
+                  response['storefront-permissions'].storeUserId.value,
+                sessionStoreUserId: body?.authentication?.storeUserId?.value,
+              }),
+              skipSession: true,
+            },
+            ctx
+          )
+            .then(() => {
+              logger.info({
+                ...correctedRecord,
+                message: 'setProfile.organizationCorrectionPersisted',
+                unusableOrgId,
+              })
+
+              sendObservabilityEvent(ctx, 'organization-correction-persisted', {
+                ...correctedRecord,
+                unusableOrgId: String(unusableOrgId),
+              })
+            })
+            .catch((error: any) => {
+              logger.warn({
+                error: describeClientError(error),
+                message: 'setProfile.setActiveUserByOrganizationError',
+                unusableOrgId,
+              })
+            })
+            .finally(() => {
+              organizationCorrectionsInFlight.delete(correctionKey)
+            })
+        }
       } else {
         // Nothing to recover to. This still fails the transform, which the
         // sessions service reports as a generic "App storefront-permissions
@@ -897,8 +1348,8 @@ export const Routes = {
           reason: organizationMissing
             ? 'organizationNotFound'
             : 'organizationNotActive',
-          // Only an 'active' organization is usable, so this covers 'inactive',
-          // 'on-hold' and anything b2b-organizations adds later.
+          // Only 'inactive' is unusable (3.6.x semantics, INC-6700); on-hold,
+          // empty and unknown statuses are served.
           status: organizationMissing ? null : organization?.status,
         })
 
@@ -1434,12 +1885,32 @@ export const Routes = {
     // Don't await promises, to avoid session timeout
     Promise.all(promises)
 
+    // INC-6700: the session is about to be stamped with another cost center
+    // than the one setCurrentOrganization last wrote - expected only while an
+    // inactive-organization recovery overrides the request.
+    const costCenterMismatch =
+      requestedCostId !== null && requestedCostId !== String(user.costId)
+
     timer.meta.extra = {
       ...timer.meta.extra,
+      costCenterMismatch,
       costId: user.costId,
       hasOrderFormId: !!orderFormId,
       hashChanged,
       orgId: user.orgId,
+    }
+
+    if (costCenterMismatch) {
+      const mismatch = {
+        activeUserCacheHit,
+        activeUserSource: (timer.meta.extra as any)?.activeUserSource ?? null,
+        requestedCostId,
+        resolvedCostId: String(user.costId),
+        resolvedOrgId: String(user.orgId),
+      }
+
+      logger.warn({ ...mismatch, message: 'setProfile.costCenterMismatch' })
+      sendObservabilityEvent(ctx, 'cost-center-mismatch', mismatch)
     }
 
     // Off by default: on a route this hot, unconditional payload logging means

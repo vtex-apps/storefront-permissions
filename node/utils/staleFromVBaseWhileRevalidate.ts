@@ -17,6 +17,12 @@ export interface StaleFromVBaseOptions {
    * outage keeps looking perfectly healthy.
    */
   logger?: Logger
+  /**
+   * Default true. When false an expired entry is treated as a miss (fetched
+   * and stored, blocking) instead of being served while it revalidates - for
+   * resources where a stale value is wrong rather than merely old.
+   */
+  serveStale?: boolean
 }
 
 const getTTL = (expirationInMinutes?: number) => {
@@ -40,6 +46,71 @@ const getTTL = (expirationInMinutes?: number) => {
  */
 const normalizedJSONFile = (filePath: string) =>
   `${createHash('md5').update(filePath).digest('hex')}.json`
+
+/**
+ * Stores a value the caller already has, with the same layout and TTL as a
+ * revalidation would. Never rejects and never blocks: like the background
+ * save in `revalidate`, a failed write is only logged.
+ */
+export const saveToVBase = <T>(
+  vbase: VBase,
+  bucket: string,
+  filePath: string,
+  data: T,
+  options?: StaleFromVBaseOptions
+): void => {
+  const normalizedFilePath = normalizedJSONFile(filePath)
+
+  vbase
+    .saveJSON<StaleRevalidateData<T>>(bucket, normalizedFilePath, {
+      data,
+      ttl: getTTL(options?.expirationInMinutes),
+    })
+    .catch((error) => {
+      options?.logger?.error({
+        bucket,
+        error: describeClientError(error),
+        key: normalizedFilePath,
+        message: 'staleFromVBase.saveError',
+      })
+    })
+}
+
+/**
+ * Removes the stored entry. Never rejects; a failed delete is only logged
+ * (the entry then simply expires on its TTL).
+ */
+export const deleteFromVBase = (
+  vbase: VBase | undefined,
+  bucket: string,
+  filePath: string,
+  logger?: Logger
+): Promise<void> => {
+  const normalizedFilePath = normalizedJSONFile(filePath)
+
+  if (!vbase?.deleteFile) {
+    return Promise.resolve()
+  }
+
+  return vbase
+    .deleteFile(bucket, normalizedFilePath)
+    .then(() => undefined)
+    .catch((error: any) => {
+      const status = error?.response?.status ?? error?.status
+
+      // Nothing stored under that key: already "deleted".
+      if (status === 404) {
+        return
+      }
+
+      logger?.warn({
+        bucket,
+        error: describeClientError(error),
+        key: normalizedFilePath,
+        message: 'staleFromVBase.deleteError',
+      })
+    })
+}
 
 const revalidate = async <T>(
   vbase: VBase,
@@ -124,6 +195,18 @@ export const staleFromVBaseWhileRevalidate = async <T>(
 
   if (new Date() < new Date(ttl)) {
     return data
+  }
+
+  if (options?.serveStale === false) {
+    return revalidate<T>(
+      vbase,
+      bucket,
+      normalizedFilePath,
+      getTTL(options?.expirationInMinutes),
+      validateFunction,
+      params,
+      logger
+    )
   }
 
   revalidate<T>(

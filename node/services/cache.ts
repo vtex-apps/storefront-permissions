@@ -1,7 +1,11 @@
 import { LRUCache } from '@vtex/api'
 
 import { VBASE_CACHE_BUCKET } from '../utils/constants'
-import { staleFromVBaseWhileRevalidate } from '../utils/staleFromVBaseWhileRevalidate'
+import {
+  deleteFromVBase,
+  saveToVBase,
+  staleFromVBaseWhileRevalidate,
+} from '../utils/staleFromVBaseWhileRevalidate'
 
 const DEFAULT_MAX_ENTRIES = 1000
 
@@ -55,6 +59,11 @@ export interface CachedResourceOptions {
    * would just swap one VBase read for another.
    */
   vbaseTtlMinutes?: number
+  /**
+   * Default true. False disables the stale-while-revalidate behavior of the
+   * VBase layer: an expired entry is refetched before answering.
+   */
+  vbaseServeStale?: boolean
 }
 
 /**
@@ -88,11 +97,48 @@ export const createCachedResource = <T>(
 
   registeredCaches.set(name, cache as LRUCache<string, any>)
 
-  return async (
+  const memoryKeyFor = (ctx: Context, key: string) =>
+    `${ctx.vtex.account}-${ctx.vtex.workspace}-${key}`
+
+  /**
+   * Drops the entry from this pod's memory and from VBase. Other pods keep
+   * their memory copy until it expires, so callers that need correctness must
+   * also validate what they read.
+   */
+  const invalidate = async (ctx: Context, key: string): Promise<void> => {
+    const memoryKey = memoryKeyFor(ctx, key)
+    const { storage } = cache as any
+
+    if (typeof storage?.del === 'function') {
+      storage.del(memoryKey)
+    } else {
+      cache.set(memoryKey, undefined as any, 1)
+    }
+
+    if (options.vbaseTtlMinutes) {
+      await deleteFromVBase(
+        ctx.clients?.vbase,
+        VBASE_CACHE_BUCKET,
+        `${name}-${key}`,
+        ctx.vtex?.logger
+      )
+    }
+  }
+
+  const read = async (
     ctx: Context,
     key: string,
     fetcher: () => Promise<T>,
-    overrides?: { memoryTtlMs?: number }
+    overrides?: {
+      memoryTtlMs?: number
+      /**
+       * Skip both reads (memory and VBase, including a stale VBase entry) and
+       * go to the origin, but still store the fresh value in both layers so
+       * the requests that follow are served from cache again. For callers
+       * that know any entry under this key is suspect for this request.
+       */
+      bypassRead?: boolean
+    }
   ): Promise<T | undefined> => {
     const memoryTtlMs = overrides?.memoryTtlMs ?? options.memoryTtlMs
 
@@ -107,6 +153,7 @@ export const createCachedResource = <T>(
             {
               expirationInMinutes: options.vbaseTtlMinutes,
               logger: ctx.vtex.logger,
+              serveStale: options.vbaseServeStale,
             }
           )
         : fetcher()
@@ -118,10 +165,33 @@ export const createCachedResource = <T>(
       return fetcher()
     }
 
-    const { account, workspace } = ctx.vtex
+    const memoryKey = memoryKeyFor(ctx, key)
+
+    if (overrides?.bypassRead) {
+      // A rejection propagates without writing anything, exactly like a
+      // failed getOrSet: misses and outages are never cached.
+      const fresh = await fetcher()
+
+      cache.set(memoryKey, fresh, memoryTtlMs)
+
+      if (options.vbaseTtlMinutes) {
+        saveToVBase(
+          ctx.clients.vbase,
+          VBASE_CACHE_BUCKET,
+          `${name}-${key}`,
+          fresh,
+          {
+            expirationInMinutes: options.vbaseTtlMinutes,
+            logger: ctx.vtex.logger,
+          }
+        )
+      }
+
+      return fresh
+    }
 
     // getOrSet is typed as `V | void`, so normalize it for callers.
-    const cached = await cache.getOrSet(`${account}-${workspace}-${key}`, () =>
+    const cached = await cache.getOrSet(memoryKey, () =>
       readThrough().then((value) => ({
         maxAge: memoryTtlMs,
         value,
@@ -130,4 +200,6 @@ export const createCachedResource = <T>(
 
     return cached as unknown as T | undefined
   }
+
+  return Object.assign(read, { invalidate })
 }
