@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { currentSchema } from '../../utils'
 import {
+  activeUserStickyKey,
+  invalidateActiveUserKeys,
+} from '../../services/activeUserCache'
+import {
   resolveSelectionKey,
   writeActiveSelection,
 } from '../../services/activeSelection'
@@ -647,22 +651,27 @@ export const setActiveUserByOrganization = async (
      * server call with no session cookie fails the fetch, is caught below, and
      * simply records nothing - the previous behaviour.
      */
-    const sessionData: any = await timer.track(
-      'getSession',
-      session
-        .getSession(sessionToken as string, ['*'])
-        .then((currentSession: any) => {
-          return currentSession.sessionData
-        })
-        .catch((error: any) => {
-          logger.error({
-            error: describeClientError(error),
-            message: 'orders-getSession-error',
-          })
+    // `skipSession`: called from the session transform itself (INC-6700
+    // inactive-organization correction), which has no session cookie to read
+    // and passes the acting email and selection key explicitly instead.
+    const sessionData: any = params.skipSession
+      ? null
+      : await timer.track(
+          'getSession',
+          session
+            .getSession(sessionToken as string, ['*'])
+            .then((currentSession: any) => {
+              return currentSession.sessionData
+            })
+            .catch((error: any) => {
+              logger.error({
+                error: describeClientError(error),
+                message: 'orders-getSession-error',
+              })
 
-          return null
-        })
-    )
+              return null
+            })
+        )
 
     if (adminUserAuthToken) {
       userId = params.userId
@@ -727,14 +736,30 @@ export const setActiveUserByOrganization = async (
      * Filtering in the query rather than in memory also drops the read from a
      * 2-3 page scan to a single page, since the result is 0..2 records.
      */
-    const activeUsers = await timer.track(
-      'listActiveUsers',
-      getAllUsersByEmail(_, { active: true, email: user.email }, ctx)
+    /**
+     * INC-6700: every other record of the shopper is deactivated, from the
+     * full listing by email (as up to 3.8.0), not only those the search index
+     * reports as `active = true`.
+     *
+     * The filtered read trails writes: a record activated by a switch a moment
+     * ago can still be indexed as inactive, so it was skipped here and the
+     * shopper ended up with two active records - which `getActiveUserByEmail`
+     * resolves by picking the lowest id, i.e. possibly the organization they
+     * left. Writing every sibling costs one document write per record the
+     * shopper holds; that is the price of not depending on the index here.
+     */
+    const allUsers = await timer.track(
+      'listUsers',
+      getAllUsersByEmail(_, { email: user.email }, ctx)
     )
 
-    const listedActive = Array.isArray(activeUsers) ? activeUsers : []
+    const listedUsers = Array.isArray(allUsers) ? allUsers : []
 
-    const deactivateTargets = listedActive.filter(
+    const listedActive = listedUsers.filter(
+      (userSecondary: any) => userSecondary.active === true
+    )
+
+    const deactivateTargets = listedUsers.filter(
       (userSecondary: any) => userSecondary.id !== user.id
     )
 
@@ -746,6 +771,7 @@ export const setActiveUserByOrganization = async (
      * number to watch for organization switches landing on the wrong org.
      */
     extra.activeListedCount = listedActive.length
+    extra.listedCount = listedUsers.length
     extra.deactivateWrites = deactivateTargets.length
 
     try {
@@ -791,12 +817,15 @@ export const setActiveUserByOrganization = async (
      * server-to-server call with no session cookie. Those switches fall back
      * to the search on the next transform, exactly as they do today.
      */
-    const selectionKey = resolveSelectionKey({
-      actingStoreUserId:
-        sessionData?.namespaces?.['storefront-permissions']?.storeUserId?.value,
-      sessionStoreUserId:
-        sessionData?.namespaces?.authentication?.storeUserId?.value,
-    })
+    const selectionKey =
+      params.selectionKey ??
+      resolveSelectionKey({
+        actingStoreUserId:
+          sessionData?.namespaces?.['storefront-permissions']?.storeUserId
+            ?.value,
+        sessionStoreUserId:
+          sessionData?.namespaces?.authentication?.storeUserId?.value,
+      })
 
     extra.selectionKeyResolved = !!selectionKey
 
@@ -810,6 +839,44 @@ export const setActiveUserByOrganization = async (
         })
       )
     }
+
+    /**
+     * INC-6700: drop the active-user cache entries the next transform would
+     * read - keyed by the cost center being switched to (and the one the
+     * session carried), crossed with the session pin and with no pin (a 1.x
+     * declaration does not send it). Memory is per pod, so this is only an
+     * optimisation; setProfile's cost-center check is what guarantees a cached
+     * entry never wins over the switch.
+     */
+    const pinnedOrgId =
+      sessionData?.namespaces?.['storefront-permissions']?.organization?.value
+
+    const pinnedCostId =
+      sessionData?.namespaces?.['storefront-permissions']?.costcenter?.value
+
+    await timer.track(
+      'invalidateActiveUser',
+      invalidateActiveUserKeys(
+        ctx,
+        [
+          user.email,
+          params.email,
+          sessionData?.namespaces?.profile?.email?.value,
+          sessionData?.namespaces?.authentication?.storeUserEmail?.value,
+        ],
+        [
+          user.costId,
+          sessionData?.namespaces?.public?.b2bCurrentCostCenter?.value,
+          ...(params.cacheCostCenters ?? []),
+        ],
+        [
+          activeUserStickyKey(pinnedOrgId, pinnedCostId),
+          pinnedOrgId,
+          null,
+          ...(params.cacheStickies ?? []),
+        ]
+      ).catch(() => undefined)
+    )
   } finally {
     const totalMs = timer.totalMs()
     const steps = Object.keys(timer.timings)
@@ -821,17 +888,15 @@ export const setActiveUserByOrganization = async (
 
     // Org switch is rare enough to log every call. No email.
     //
-    // `activeListedCount` replaces the former `listedCount` /
-    // `currentlyActiveCount` / `searchPagesEstimate` triplet, which described a
-    // read that no longer happens: the search is filtered by `active` now, so a
-    // total-record count and a page estimate are no longer available and the
-    // active count is the whole result. Renamed rather than reused, so a field
-    // that used to mean "every record this shopper holds" cannot be read as
-    // that after quietly changing to mean "the active ones".
+    // `listedCount` is every record this shopper holds (the full listing is
+    // read again since INC-6700); `activeListedCount` is how many of those the
+    // index reported active, which is the number to watch for organization
+    // switches landing on the wrong org (expected 1-2).
     logger.info({
       activeListedCount: extra.activeListedCount ?? 0,
       costId: extra.costId ?? null,
       deactivateWrites: extra.deactivateWrites ?? 0,
+      listedCount: extra.listedCount ?? 0,
       message: 'setActiveUserByOrganization.timings',
       orgId: extra.orgId ?? null,
       // Whether the switch was recorded for the next transform to read. The
@@ -851,6 +916,7 @@ export const setActiveUserByOrganization = async (
     sendObservabilityEvent(ctx, 'set-active-user-by-organization', {
       activeListedCount: Number(extra.activeListedCount ?? 0),
       deactivateWrites: Number(extra.deactivateWrites ?? 0),
+      listedCount: Number(extra.listedCount ?? 0),
       totalMs,
     })
   }

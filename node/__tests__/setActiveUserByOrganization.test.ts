@@ -1,6 +1,7 @@
 import { sendMetric } from '../clients/metrics'
 import { setActiveUserByOrganization } from '../resolvers/Mutations/Users'
 import { getAllUsersByEmail } from '../resolvers/Queries/Users'
+import { invalidateActiveUserKeys } from '../services/activeUserCache'
 
 jest.mock('../clients/metrics', () => ({
   B2B_METRIC_NAME: 'b2b-suite-buyerorg-data',
@@ -11,6 +12,11 @@ jest.mock('../resolvers/Queries/Users', () => ({
   getAllUsersByEmail: jest.fn(),
   getOrganizationsByEmail: jest.fn(),
   getUserByEmailOrgIdAndCostId: jest.fn(),
+}))
+
+jest.mock('../services/activeUserCache', () => ({
+  ...jest.requireActual('../services/activeUserCache'),
+  invalidateActiveUserKeys: jest.fn().mockResolvedValue(undefined),
 }))
 
 const sendMetricMock = sendMetric as jest.Mock
@@ -88,23 +94,23 @@ describe('setActiveUserByOrganization', () => {
   beforeEach(() => {
     sendMetricMock.mockClear()
     getAllUsersByEmailMock.mockReset()
+    ;(invalidateActiveUserKeys as jest.Mock).mockClear()
   })
 
   /**
-   * Deactivation used to list every record for the email and rewrite each
-   * sibling document, so an organization switch cost one full-document write
-   * per record the shopper holds. Measured on a live account at 63-106 writes
-   * per switch against one or two genuinely active records, with
-   * `deactivateOthers` the slowest step in every sampled call and one reaching
-   * 60s - past the CDN's 30s origin timeout, which the shopper saw as a 504.
+   * INC-6700: the active-only search trails writes - a record activated by a
+   * switch a moment ago can still be indexed as inactive, so it was skipped
+   * and the shopper was left with two active records. Deactivation lists every
+   * record for the email again (as up to 3.8.0) and rewrites each sibling.
+   * The cost is one write per record held (measured at 63-106 per switch on a
+   * live account), which is accepted in exchange for not depending on the
+   * index here.
    */
-  it('asks Master Data only for the active records', async () => {
+  it('lists every record for the email, not only the indexed-active ones', async () => {
     seedRecords([
       sibling('u1', true),
       targetUser,
-      ...['u3', 'u4', 'u5', 'u6', 'u7', 'u8', 'u9', 'u10'].map((id) =>
-        sibling(id, false)
-      ),
+      ...['u3', 'u4', 'u5'].map((id) => sibling(id, false)),
     ])
 
     const ctx = makeCtx()
@@ -113,25 +119,46 @@ describe('setActiveUserByOrganization', () => {
 
     expect(getAllUsersByEmailMock).toHaveBeenCalledWith(
       null,
-      expect.objectContaining({ active: true, email: 'buyer@test.com' }),
+      { email: 'buyer@test.com' },
+      ctx
+    )
+    expect(getAllUsersByEmailMock).not.toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({ active: true }),
       ctx
     )
 
-    // One write to activate the target, one to deactivate the only active
-    // sibling. The other eight are never fetched, let alone written.
+    // One write to activate the target, one per sibling (4).
     expect(
       ctx.clients.masterdata.createOrUpdateEntireDocument
-    ).toHaveBeenCalledTimes(2)
+    ).toHaveBeenCalledTimes(5)
 
     expect(timingsFrom(ctx)).toMatchObject({
       activeListedCount: 1,
-      deactivateWrites: 1,
+      deactivateWrites: 4,
+      listedCount: 5,
       orgId: 'org2',
       userId: 'u2',
     })
   })
 
-  it('times the filtered read under its own step name', async () => {
+  it('deactivates a record the index still reports as inactive', async () => {
+    // u1 was activated by a switch a moment ago; the index has not caught up.
+    seedRecords([sibling('u1', false), targetUser])
+
+    const ctx = makeCtx()
+
+    await switchToTarget(ctx)
+
+    const deactivated =
+      ctx.clients.masterdata.createOrUpdateEntireDocument.mock.calls
+        .filter((call: any[]) => call[0]?.fields?.active === false)
+        .map((call: any[]) => call[0].id)
+
+    expect(deactivated).toEqual(['u1'])
+  })
+
+  it('times the full read under its own step name and reports both counts', async () => {
     seedRecords([sibling('u1', true), targetUser, sibling('u3', false)])
 
     const ctx = makeCtx()
@@ -145,56 +172,25 @@ describe('setActiveUserByOrganization', () => {
         activate: expect.any(Number),
         deactivateOthers: expect.any(Number),
         getUser: expect.any(Number),
-        listActiveUsers: expect.any(Number),
+        invalidateActiveUser: expect.any(Number),
+        listUsers: expect.any(Number),
       })
     )
-
-    // The counts that described the old full scan are gone rather than
-    // silently redefined against a read that no longer happens.
-    expect(reported).not.toHaveProperty('listedCount')
-    expect(reported).not.toHaveProperty('currentlyActiveCount')
-    expect(reported).not.toHaveProperty('searchPagesEstimate')
 
     expect(sendMetricMock).toHaveBeenCalledWith(
       expect.objectContaining({
         description: 'set-active-user-by-organization',
         fields: expect.objectContaining({
           activeListedCount: 1,
-          deactivateWrites: 1,
+          deactivateWrites: 2,
+          listedCount: 3,
         }),
       })
     )
   })
 
-  /**
-   * `getActiveUserByEmail` treats "at most one active record per email" as an
-   * invariant and picks the lowest id when it is broken, so a switch must clear
-   * every stray active record rather than only the one it knows about.
-   */
-  it('deactivates every active record when more than one is active', async () => {
-    seedRecords([
-      sibling('u1', true),
-      targetUser,
-      sibling('u3', false),
-      sibling('u4', true),
-    ])
-
-    const ctx = makeCtx()
-
-    await switchToTarget(ctx)
-
-    expect(
-      ctx.clients.masterdata.createOrUpdateEntireDocument
-    ).toHaveBeenCalledTimes(3)
-
-    expect(timingsFrom(ctx)).toMatchObject({
-      activeListedCount: 2,
-      deactivateWrites: 2,
-    })
-  })
-
-  it('writes nothing beyond the activation when no record is active', async () => {
-    seedRecords([targetUser, sibling('u3', false), sibling('u4', false)])
+  it('writes only the activation when the target is the only record', async () => {
+    seedRecords([targetUser])
 
     const ctx = makeCtx()
 
@@ -207,6 +203,7 @@ describe('setActiveUserByOrganization', () => {
     expect(timingsFrom(ctx)).toMatchObject({
       activeListedCount: 0,
       deactivateWrites: 0,
+      listedCount: 1,
     })
   })
 
@@ -231,6 +228,102 @@ describe('setActiveUserByOrganization', () => {
     expect(timingsFrom(ctx)).toMatchObject({
       activeListedCount: 2,
       deactivateWrites: 1,
+    })
+  })
+})
+
+describe('setActiveUserByOrganization (INC-6700)', () => {
+  beforeEach(() => {
+    getAllUsersByEmailMock.mockReset()
+    ;(invalidateActiveUserKeys as jest.Mock).mockClear()
+  })
+
+  it('drops the active-user cache entries the next transform would read', async () => {
+    seedRecords([sibling('u1', true), targetUser])
+
+    const ctx = makeCtx()
+
+    ctx.clients.session.getSession.mockResolvedValue({
+      sessionData: {
+        namespaces: {
+          profile: { email: { value: 'buyer@test.com' } },
+          public: { b2bCurrentCostCenter: { value: 'cost-u1' } },
+          'storefront-permissions': {
+            costcenter: { value: 'cost-u1' },
+            organization: { value: 'org-u1' },
+          },
+        },
+      },
+    })
+
+    await switchToTarget(ctx)
+
+    expect(invalidateActiveUserKeys).toHaveBeenCalledTimes(1)
+
+    const [[, emails, costCenters, stickies]] = (
+      invalidateActiveUserKeys as jest.Mock
+    ).mock.calls
+
+    expect(emails).toContain('buyer@test.com')
+    // The cost center switched to, and the one the session carried.
+    expect(costCenters).toEqual(expect.arrayContaining(['cost2', 'cost-u1']))
+    // The session pin, the organization alone, and no pin (1.x input).
+    expect(stickies).toEqual(
+      expect.arrayContaining(['org-u1:cost-u1', 'org-u1', null])
+    )
+  })
+
+  it('still switches when the cache invalidation fails', async () => {
+    seedRecords([targetUser])
+    ;(invalidateActiveUserKeys as jest.Mock).mockRejectedValueOnce(
+      new Error('vbase down')
+    )
+
+    const ctx = makeCtx()
+
+    // Rejects (and fails this test) if the invalidation error escaped.
+    await switchToTarget(ctx)
+    expect(
+      ctx.clients.masterdata.createOrUpdateEntireDocument
+    ).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips the session read and uses the given email and selection key when asked', async () => {
+    seedRecords([sibling('u1', true), targetUser])
+
+    const ctx = makeCtx()
+
+    ctx.vtex.adminUserAuthToken = undefined
+
+    const { getUserByEmailOrgIdAndCostId } = jest.requireMock(
+      '../resolvers/Queries/Users'
+    )
+
+    getUserByEmailOrgIdAndCostId.mockResolvedValue(targetUser)
+
+    await setActiveUserByOrganization(
+      null,
+      {
+        costId: 'cost2',
+        email: 'buyer@test.com',
+        orgId: 'org2',
+        selectionKey: 'shopper-1',
+        skipSession: true,
+        userId: 'u2',
+      },
+      ctx
+    )
+
+    expect(ctx.clients.session.getSession).not.toHaveBeenCalled()
+    expect(getUserByEmailOrgIdAndCostId).toHaveBeenCalledWith(
+      expect.anything(),
+      { costId: 'cost2', email: 'buyer@test.com', orgId: 'org2' },
+      ctx
+    )
+    expect(ctx.clients.masterDataExtended.putDocumentById).toHaveBeenCalled()
+    expect(timingsFrom(ctx)).toMatchObject({
+      selectionKeyResolved: true,
+      selectionWritten: true,
     })
   })
 })

@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Session after organization switch (INC-6700):** the session no longer lands on the previous organization after `setCurrentOrganization`, including when a 1.x major is installed alongside 3.x (the transform input then carries no `storeUserId` nor session pin).
+  - Organization status: only `inactive` blocks the session again, as in 3.6.x; `on-hold`, empty and unknown statuses are served (unknown ones still log `setProfile.unknownOrganizationStatus`).
+  - Inactive organization: when the resolved record points at an inactive organization and another usable one exists, the correction is persisted (activate the adopted record, deactivate the others, record the selection) instead of only shaping the response. Not done when the inactive record is the cost center the shopper explicitly switched to. With no usable organization the transform still fails with `setProfile.organizationUnavailable`.
+  - Switch target: when the resolved record's cost center differs from `public.b2bCurrentCostCenter`, the record is read directly by email + cost center and used.
+  - Cache: a cached active user for another cost center than the session's is treated as a miss (`active-user-cache-bypass-read` event); `setActiveUserByOrganization` invalidates the active-user entries (memory + VBase); the active-user VBase layer no longer serves stale entries (resource renamed `active-user-v2`).
+  - `setActiveUserByOrganization` deactivates every other record of the shopper from the full listing by email (as up to 3.8.0), not only those the search index reports active. Timings now report `listedCount` alongside `activeListedCount`.
+  - Observability: `requestedCostId`, `activeUserCacheHit` and `costCenterMismatch` in `setProfile.timings`; `setProfile.costCenterMismatch` log and `cost-center-mismatch` event; `setProfile.organizationCorrectionPersisted` log and event (ids only).
+
 ## [3.8.13] - 2026-10-07
 
 ### Removed

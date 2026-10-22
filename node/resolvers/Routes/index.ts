@@ -2,6 +2,7 @@ import { ForbiddenError } from '@vtex/api'
 import { json } from 'co-body'
 
 import {
+  activeUserStickyKey,
   getCachedActiveUserByEmail,
   getCachedActiveUserForPermissions,
   setActiveUserCacheTtl,
@@ -42,7 +43,7 @@ import {
   resolveSelectionKey,
 } from '../../services/activeSelection'
 import { createTimer, getTimer } from '../../utils/requestTimings'
-import { getUser } from '../Mutations/Users'
+import { getUser, setActiveUserByOrganization } from '../Mutations/Users'
 import { getRole } from '../Queries/Roles'
 import {
   getActiveUserByEmail,
@@ -50,6 +51,12 @@ import {
   getB2BUserById,
 } from '../Queries/Users'
 import { generateClUser, getUserOrganizationsData } from './utils'
+
+/**
+ * INC-6700: inactive-organization corrections being persisted on this pod, so
+ * the burst of transforms one navigation produces writes them once.
+ */
+const organizationCorrectionsInFlight = new Set<string>()
 
 export const Routes = {
   PROFILE_DOCUMENT_TYPE: 'cpf',
@@ -276,6 +283,8 @@ export const Routes = {
     let user: any = null
     /** True when Master Data has no B2B record for the authenticated email. */
     let resolvedB2bUserNotFound = false
+    /** True when the active user came from a cache layer instead of this request. */
+    let activeUserCacheHit = false
 
     const ignoreB2B = body?.public?.removeB2B?.value
 
@@ -304,6 +313,15 @@ export const Routes = {
      */
     const stickyCostId =
       body?.['storefront-permissions']?.costcenter?.value || null
+
+    /**
+     * INC-6700: the cost center the shopper last switched to. Both the 3.x and
+     * the 1.x setCurrentOrganization write it (and only after checking the
+     * shopper holds a record for it), and both majors declare it as an input,
+     * so unlike the selection record and the session pin it is available even
+     * when vtex.session builds this transform's input from a 1.x declaration.
+     */
+    const requestedCostId = currentCostCenter ? String(currentCostCenter) : null
 
     if (ignoreB2B) {
       omitUnchangedSetProfileFields(body, response)
@@ -405,6 +423,72 @@ export const Routes = {
       // cache layer can store an outage as a valid "user without organization"
       // (which would produce empty B2B sessions until the TTL expired), and
       // handle the failure outside the cached call so it is retried next time.
+      /**
+       * INC-6700: the record for the cost center the shopper switched to, by
+       * email + costId. Neither field changes after the record is created, so
+       * this read is not affected by the index lag on `active`.
+       */
+      const findRequestedRecord = async (): Promise<any> => {
+        // b2bCurrentCostCenter is a public (client-writable) field and goes
+        // into a Master Data `where`: accept only a plain document id.
+        if (!requestedCostId || !/^[\w-]+$/.test(requestedCostId)) {
+          return null
+        }
+
+        const [requestedRecord] = await timer
+          .track(
+            'getRequestedRecord',
+            getAllUsersByEmail(null, { costId: requestedCostId, email }, ctx)
+          )
+          .catch((error: any) => {
+            logger.warn({
+              error: describeClientError(error),
+              message: 'setProfile.getRequestedRecordError',
+            })
+
+            return [] as any[]
+          })
+
+        return requestedRecord?.orgId &&
+          requestedRecord?.costId &&
+          String(requestedRecord.costId) === requestedCostId &&
+          String(requestedRecord.email ?? '').toLowerCase() ===
+            String(email).toLowerCase()
+          ? requestedRecord
+          : null
+      }
+
+      /**
+       * INC-6700: trust the switch target. When the record resolved below
+       * (selection, active search or sticky fallback) is for another cost
+       * center than the one the session asked for, the switch has not reached
+       * what was read - the search index trails the `active` flip, and a 1.x
+       * switch writes no selection - so read the requested record directly.
+       * Filtered by the acting email: a cost center that is not this
+       * shopper's simply finds nothing, and the candidate stands.
+       */
+      const reconcileWithRequest = async (candidate: any): Promise<any> => {
+        if (!requestedCostId || String(candidate?.costId) === requestedCostId) {
+          return candidate
+        }
+
+        const requestedRecord = await findRequestedRecord()
+
+        if (requestedRecord) {
+          timer.meta.extra = {
+            ...timer.meta.extra,
+            activeUserSource: 'requestedCostCenter',
+            switchTargetTrusted: true,
+          }
+
+          return requestedRecord
+        }
+
+        timer.meta.extra = { ...timer.meta.extra, requestedRecordMissing: true }
+
+        return candidate
+      }
+
       const fetchActiveUser = async () => {
         /**
          * Ask the selection record first, so a shopper who just switched is
@@ -451,7 +535,7 @@ export const Routes = {
               activeUserSource: 'selection',
             }
 
-            return recordedUser
+            return reconcileWithRequest(recordedUser)
           }
         }
 
@@ -467,33 +551,80 @@ export const Routes = {
           throw activeUser.message
         }
 
+        const resolvedUser = await reconcileWithRequest(
+          activeUser?.orgId && activeUser?.costId ? activeUser : null
+        )
+
         // "No B2B user" must not be cached either: right after provisioning or
         // during replication lag, caching the miss would pin this shopper to an
         // empty B2B session for the whole TTL. Throwing keeps the miss out of
         // both layers, which simply restores the pre-cache behavior (a lookup
         // per transform) for non-B2B shoppers.
-        if (!activeUser?.orgId || !activeUser?.costId) {
+        if (!resolvedUser?.orgId || !resolvedUser?.costId) {
           const notFound: any = new Error('setProfile.userNotFound')
 
           notFound.userNotFound = true
           throw notFound
         }
 
-        return activeUser
+        return resolvedUser
       }
+
+      // Identity of what this request fetched, so a value served from either
+      // cache layer can be told apart from a fresh lookup.
+      let fetchedActiveUser: any
+      const fetchAndRecord = async () => {
+        fetchedActiveUser = await fetchActiveUser()
+
+        return fetchedActiveUser
+      }
+
+      const lookupActiveUser = (bypassRead: boolean) =>
+        getCachedActiveUserByEmail(
+          ctx,
+          email,
+          currentCostCenter,
+          activeUserStickyKey(stickyOrgId, stickyCostId),
+          fetchAndRecord,
+          bypassRead
+        )
 
       const cachedUser: any = await timer
         .track(
           'getActiveUserByEmail',
-          getCachedActiveUserByEmail(
-            ctx,
-            email,
-            currentCostCenter,
-            stickyOrgId && stickyCostId
-              ? `${stickyOrgId}:${stickyCostId}`
-              : stickyOrgId,
-            fetchActiveUser
-          )
+          lookupActiveUser(false).then((value: any) => {
+            // INC-6700: a cached entry never wins over a switch. One for
+            // another cost center than the session asked for was resolved
+            // before the switch reached it (on this pod or another - the
+            // mutation can only invalidate its own pod's memory), so it counts
+            // as a miss: refetch, and store the fresh result.
+            const servedFromCache =
+              value !== undefined &&
+              value !== null &&
+              value !== fetchedActiveUser
+
+            if (
+              servedFromCache &&
+              requestedCostId !== null &&
+              String(value?.costId) !== requestedCostId
+            ) {
+              timer.meta.extra = {
+                ...timer.meta.extra,
+                'activeUserCache.bypassRead': 'cachedCostCenterMismatch',
+              }
+
+              // Exact count (logs are sampled). A session asking for a cost
+              // center it no longer holds takes this path every transform.
+              sendObservabilityEvent(ctx, 'active-user-cache-bypass-read', {
+                reason: 'cachedCostCenterMismatch',
+                requestedCostId,
+              })
+
+              return lookupActiveUser(true)
+            }
+
+            return value
+          })
         )
         .catch((error: any) => {
           if (error?.userNotFound) {
@@ -505,6 +636,11 @@ export const Routes = {
             })
           }
         })
+
+      activeUserCacheHit =
+        cachedUser !== undefined &&
+        cachedUser !== null &&
+        cachedUser !== fetchedActiveUser
 
       // Clone: the memory cache hands out the same object reference, and the
       // invalid-cost-center / inactive-organization branches below reassign
@@ -642,9 +778,11 @@ export const Routes = {
     // bug is latent - but it would silently drop the first one that does.
     timer.meta.extra = {
       ...timer.meta.extra,
+      activeUserCacheHit,
       hasOrderFormId: !!orderFormId,
       hashChanged,
       orgId: user.orgId,
+      requestedCostId,
     }
 
     // Read into locals so the cache fetcher below does not close over `user`,
@@ -815,6 +953,7 @@ export const Routes = {
         // Captured before user.orgId is reassigned below, so the log can say
         // which organization the shopper's stored selection points at.
         const unusableOrgId = user.orgId
+        const unusableCostId = user.costId
 
         // getOrganization reads Master Data directly, so it returns the document
         // itself - do not unwrap `.data.getOrganizationById` (the GraphQL
@@ -876,6 +1015,80 @@ export const Routes = {
           recoveredOrgId: String(validOrganization.orgId),
           unusableOrgId: String(unusableOrgId),
         })
+
+        /**
+         * INC-6700: persist the correction (as up to 3.6.x) when the record the
+         * shopper is resolved to points at an inactive organization, so it
+         * stops being selected instead of re-entering this recovery on every
+         * transform: activate the adopted record, deactivate the others and
+         * record the selection - the same writes as an organization switch.
+         *
+         * Not when that record is the cost center the shopper explicitly
+         * switched to (b2bCurrentCostCenter): the session keeps asking for it,
+         * so a correction would be undone by the request on the next transform
+         * and re-written on every one. That case stays response-only, as in
+         * 3.8.x. A deleted organization is not corrected here either.
+         *
+         * Fire-and-forget: the response is already stamped with the adopted
+         * organization, and a switch writes one document per record held.
+         * Uses the record's ids (`validOrganization.id` is the b2b_users id,
+         * `orgId` the organization) - never the other way around.
+         */
+        const correctionKey = `${ctx.vtex.account}-${ctx.vtex.workspace}-${email}`
+
+        if (
+          organizationInactive &&
+          String(unusableCostId) !== String(requestedCostId) &&
+          !organizationCorrectionsInFlight.has(correctionKey)
+        ) {
+          organizationCorrectionsInFlight.add(correctionKey)
+
+          const correctedRecord = {
+            costId: String(validOrganization.costId),
+            orgId: String(validOrganization.orgId),
+            userId: String(validOrganization.id),
+          }
+
+          setActiveUserByOrganization(
+            null,
+            {
+              ...correctedRecord,
+              // Next transform's cache keys: drop them so it reads the fix.
+              cacheCostCenters: [currentCostCenter],
+              cacheStickies: [activeUserStickyKey(stickyOrgId, stickyCostId)],
+              email,
+              selectionKey: resolveSelectionKey({
+                actingStoreUserId:
+                  response['storefront-permissions'].storeUserId.value,
+                sessionStoreUserId: body?.authentication?.storeUserId?.value,
+              }),
+              skipSession: true,
+            },
+            ctx
+          )
+            .then(() => {
+              logger.info({
+                ...correctedRecord,
+                message: 'setProfile.organizationCorrectionPersisted',
+                unusableOrgId,
+              })
+
+              sendObservabilityEvent(ctx, 'organization-correction-persisted', {
+                ...correctedRecord,
+                unusableOrgId: String(unusableOrgId),
+              })
+            })
+            .catch((error: any) => {
+              logger.warn({
+                error: describeClientError(error),
+                message: 'setProfile.setActiveUserByOrganizationError',
+                unusableOrgId,
+              })
+            })
+            .finally(() => {
+              organizationCorrectionsInFlight.delete(correctionKey)
+            })
+        }
       } else {
         // Nothing to recover to. This still fails the transform, which the
         // sessions service reports as a generic "App storefront-permissions
@@ -897,8 +1110,8 @@ export const Routes = {
           reason: organizationMissing
             ? 'organizationNotFound'
             : 'organizationNotActive',
-          // Only an 'active' organization is usable, so this covers 'inactive',
-          // 'on-hold' and anything b2b-organizations adds later.
+          // Only 'inactive' is unusable (3.6.x semantics, INC-6700); on-hold,
+          // empty and unknown statuses are served.
           status: organizationMissing ? null : organization?.status,
         })
 
@@ -1434,12 +1647,32 @@ export const Routes = {
     // Don't await promises, to avoid session timeout
     Promise.all(promises)
 
+    // INC-6700: the session is about to be stamped with another cost center
+    // than the one setCurrentOrganization last wrote - expected only while an
+    // inactive-organization recovery overrides the request.
+    const costCenterMismatch =
+      requestedCostId !== null && requestedCostId !== String(user.costId)
+
     timer.meta.extra = {
       ...timer.meta.extra,
+      costCenterMismatch,
       costId: user.costId,
       hasOrderFormId: !!orderFormId,
       hashChanged,
       orgId: user.orgId,
+    }
+
+    if (costCenterMismatch) {
+      const mismatch = {
+        activeUserCacheHit,
+        activeUserSource: (timer.meta.extra as any)?.activeUserSource ?? null,
+        requestedCostId,
+        resolvedCostId: String(user.costId),
+        resolvedOrgId: String(user.orgId),
+      }
+
+      logger.warn({ ...mismatch, message: 'setProfile.costCenterMismatch' })
+      sendObservabilityEvent(ctx, 'cost-center-mismatch', mismatch)
     }
 
     // Off by default: on a route this hot, unconditional payload logging means
